@@ -28,4 +28,11 @@ public class CommonResponse implements Serializable {
         this.code = resultCode.getCode();
         this.message = resultCode.getMessage();
     }
+
+    public static CommonResponse success(String data) {
+        return new CommonResponse(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMessage(), data);
+    }
+    public static CommonResponse fail(ResultCode resultCode) {
+        return new CommonResponse(resultCode);
+    }
 }

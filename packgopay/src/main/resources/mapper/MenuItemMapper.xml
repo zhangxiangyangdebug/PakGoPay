@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pakgopay.mapper.MenuItemMapper">
+    
+    <resultMap id="menuItemMap" type="com.pakgopay.common.entity.Children">
+        <result column="menu_id" property="menuId" javaType="java.lang.String"/>
+        <result column="menu_level" property="menuLevel" javaType="java.lang.Integer"/>
+        <result column="parent_id" property="parentId" javaType="java.lang.String"/>
+        <result column="menu_name" property="menuName" javaType="java.lang.String"/>
+        <result column="icon" property="icon" javaType="java.lang.String"/>
+        <result column="path" property="path" javaType="java.lang.String"/>
+        <result column="role_map" property="roleMap" javaType="java.lang.String"/>
+
+    </resultMap>
+    <select id="queryMenuItem" resultMap="menuItemMap">
+        SELECT * FROM pakgopay_menu;
+    </select>
+</mapper>

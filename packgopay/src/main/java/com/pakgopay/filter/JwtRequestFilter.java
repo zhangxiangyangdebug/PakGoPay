@@ -24,7 +24,8 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             // 设置用户认证状态
             System.out.println("登陆成功");
             filterChain.doFilter(request, response);
-        }else if(request.getRequestURI().contains("login")) {
+        }else if(request.getRequestURI().contains("login") || request.getRequestURI().contains("menu")) {
+            System.out.println("请求的是menu");
             filterChain.doFilter(request, response);
         } else {
             // 处理无效token 重定向到登陆页
