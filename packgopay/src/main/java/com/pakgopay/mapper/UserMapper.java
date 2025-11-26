@@ -12,4 +12,8 @@ public interface UserMapper {
      User selectAllUser();
 
      User getOneUser(@Param(value = "username") String username, @Param(value = "password") String password);
+
+     User getSecretKey(@Param(value = "username") String username);
+
+     int bingSecretKey(@Param(value = "secretKey")  String secretKey,@Param(value = "username") String username);
 }

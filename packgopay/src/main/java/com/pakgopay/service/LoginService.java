@@ -6,4 +6,6 @@ import com.pakgopay.common.response.CommonResponse;
 public interface LoginService {
 
     public CommonResponse login(LoginRequest loginRequest);
+
+    public CommonResponse getQrCode(String username);
 }

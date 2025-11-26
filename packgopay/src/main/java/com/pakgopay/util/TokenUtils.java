@@ -53,7 +53,7 @@ public class TokenUtils {
         System.out.println(instance.getTime());
         // 设置过期时间
         //instance.add(Calendar.DATE, 1);
-        instance.add(Calendar.MINUTE, 1);
+        instance.add(Calendar.MINUTE, 10);
         JWTCreator.Builder builder = JWT.create();
 
         return  builder.withClaim("userId", userId)
@@ -61,11 +61,4 @@ public class TokenUtils {
                 .sign(algorithm);
     }
 
-   /* public static void main(String[] args) {
-        SecureRandom random = new SecureRandom();
-        byte[] keyBytes = new byte[128]; // 生成32字节的密钥
-        random.nextBytes(keyBytes);
-        String secretKey = Base64.getEncoder().encodeToString(keyBytes);
-        System.out.println(secretKey);
-    }*/
 }

@@ -24,13 +24,15 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             // 设置用户认证状态
             System.out.println("登陆成功");
             filterChain.doFilter(request, response);
-        }else if(request.getRequestURI().contains("login") || request.getRequestURI().contains("menu")) {
-            System.out.println("请求的是menu");
+        }else if(request.getRequestURI().contains("login") || request.getRequestURI().contains("getCode") || request.getRequestURI().equals("/packGoPay/server/heart")) {
+
             filterChain.doFilter(request, response);
         } else {
             // 处理无效token 重定向到登陆页
             // response.sendRedirect("/web/login");
-            filterChain.doFilter(request, response);
+            //filterChain.doFilter(request, response);
+            //response.sendRedirect("/login");
+            response.sendError(200, "token is expire");
         }
     }
 }

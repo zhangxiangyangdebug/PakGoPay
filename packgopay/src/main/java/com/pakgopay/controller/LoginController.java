@@ -7,8 +7,8 @@ import com.pakgopay.entity.User;
 import com.pakgopay.service.LoginService;
 import com.pakgopay.service.TestMq;
 import com.pakgopay.service.impl.UserService;
+import com.pakgopay.thirdUtil.GoogleUtil;
 import com.pakgopay.thirdUtil.RedisUtil;
-import com.pakgopay.util.TokenUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,5 +57,10 @@ public class LoginController {
         User user = userService.selectAllUser();
         System.out.println(user);
         return "test3";
+    }
+
+    @RequestMapping(value = "/getCode")
+    public CommonResponse verify(@RequestParam String username){
+        return loginService.getQrCode(username);
     }
 }

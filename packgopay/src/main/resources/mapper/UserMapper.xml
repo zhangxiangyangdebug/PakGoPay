@@ -3,10 +3,24 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.pakgopay.mapper.UserMapper">
+    <resultMap id="userResultMap" type="com.pakgopay.entity.User">
+        <result column="user_name" property="userName" javaType="java.lang.String"/>
+        <result column="user_id" property="userId" javaType="java.lang.String"/>
+        <result column="password" property="password" javaType="java.lang.String"/>
+        <result column="secret_key" property="secretKey" javaType="java.lang.String"/>
+    </resultMap>
     <select id="selectAllUser" resultType="com.pakgopay.entity.User">
         SELECT * FROM user
     </select>
     <select id="getOneUser" resultType="com.pakgopay.entity.User">
         SELECT *  FROM user where userId = #{username} and password = #{password}
     </select>
+
+    <select id="getSecretKey" resultType="com.pakgopay.entity.User">
+        SELECT secretKey , userName FROM USER WHERE userId = #{username}
+    </select>
+    
+    <update id="bingSecretKey">
+        update user set secretKey = #{secretKey} where userId = #{username}
+    </update>
 </mapper>
