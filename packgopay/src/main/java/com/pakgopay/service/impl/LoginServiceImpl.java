@@ -39,6 +39,7 @@ public class LoginServiceImpl implements LoginService {
         if (ObjectUtils.isEmpty(value)) {
             // 缓存没有用户数据，从数据库获取
             user = userMapper.getOneUser(userId, password);
+            System.out.println(user.toString());
         } else {
             //
             user = new Gson().fromJson(value, User.class);
@@ -53,8 +54,9 @@ public class LoginServiceImpl implements LoginService {
             // 登陆成功
             //String token = TokenUtils.generateToken(userId);
             //String refreshToken = TokenUtils.generateToken(userId);
-            String token = authorizationService.createAccessIdToken(userId);
-            String refreshToken = authorizationService.createRefreshToken(userId);
+            String userName = user.getUserName();
+            String token = authorizationService.createAccessIdToken(userId,userName);
+            String refreshToken = authorizationService.createRefreshToken(userId, userName);
             // 缓存当前登陆用户 refreshToken 创建的起始时间， 用于刷新token时判断是否需要重新生成refreshToken
             redisUtil.setWithSecondExpire(CacheKeys.REFRESH_TOKEN_START_TIME_PREFIX + userId, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
             // 更新用户最近登陆时间
@@ -81,10 +83,10 @@ public class LoginServiceImpl implements LoginService {
     }
 
     @Override
-    public CommonResponse getQrCode(Integer userId) {
-        User userInfo = userMapper.getSecretKey(userId);
+    public CommonResponse getQrCode(Integer userId, String password) {
+        User userInfo = userMapper.getSecretKey(userId, password);
         if (ObjectUtils.isEmpty(userInfo)) {
-            return new CommonResponse(ResultCode.USER_IS_NOT_EXIST);
+            return CommonResponse.fail(ResultCode.USER_VERIFY_FAIL, "check user info failed");
         }
         String localSecretKey = userInfo.getSecretKey();
         if (localSecretKey == null) {
@@ -104,19 +106,21 @@ public class LoginServiceImpl implements LoginService {
     @Override
     public CommonResponse refreshToken(String refreshToken) {
         // 从refreshToken中获取用户账号
-        String account = AuthorizationService.verifyToken(refreshToken);
-        if (account == null) {
+        String userInfos = AuthorizationService.verifyToken(refreshToken);
+        if (userInfos == null) {
             // RT过期，前端需要重新跳转登陆页面让用户重新登陆
             return new CommonResponse(ResultCode.REFRESH_TOKEN_EXPIRE);
         }
+        String account = userInfos.split("&")[0];
+        String userName = userInfos.split("&")[1];
         // 创建新的token
-        String accessToken = authorizationService.createAccessIdToken(account);
+        String accessToken = authorizationService.createAccessIdToken(account, userName);
         // 判断refreshToken是否要过期 即将过期则刷新RT
         long minTimeOfRefreshToken =  2*AuthorizationService.accessTokenExpirationTime; //refreshToken剩余时常保证在token有效期的2倍以上，否则刷新RT
         Long refreshTokenStartTime = redisUtil.getValue(CacheKeys.REFRESH_TOKEN_START_TIME_PREFIX+account) == null ? null : Long.parseLong(redisUtil.getValue(CacheKeys.REFRESH_TOKEN_START_TIME_PREFIX+account));
         if (refreshTokenStartTime == null || (refreshTokenStartTime + AuthorizationService.refreshTokenExpirationTime*1000)- System.currentTimeMillis() <= minTimeOfRefreshToken*1000) {
             // 刷新refreshToken
-            refreshToken = authorizationService.createRefreshToken(account);
+            refreshToken = authorizationService.createRefreshToken(account, userName);
             redisUtil.setWithSecondExpire(CacheKeys.REFRESH_TOKEN_START_TIME_PREFIX+account, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
         }
         LoginResponse loginResponse = new LoginResponse();
@@ -124,7 +128,8 @@ public class LoginServiceImpl implements LoginService {
         loginResponse.setMessage("login success");
         loginResponse.setToken(accessToken);
         loginResponse.setRefreshToken(refreshToken);
-        loginResponse.setUserName(account);
+        loginResponse.setUserName(userName);
+        loginResponse.setUserId(account);
         return loginResponse;
     }
 }

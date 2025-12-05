@@ -12,5 +12,6 @@ public class User {
     private String password;
     private String secretKey;
     private String lastLoginTime;
-
+    private String roleId;
+    private String roleName;
 }

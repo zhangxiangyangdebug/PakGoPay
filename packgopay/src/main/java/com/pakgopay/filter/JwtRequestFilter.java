@@ -23,10 +23,8 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         String token = header != null && header.startsWith("Bearer ") ? header.substring(7) : null;
         if (token != null && AuthorizationService.verifyToken(token) != null) {
             // 设置用户认证状态
-            System.out.println("登陆成功");
             filterChain.doFilter(request, response);
         }else if(request.getRequestURI().contains("login") || request.getRequestURI().contains("getCode") || request.getRequestURI().equals("/pakGoPay/server/heart") || request.getRequestURI().equals("/pakGoPay/server/Login/refreshToken")) {
-
             filterChain.doFilter(request, response);
         } else {
             // 处理无效token 重定向到登陆页

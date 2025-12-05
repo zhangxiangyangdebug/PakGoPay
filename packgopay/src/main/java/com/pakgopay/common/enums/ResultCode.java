@@ -10,7 +10,8 @@ public enum ResultCode {
     BIND_SECRET_KEY_FAIL(1006, "bind secret key fail"),
     CODE_IS_EXPIRE(1007, "code is expire"),
     REFRESH_TOKEN_EXPIRE(1008, "refresh token expire"),
-    USER_PASSWORD_ERROR(1009, "user password error");
+    USER_PASSWORD_ERROR(1009, "user password error"),
+    USER_VERIFY_FAIL(10010, "user verify fail");
 
     private final Integer code;
     private final String message;

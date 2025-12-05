@@ -32,15 +32,15 @@ public class AuthorizationService {
     public static long accessTokenExpirationTime = 60*30; //单位：秒
     public static long refreshTokenExpirationTime = 60*60*24*7;
 
-    public String createAccessIdToken(String userId) {
-        return createIdToken(userId, accessTokenExpirationTime);
+    public String createAccessIdToken(String userId, String userName) {
+        return createIdToken(userId,userName, accessTokenExpirationTime);
     }
 
-    public String createRefreshToken(String userId) {
-        return createIdToken(userId, refreshTokenExpirationTime);
+    public String createRefreshToken(String userId, String userName) {
+        return createIdToken(userId, userName, refreshTokenExpirationTime);
     }
 
-    public String createIdToken(String account, long expireTime){
+    public String createIdToken(String account, String userName, long expireTime){
 
         try {
             JwtClaims jwtClaims = new JwtClaims();
@@ -53,6 +53,7 @@ public class AuthorizationService {
             jwtClaims.setNotBeforeMinutesInThePast(1);
             jwtClaims.setSubject(account);
             jwtClaims.setClaim("account", account);
+            jwtClaims.setClaim("userName", userName);
             jwtClaims.setAudience("PakGoPay");
             //jwtClaims.setIssuer(String.valueOf(account)); //token和用户强绑定
 
@@ -86,8 +87,9 @@ public class AuthorizationService {
             JwtClaims claims = consumer.processToClaims(token);
             if (claims != null) {
                 String account = (String) claims.getClaimValue("account");
+                String userName = (String) claims.getClaimValue("userName");
                 System.out.println("认证通过， token payload携带的自定义内容：用户账号account=" + account);
-                return account;
+                return account+"&"+userName;
             }
         } catch (JoseException | InvalidJwtException e) {
             logger.error("verify token failed: {}", e.getMessage());
@@ -115,9 +117,9 @@ public class AuthorizationService {
 
     public static void main(String[] args) {
         //TokenUtils.createKeyPair();
-        String idToken = new AuthorizationService().createIdToken("leealank4@gmail.com", 30);
+        /*String idToken = new AuthorizationService().createIdToken("leealank4@gmail.com", 30);
         System.out.println(idToken);
         String result = new AuthorizationService().verifyToken(idToken);
-        System.out.println(result);
+        System.out.println(result);*/
     }
 }

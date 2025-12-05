@@ -80,7 +80,7 @@ public class LoginController {
      * @return
      */
     @RequestMapping(value = "/getCode")
-    public CommonResponse verify(@RequestParam Integer userId){
-        return loginService.getQrCode(userId);
+    public CommonResponse verify(@RequestParam Integer userId, @RequestParam String password){
+        return loginService.getQrCode(userId, password);
     }
 }

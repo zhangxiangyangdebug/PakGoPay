@@ -37,6 +37,7 @@ public class MenuItemServiceImpl {
            menu.setParentId(s.getParentId());
            menu.setMenuLevel(s.getMenuLevel());
            menu.setMenuName(s.getMenuName());
+           menu.setNameEn(s.getNameEn());
            menu.setIcon(s.getIcon());
            menu.setUrl(s.getUrl());
            menu.setRoleMap(s.getRoleMap());

@@ -13,6 +13,11 @@ public class CommonResponse implements Serializable {
 
     public CommonResponse() {}
 
+    public CommonResponse(Integer code, String message) {
+        this.code = code;
+        this.message = message;
+    }
+
     public CommonResponse(Integer code, String message, String data) {
         this.code = code;
         this.message = message;
@@ -37,5 +42,9 @@ public class CommonResponse implements Serializable {
 
     public static CommonResponse fail(ResultCode resultCode) {
         return new CommonResponse(resultCode);
+    }
+
+    public static CommonResponse fail(ResultCode resultCode, String message) {
+        return new CommonResponse(resultCode.getCode(), message);
     }
 }

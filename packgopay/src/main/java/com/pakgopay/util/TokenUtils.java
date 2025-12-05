@@ -6,6 +6,10 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.google.gson.Gson;
+import com.pakgopay.common.entity.Children;
+import com.pakgopay.common.entity.Extra;
+import com.pakgopay.common.entity.MenuItem;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.jose4j.jwk.JsonWebKey;
@@ -85,5 +89,21 @@ public class TokenUtils {
     public static void main(String[] args) {
         TokenUtils.createKeyPair();
     }*/
+    public static void main(String[] args) {
+      /*  MenuItem menuItem = new MenuItem();
+        menuItem.setMenuId("1");
+        menuItem.setPath("sss");
+        menuItem.setIcon("sssadf");
+        menuItem.setMenuLevel(1);
+        menuItem.setMenuName("主页");
+        menuItem.setParentId("001");
+        Extra extra = new Extra();
+        extra.setNeedLogin(true);
+        extra.setTitle("sss");
+        menuItem.setMeta(extra);
+        Children children = new Children();
+        children.setMenuId("001");
+        System.out.println(new Gson().toJson(menuItem));*/
 
+    }
 }
