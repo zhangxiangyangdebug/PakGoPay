@@ -13,7 +13,8 @@ public class CustomCorsConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
                 .allowedHeaders("*")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedOrigins("http://localhost:5173");
+                /*.allowedOrigins("http://localhost:5173");*/
+                .allowedOrigins("*");
     }
 
     @Override

@@ -13,7 +13,7 @@
         SELECT * FROM user
     </select>
     <select id="getOneUser" resultType="com.pakgopay.entity.User">
-        SELECT t1.userId, t1.userName, t1.roleId, t2.role_name, t1.secretKey  FROM user t1 left join pakgopay_role t2 on t1.roleId = t2.role_id and userId = #{userId} and password = #{password}
+        SELECT userId, userName, secretKey from user where userId = #{userId} and password = #{password}
     </select>
 
     <select id="getSecretKey" resultType="com.pakgopay.entity.User">

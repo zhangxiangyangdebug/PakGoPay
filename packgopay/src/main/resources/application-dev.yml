@@ -24,10 +24,8 @@ spring:
       idle-timeout: 60000
       max-lifetime: 300000
 
-
-
 server:
-  address: localhost
+  address: 0.0.0.0
   port: 8090
 mybatis:
   mapper-locations: classpath:mapper/*.xml

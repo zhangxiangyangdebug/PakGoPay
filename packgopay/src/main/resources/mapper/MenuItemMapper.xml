@@ -17,6 +17,14 @@
         <result column="name_en" property="nameEn" javaType="java.lang.String"/>
     </resultMap>
     <select id="queryMenuItem" resultMap="menuItemMap">
-        SELECT * FROM pakgopay_menu;
+        SELECT * FROM pakgopay_menu where 1=1
+           <if test="menuIds != null and menuIds.size > 0">
+               <foreach collection="menuIds"
+                        item="data"
+                        open = "and menu_id in (" close=")"
+                        separator=",">
+                   #{data, jdbcType=VARCHAR}
+               </foreach>
+           </if>
     </select>
 </mapper>

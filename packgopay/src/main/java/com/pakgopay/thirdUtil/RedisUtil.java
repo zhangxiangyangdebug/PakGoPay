@@ -35,4 +35,8 @@ public class RedisUtil {
         if (redisTemplate.hasKey(key)) return redisTemplate.opsForValue().get(key);
         return null;
     }
+
+    public boolean remove(String key) {
+        return redisTemplate.delete(key);
+    }
 }

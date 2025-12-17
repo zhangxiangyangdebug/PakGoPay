@@ -56,6 +56,12 @@ public class LoginController {
         return commonResponse;
     }
 
+    @GetMapping(value = "/logout")
+    public CommonResponse logout(HttpServletRequest request){
+        CommonResponse commonResponse = loginService.logout(request);
+        return commonResponse;
+    }
+
     @RequestMapping(value = "db")
     public String test3(){
         User user = userService.selectAllUser();
@@ -80,7 +86,7 @@ public class LoginController {
      * @return
      */
     @RequestMapping(value = "/getCode")
-    public CommonResponse verify(@RequestParam Integer userId, @RequestParam String password){
+    public CommonResponse verify(@RequestParam String userId, @RequestParam String password){
         return loginService.getQrCode(userId, password);
     }
 }

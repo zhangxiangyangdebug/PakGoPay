@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.Date;
 
 @Service
@@ -83,7 +84,21 @@ public class LoginServiceImpl implements LoginService {
     }
 
     @Override
-    public CommonResponse getQrCode(Integer userId, String password) {
+    public CommonResponse logout(HttpServletRequest request) {
+        // 删除用户登陆缓存信息/RT/
+        String header = request.getHeader("Authorization");
+        String token = header.substring(7);
+        String userInfo = AuthorizationService.verifyToken(token);
+        String userId = userInfo.split("&")[0];
+        boolean remove = redisUtil.remove(CacheKeys.USER_INFO_KEY_PREFIX + userId);
+        if (remove) {
+            return new CommonResponse(ResultCode.SUCCESS);
+        }
+        return CommonResponse.fail(ResultCode.FAIL);
+    }
+
+    @Override
+    public CommonResponse getQrCode(String userId, String password) {
         User userInfo = userMapper.getSecretKey(userId, password);
         if (ObjectUtils.isEmpty(userInfo)) {
             return CommonResponse.fail(ResultCode.USER_VERIFY_FAIL, "check user info failed");

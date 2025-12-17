@@ -7,6 +7,8 @@ import com.pakgopay.common.entity.MenuItem;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.mapper.MenuItemMapper;
+import com.pakgopay.mapper.RoleMapper;
+import com.pakgopay.mapper.RoleMenuMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,10 +28,25 @@ public class MenuItemServiceImpl {
     @Autowired
     private MenuItemMapper menuItemMapper;
 
-    public CommonResponse menu() throws JsonProcessingException {
+    @Autowired
+    private RoleMapper roleMapper;
+
+    @Autowired
+    private RoleMenuMapper roleMenuMapper;
+
+    public CommonResponse menu(String  userId) throws JsonProcessingException {
+        // 根据userID查询user-role表 拿到用户角色
+        Integer roleId = roleMapper.queryRoleInfoByUserId(Integer.parseInt(userId));
+        if (roleId == null) {
+            return CommonResponse.fail(ResultCode.NO_ROLE_INFO_FOUND);
+        }
+        System.out.println("roleId = " + roleId);
+        // 根据角色ID查询role-menu拿到menu
+        List<String> allMenuIdsByRoleId = roleMenuMapper.getAllMenuIdsByRoleId(roleId);
+
         List<MenuItem> menuItems = new ArrayList<>();
         Map<String,MenuItem> menuItem = new HashMap<>();
-        List<Children> children = menuItemMapper.queryMenuItem();
+        List<Children> children = menuItemMapper.queryMenuItem(allMenuIdsByRoleId);
         // 将所有的一级菜单放到list最外层,key用一级菜单ID
         children.stream().filter(s -> s.getParentId() == null).forEach(s -> {
            MenuItem menu = new MenuItem();
@@ -43,6 +60,7 @@ public class MenuItemServiceImpl {
            menu.setRoleMap(s.getRoleMap());
            menu.setPath(s.getPath());
            menu.setShowItem(s.isShowItem());
+           menu.setMeta(s.getMeta());
            // 组装一级菜单
            menuItem.put(s.getMenuId(), menu);
 
