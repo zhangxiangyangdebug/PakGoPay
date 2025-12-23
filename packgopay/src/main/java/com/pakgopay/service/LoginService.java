@@ -2,8 +2,7 @@ package com.pakgopay.service;
 
 import com.pakgopay.common.reqeust.LoginRequest;
 import com.pakgopay.common.response.CommonResponse;
-
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 public interface LoginService {
 

@@ -6,10 +6,11 @@ spring:
     port: 5672
     username: zf
     password: zf@qwe.123
-  redis:
-    host: 8.148.79.164
-    port: 6379
-    password: zf@qwe.123
+  data:
+    redis:
+      host: 8.148.79.164
+      port: 6379
+      password: zf@qwe.123
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
     url: jdbc:mysql://8.148.79.164:3306/localdev?characterEncoding=UTF8&useSSL=false&serverTimezone=UTC&keepAlive=true

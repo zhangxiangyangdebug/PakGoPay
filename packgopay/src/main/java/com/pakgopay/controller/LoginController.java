@@ -10,12 +10,11 @@ import com.pakgopay.service.TestMq;
 import com.pakgopay.service.impl.UserService;
 import com.pakgopay.thirdUtil.RedisUtil;
 import com.pakgopay.service.AuthorizationService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-
-import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/pakGoPay/server/Login")

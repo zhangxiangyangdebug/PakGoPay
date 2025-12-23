@@ -4,12 +4,12 @@ package com.pakgopay.controller;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.service.AuthorizationService;
 import com.pakgopay.service.impl.MenuItemServiceImpl;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/pakGoPay/server")
