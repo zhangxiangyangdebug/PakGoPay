@@ -211,7 +211,6 @@
                 <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.pakgopay.PackgopayApplication</mainClass>
-                    <skip>true</skip>
                 </configuration>
                 <executions>
                     <execution>
@@ -222,6 +221,7 @@
                     </execution>
                 </executions>
             </plugin>
+
         </plugins>
     </build>
     <repositories>
