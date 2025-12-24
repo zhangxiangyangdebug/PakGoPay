@@ -18,4 +18,6 @@ public interface UserMapper {
      int bingSecretKey(@Param(value = "secretKey")  String secretKey,@Param(value = "userId") String userId);
 
      int setLastLoginTime(@Param(value = "lastLoginTime") String lastLoginTime, @Param(value = "userId") String userId);
+
+     User findRoleId(@Param(value = "userName") String userName);
 }

@@ -14,7 +14,7 @@ public class CustomCorsConfig implements WebMvcConfigurer {
                 .allowedHeaders("*")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 /*.allowedOrigins("http://localhost:5173");*/
-                .allowedOrigins("*");
+                .allowedOriginPatterns("*");
     }
 
     @Override
