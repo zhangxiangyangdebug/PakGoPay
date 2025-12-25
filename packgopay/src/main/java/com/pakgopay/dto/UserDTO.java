@@ -1,15 +1,13 @@
-package com.pakgopay.entity;
+package com.pakgopay.dto;
 
-import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import lombok.Data;
 
-@Entity
 @Data
-public class User {
+public class UserDTO {
     @Id
     private Long id;
-    private Integer userId;
+    private String userId;
 
     private String userName;
     private String password;

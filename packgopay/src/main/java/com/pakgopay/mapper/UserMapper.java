@@ -1,8 +1,10 @@
 package com.pakgopay.mapper;
 
+import com.pakgopay.dto.UserDTO;
 import com.pakgopay.entity.User;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @Mapper
 public interface UserMapper {
@@ -20,4 +22,6 @@ public interface UserMapper {
      int setLastLoginTime(@Param(value = "lastLoginTime") String lastLoginTime, @Param(value = "userId") String userId);
 
      User findRoleId(@Param(value = "userName") String userName);
+
+     int createUser(@Param(value="user") UserDTO user);
 }
