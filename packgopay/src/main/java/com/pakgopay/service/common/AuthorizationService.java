@@ -1,6 +1,5 @@
-package com.pakgopay.service;
+package com.pakgopay.service.common;
 
-import com.google.auth.oauth2.AccessToken;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jose4j.json.JsonUtil;
@@ -18,7 +17,6 @@ import org.jose4j.lang.JoseException;
 import org.springframework.stereotype.Service;
 
 import java.security.PrivateKey;
-import java.util.Date;
 import java.util.UUID;
 
 @Service

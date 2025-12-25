@@ -1,7 +1,6 @@
 package com.pakgopay.controller;
 
-import com.pakgopay.service.AuthorizationService;
-import com.pakgopay.util.TokenUtils;
+import com.pakgopay.service.common.AuthorizationService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

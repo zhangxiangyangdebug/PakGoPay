@@ -1,6 +1,6 @@
 package com.pakgopay.thirdUtil;
 
-import com.pakgopay.service.AuthorizationService;
+import com.pakgopay.service.common.AuthorizationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;

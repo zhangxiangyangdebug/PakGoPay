@@ -1,11 +1,9 @@
-package com.pakgopay.service.impl;
+package com.pakgopay.service.login.impl;
 
 import com.pakgopay.entity.User;
 import com.pakgopay.mapper.UserMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public class UserService {

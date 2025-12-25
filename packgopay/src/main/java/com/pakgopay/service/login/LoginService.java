@@ -1,4 +1,4 @@
-package com.pakgopay.service;
+package com.pakgopay.service.login;
 
 import com.pakgopay.common.reqeust.LoginRequest;
 import com.pakgopay.common.response.CommonResponse;

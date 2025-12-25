@@ -1,4 +1,4 @@
-package com.pakgopay.service.impl;
+package com.pakgopay.service.login.impl;
 
 import com.google.gson.Gson;
 import com.pakgopay.common.enums.CacheKeys;
@@ -8,8 +8,8 @@ import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.common.response.LoginResponse;
 import com.pakgopay.entity.User;
 import com.pakgopay.mapper.UserMapper;
-import com.pakgopay.service.AuthorizationService;
-import com.pakgopay.service.LoginService;
+import com.pakgopay.service.common.AuthorizationService;
+import com.pakgopay.service.login.LoginService;
 import com.pakgopay.thirdUtil.GoogleUtil;
 import com.pakgopay.thirdUtil.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;
