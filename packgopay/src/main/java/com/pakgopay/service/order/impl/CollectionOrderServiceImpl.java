@@ -17,6 +17,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
     @Override
     public CommonResponse createCollectionOrder(CollectionOrderRequest collectionOrderRequest) {
 
+        validateCollectionRequest();
         ResultCode resultCode = checkCollectionConfig(collectionOrderRequest);
         if (resultCode != ResultCode.SUCCESS) {
             return CommonResponse.fail(resultCode);
@@ -26,8 +27,12 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         return null;
     }
 
+    private void validateCollectionRequest(){
 
-    public ResultCode checkCollectionConfig(CollectionOrderRequest collectionOrderRequest) {
+    }
+
+
+    private ResultCode checkCollectionConfig(CollectionOrderRequest collectionOrderRequest) {
         String userId = collectionOrderRequest.getUserId();
         configurationCheckUtil.initData(userId);
 

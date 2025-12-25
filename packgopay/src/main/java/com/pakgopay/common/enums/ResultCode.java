@@ -1,5 +1,8 @@
 package com.pakgopay.common.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum ResultCode {
     SUCCESS(0, "success"),
     FAIL(1, "fail"),
@@ -21,13 +24,6 @@ public enum ResultCode {
     ResultCode(Integer code, String message) {
         this.code = code;
         this.message = message;
-    }
-
-    public Integer getCode() {
-        return code;
-    }
-    public String getMessage() {
-        return message;
     }
 
 }

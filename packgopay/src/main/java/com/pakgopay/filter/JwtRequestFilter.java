@@ -5,14 +5,19 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.UUID;
 
+@Slf4j
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
+    private static final String TRACE_ID = "traceId";
     //    private final JwtUtils jwtUtils;
     private final UserDetailsService userDetailsService;
 
@@ -23,7 +28,16 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        System.out.println("'lsa11111'");
+
+        System.out.println("lsa11111");
+        try {
+            String traceId = UUID.randomUUID().toString().replace("-", "");
+            MDC.put(TRACE_ID, traceId);
+            log.info("'lsa11111'");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
         request.setCharacterEncoding("UTF-8");
         response.setCharacterEncoding("UTF-8");
         String header = request.getHeader("Authorization");
@@ -34,9 +48,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             if (token != null && AuthorizationService.verifyToken(token) != null) {
                 // 设置用户认证状态
                 filterChain.doFilter(request, response);
-            } else if (request.getRequestURI().contains("login") || request.getRequestURI().contains("getCode")
-                    || request.getRequestURI().equals("/pakGoPay/server/heart")
-                    || request.getRequestURI().equals("/pakGoPay/server/Login/refreshToken")) {
+            } else if (request.getRequestURI().contains("login") || request.getRequestURI().contains("getCode") || request.getRequestURI().equals("/pakGoPay/server/heart") || request.getRequestURI().equals("/pakGoPay/server/Login/refreshToken")) {
                 filterChain.doFilter(request, response);
             } else {
                 // 处理无效token 重定向到登陆页
