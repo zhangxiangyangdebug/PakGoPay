@@ -1,4 +1,4 @@
-package com.pakgopay.service.impl;
+package com.pakgopay.service.login.impl;
 
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.reqeust.CreateUserRequest;
@@ -10,8 +10,6 @@ import com.pakgopay.thirdUtil.GoogleUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public class UserService {
