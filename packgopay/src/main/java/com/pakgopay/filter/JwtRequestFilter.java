@@ -29,7 +29,6 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         String header = request.getHeader("Authorization");
         String token = header != null && header.startsWith("Bearer ") ? header.substring(7) : null;
 
-
         try {
             if (token != null && AuthorizationService.verifyToken(token) != null) {
                 // 设置用户认证状态

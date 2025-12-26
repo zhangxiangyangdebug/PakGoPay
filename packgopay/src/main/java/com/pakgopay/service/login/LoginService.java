@@ -10,7 +10,7 @@ public interface LoginService {
 
     public CommonResponse logout(HttpServletRequest loginRequest);
 
-    public CommonResponse getQrCode(String userId, String password);
+    public CommonResponse getQrCode(String userName, String password);
 
     public CommonResponse refreshToken(String refreshToken);
 }

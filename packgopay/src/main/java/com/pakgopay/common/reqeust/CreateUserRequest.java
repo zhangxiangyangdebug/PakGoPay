@@ -10,17 +10,17 @@ import java.io.Serializable;
 public class CreateUserRequest implements Serializable {
 
     @NotNull
-    private String username;
+    private String loginName;
     @NotNull
     private String password;
     @NotNull
     private String confirmPassword;
     @NotNull
-    private String roleId;
+    private Integer roleId;
     @NotNull
-    private Integer userStatus;
+    private Integer status;
     @NotNull
-    private Long googleCode;
+    private Integer googleCode;
 
     @NotNull
     private String operatorId;

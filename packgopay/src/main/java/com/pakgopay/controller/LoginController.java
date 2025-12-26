@@ -4,6 +4,7 @@ import com.pakgopay.common.reqeust.LoginRequest;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.entity.TestMessage;
 import com.pakgopay.entity.User;
+import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.service.common.AuthorizationService;
 import com.pakgopay.service.login.LoginService;
 import com.pakgopay.service.TestMq;
@@ -14,6 +15,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/pakGoPay/server/Login")
@@ -62,7 +65,7 @@ public class LoginController {
 
     @RequestMapping(value = "db")
     public String test3(){
-        User user = userService.selectAllUser();
+        List<UserDTO> user = userService.selectAllUser();
         System.out.println(user);
         return "test3";
     }
@@ -80,11 +83,11 @@ public class LoginController {
 
     /**
      * 获取谷歌令牌绑定二维码
-     * @param userId
+     * @param userName
      * @return
      */
     @RequestMapping(value = "/getCode")
-    public CommonResponse verify(@RequestParam String userId, @RequestParam String password){
-        return loginService.getQrCode(userId, password);
+    public CommonResponse verify(@RequestParam(value = "userName")String userName, @RequestParam(value = "password") String password){
+        return loginService.getQrCode(userName, password);
     }
 }

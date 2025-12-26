@@ -2,6 +2,7 @@ package com.pakgopay.common.security;
 
 import com.pakgopay.entity.User;
 import com.pakgopay.mapper.UserMapper;
+import com.pakgopay.mapper.dto.UserDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,7 +21,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String userName) throws UsernameNotFoundException {
-        User user =
+        UserDTO user =
                 userMapper
                         .findRoleId(userName);
 
@@ -32,7 +33,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
         if (user.getRoleId() != null) {
             // 添加角色权限
-            authorities.add(new SimpleGrantedAuthority(user.getRoleId()));
+            authorities.add(new SimpleGrantedAuthority(String.valueOf(user.getRoleId())));
 
             // 添加具体权限项
 //            user.getRoleId()
@@ -45,7 +46,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         }
 
         return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getUserName())
+                .username(user.getLoginName())
                 .password(user.getPassword()) // 这里应该是数据库存储的加密密码
 //                .disabled(!user.isEnabled())
 //                .accountLocked(!user.isAccountNonLocked())

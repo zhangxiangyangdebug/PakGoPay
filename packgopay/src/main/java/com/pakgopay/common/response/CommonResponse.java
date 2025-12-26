@@ -1,5 +1,6 @@
 package com.pakgopay.common.response;
 
+import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.enums.ResultCode;
 import lombok.Data;
 
@@ -38,6 +39,10 @@ public class CommonResponse implements Serializable {
 
     public static CommonResponse success(String data) {
         return new CommonResponse(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMessage(), data);
+    }
+
+    public static CommonResponse success(Object data) {
+        return new CommonResponse(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMessage(), JSON.toJSONString(data));
     }
 
     public static CommonResponse fail(ResultCode resultCode) {

@@ -1,13 +1,14 @@
 package com.pakgopay.service.login.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.google.gson.Gson;
 import com.pakgopay.common.enums.CacheKeys;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.reqeust.LoginRequest;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.common.response.LoginResponse;
-import com.pakgopay.entity.User;
 import com.pakgopay.mapper.UserMapper;
+import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.service.common.AuthorizationService;
 import com.pakgopay.service.login.LoginService;
 import com.pakgopay.thirdUtil.GoogleUtil;
@@ -17,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Service
@@ -33,17 +36,17 @@ public class LoginServiceImpl implements LoginService {
 
     @Override
     public CommonResponse login(LoginRequest loginRequest) {
-        String userId = loginRequest.getUserName();
+        String userName = loginRequest.getUserName();
         String password = loginRequest.getPassword();
-        String value = redisUtil.getValue(CacheKeys.USER_INFO_KEY_PREFIX + userId);
-        User user = null;
+        String value = redisUtil.getValue(CacheKeys.USER_INFO_KEY_PREFIX + userName);
+        UserDTO user = null;
         if (ObjectUtils.isEmpty(value)) {
             // 缓存没有用户数据，从数据库获取
-            user = userMapper.getOneUser(userId, password);
+            user = userMapper.getOneUser(userName, password);
             System.out.println(user.toString());
         } else {
             //
-            user = new Gson().fromJson(value, User.class);
+            user = new Gson().fromJson(value, UserDTO.class);
         }
         // 对象依旧为空，则用户不存在
         if (ObjectUtils.isEmpty(user)) {
@@ -51,32 +54,34 @@ public class LoginServiceImpl implements LoginService {
         }
 
         // 检验谷歌令牌验证码
-        if (GoogleUtil.verifyQrCode(user.getSecretKey(), loginRequest.getCode())) {
+        if (GoogleUtil.verifyQrCode(user.getLoginSecret(), loginRequest.getCode())) {
             // 登陆成功
             //String token = TokenUtils.generateToken(userId);
             //String refreshToken = TokenUtils.generateToken(userId);
-            String userName = user.getUserName();
-            String token = authorizationService.createAccessIdToken(userId,userName);
+            /*String userName = user.getUserName();*/
+            String userId = user.getUserId();
+            String token = authorizationService.createAccessIdToken(user.getUserId(),userName);
             String refreshToken = authorizationService.createRefreshToken(userId, userName);
             // 缓存当前登陆用户 refreshToken 创建的起始时间， 用于刷新token时判断是否需要重新生成refreshToken
             redisUtil.setWithSecondExpire(CacheKeys.REFRESH_TOKEN_START_TIME_PREFIX + userId, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
             // 更新用户最近登陆时间
-            user.setLastLoginTime(new Date().toLocaleString());
+            LocalDateTime now = LocalDateTime.now();
+            user.setLastLoginTime(now);
             try {
-                userMapper.setLastLoginTime(new Date().toLocaleString(), userId);
+                userMapper.setLastLoginTime(Timestamp.valueOf(now), userId);
             } catch (Exception e) {
                 // 更新数据库失败
                 return CommonResponse.fail(ResultCode.INTERNAL_SERVER_ERROR);
             }
+            user.setLastLoginTime(null);
             // 缓存用户信息 移除多余的信息
-            user.setPassword(null);
-            redisUtil.set(CacheKeys.USER_INFO_KEY_PREFIX + userId, new Gson().toJson(user));
+            redisUtil.set(CacheKeys.USER_INFO_KEY_PREFIX + userId, JSON.toJSONString(user));
             LoginResponse loginResponse = new LoginResponse();
             loginResponse.setCode(ResultCode.SUCCESS.getCode());
             loginResponse.setMessage("login success");
             loginResponse.setToken(token);
             loginResponse.setRefreshToken(refreshToken);
-            loginResponse.setUserName(user.getUserName());
+            loginResponse.setUserName(user.getLoginName());
             loginResponse.setUserId(userId);
             return loginResponse;
         }
@@ -98,16 +103,16 @@ public class LoginServiceImpl implements LoginService {
     }
 
     @Override
-    public CommonResponse getQrCode(String userId, String password) {
-        User userInfo = userMapper.getSecretKey(userId, password);
+    public CommonResponse getQrCode(String userName, String password) {
+        UserDTO userInfo = userMapper.getSecretKey(userName, password);
         if (ObjectUtils.isEmpty(userInfo)) {
             return CommonResponse.fail(ResultCode.USER_VERIFY_FAIL, "check user info failed");
         }
-        String localSecretKey = userInfo.getSecretKey();
+        String localSecretKey = userInfo.getLoginSecret();
         if (localSecretKey == null) {
             localSecretKey = GoogleUtil.getSecretKey();
             // 往数据库存入该用户的密钥
-            int result = userMapper.bingSecretKey(localSecretKey, userId);
+            int result = userMapper.bingSecretKey(localSecretKey, userInfo.getLoginSecret());
             if (result == 0) {
                 return new CommonResponse(ResultCode.BIND_SECRET_KEY_FAIL);
             }

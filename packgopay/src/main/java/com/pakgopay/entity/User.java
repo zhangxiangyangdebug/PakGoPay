@@ -9,9 +9,9 @@ import lombok.Data;
 public class User {
     @Id
     private Long id;
-    private Integer userId;
+    private String userId;
 
-    private String userName;
+    private String LoginName;
     private String password;
     private String secretKey;
     private String lastLoginTime;
