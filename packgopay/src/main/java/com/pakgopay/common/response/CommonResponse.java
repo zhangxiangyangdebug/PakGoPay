@@ -7,12 +7,13 @@ import lombok.Data;
 import java.io.Serializable;
 
 @Data
-public class CommonResponse implements Serializable {
+public class CommonResponse<T> implements Serializable {
     private Integer code;
     private String message;
     private String data;
 
-    public CommonResponse() {}
+    public CommonResponse() {
+    }
 
     public CommonResponse(Integer code, String message) {
         this.code = code;
@@ -37,19 +38,15 @@ public class CommonResponse implements Serializable {
         this.message = resultCode.getMessage();
     }
 
-    public static CommonResponse success(String data) {
-        return new CommonResponse(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMessage(), data);
+    public static <T> CommonResponse<T> success(String data) {
+        return new CommonResponse<>(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMessage(), JSON.toJSONString(data));
     }
 
-    public static CommonResponse success(Object data) {
-        return new CommonResponse(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMessage(), JSON.toJSONString(data));
+    public static CommonResponse<Void> fail(ResultCode resultCode) {
+        return new CommonResponse<>(resultCode);
     }
 
-    public static CommonResponse fail(ResultCode resultCode) {
-        return new CommonResponse(resultCode);
-    }
-
-    public static CommonResponse fail(ResultCode resultCode, String message) {
-        return new CommonResponse(resultCode.getCode(), message);
+    public static CommonResponse<Void> fail(ResultCode resultCode, String message) {
+        return new CommonResponse<>(resultCode.getCode(), message);
     }
 }

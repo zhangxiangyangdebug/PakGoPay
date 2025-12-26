@@ -1,20 +1,22 @@
 package com.pakgopay.common.exception;
 
 import com.pakgopay.common.enums.ResultCode;
+import lombok.Getter;
 
-public class PakGoPayException extends Exception{
+@Getter
+public class PakGoPayException extends Exception {
 
-    private Integer code;
+    private ResultCode code;
     private String message;
 
-    public PakGoPayException(Integer code,String message) {
+    public PakGoPayException(ResultCode resultCode, String message) {
         super(message);
-        this.code = code;
+        this.code = resultCode;
     }
 
-    public PakGoPayException(ResultCode resultCode){
+    public PakGoPayException(ResultCode resultCode) {
         super(resultCode.getMessage());
-        this.code = resultCode.getCode();
+        this.code = resultCode;
         this.message = resultCode.getMessage();
     }
 }

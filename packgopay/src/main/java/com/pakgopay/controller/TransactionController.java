@@ -1,5 +1,6 @@
 package com.pakgopay.controller;
 
+import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.common.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.common.response.CommonResponse;
@@ -25,7 +26,7 @@ public class TransactionController {
 
 
     @PostMapping(value = "/createCollectionOrder")
-    public CommonResponse createCollectionOrder(HttpServletRequest request, @Valid @RequestBody CollectionOrderRequest collectionOrderRequest) {
+    public CommonResponse createCollectionOrder(HttpServletRequest request, @Valid @RequestBody CollectionOrderRequest collectionOrderRequest) throws PakGoPayException {
         CommonResponse commonResponse = collectionOrderService.createCollectionOrder(collectionOrderRequest);
         return commonResponse;
     }

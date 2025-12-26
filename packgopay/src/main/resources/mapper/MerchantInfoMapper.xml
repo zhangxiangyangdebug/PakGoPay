@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mappe.MerchantInfoMapper">
+
+    <!-- 只在 resultMap 指定 javaType -->
+    <resultMap id="MerchantInfoDtoMap" type="com.pakgopay.mapper.dto.MerchantInfoDto">
+
+        <result column="user_id" property="userId" javaType="java.lang.Long"/>
+        <result column="parent_id" property="parentId" javaType="java.lang.Long"/>
+
+        <result column="merchant_name" property="merchantName" javaType="java.lang.String"/>
+
+        <result column="collection_enabled" property="collectionEnabled" javaType="java.lang.Integer"/>
+        <result column="pay_enabled" property="payEnabled" javaType="java.lang.Integer"/>
+
+        <result column="daily_collection_limit" property="dailyCollectionLimit" javaType="java.math.BigDecimal"/>
+        <result column="daily_pay_limit" property="dailyPayLimit" javaType="java.math.BigDecimal"/>
+        <result column="monthly_collection_limit" property="monthlyCollectionLimit" javaType="java.math.BigDecimal"/>
+        <result column="monthly_pay_limit" property="monthlyPayLimit" javaType="java.math.BigDecimal"/>
+
+        <result column="status" property="status" javaType="java.lang.Integer"/>
+        <result column="risk_level" property="riskLevel" javaType="java.lang.Integer"/>
+        <result column="notification_enable" property="notificationEnable" javaType="java.lang.Integer"/>
+
+        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
+        <result column="create_by" property="createBy" javaType="java.lang.String"/>
+        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
+        <result column="update_by" property="updateBy" javaType="java.lang.String"/>
+
+        <result column="collection_rate" property="collectionRate" javaType="java.math.BigDecimal"/>
+        <result column="collection_fixed_fee" property="collectionFixedFee" javaType="java.math.BigDecimal"/>
+        <result column="collection_max_fee" property="collectionMaxFee" javaType="java.math.BigDecimal"/>
+        <result column="collection_min_fee" property="collectionMinFee" javaType="java.math.BigDecimal"/>
+
+        <result column="pay_rate" property="payRate" javaType="java.math.BigDecimal"/>
+        <result column="pay_fixed_fee" property="payFixedFee" javaType="java.math.BigDecimal"/>
+        <result column="pay_max_fee" property="payMaxFee" javaType="java.math.BigDecimal"/>
+        <result column="pay_min_fee" property="payMinFee" javaType="java.math.BigDecimal"/>
+
+        <result column="version" property="version" javaType="java.lang.Integer"/>
+        <result column="is_agent" property="isAgent" javaType="java.lang.Integer"/>
+        <result column="is_float" property="isFloat" javaType="java.lang.Integer"/>
+
+        <result column="col_white_ips" property="colWhiteIps" javaType="java.lang.String"/>
+        <result column="pay_white_ips" property="payWhiteIps" javaType="java.lang.String"/>
+
+    </resultMap>
+
+    <sql id="BaseColumns">
+        user_id, parent_id, merchant_name, collection_enabled, pay_enabled,
+        daily_collection_limit, daily_pay_limit, monthly_collection_limit, monthly_pay_limit,
+        status, risk_level, notification_enable,
+        create_time, create_by, update_time, update_by,
+        collection_rate, collection_fixed_fee, collection_max_fee, collection_min_fee,
+        pay_rate, pay_fixed_fee, pay_max_fee, pay_min_fee,
+        version, is_agent, is_float,
+        col_white_ips, pay_white_ips
+    </sql>
+
+    <!-- 1.findByUserId -->
+    <select id="findByUserId" resultMap="MerchantInfoDtoMap">
+        select <include refid="BaseColumns"/>
+        from merchant_info
+        where user_id = #{userId}
+        limit 1
+    </select>
+
+    <!-- 2.saveData -->
+    <insert id="saveData" parameterType="com.pakgopay.mapper.dto.MerchantInfoDto">
+        insert into merchant_info (
+        <include refid="BaseColumns"/>
+        ) values (
+        #{userId}, #{parentId}, #{merchantName}, #{collectionEnabled}, #{payEnabled},
+        #{dailyCollectionLimit}, #{dailyPayLimit}, #{monthlyCollectionLimit}, #{monthlyPayLimit},
+        #{status}, #{riskLevel}, #{notificationEnable},
+        #{createTime}, #{createBy}, #{updateTime}, #{updateBy},
+        #{collectionRate}, #{collectionFixedFee}, #{collectionMaxFee}, #{collectionMinFee},
+        #{payRate}, #{payFixedFee}, #{payMaxFee}, #{payMinFee},
+        #{version}, #{isAgent}, #{isFloat},
+        #{colWhiteIps}, #{payWhiteIps}
+        )
+    </insert>
+
+    <!-- 3.upDatePayWhiteIpsByUserId -->
+    <update id="upDatePayWhiteIpsByUserId">
+        update merchant_info
+        set pay_white_ips = #{payWhiteIps},
+            update_time = now()
+        where user_id = #{userId}
+    </update>
+
+    <!-- 4.upDateColWhiteIpsByUserId -->
+    <update id="upDateColWhiteIpsByUserId">
+        update merchant_info
+        set col_white_ips = #{colWhiteIps},
+            update_time = now()
+        where user_id = #{userId}
+    </update>
+
+    <!-- 5.getEnableStatus -->
+    <select id="getEnableStatus" resultType="java.lang.Integer">
+        select status
+        from merchant_info
+        where user_id = #{userId}
+            limit 1
+    </select>
+
+</mapper>

@@ -1,6 +1,7 @@
 package com.pakgopay.common.reqeust.transaction;
 
 import com.pakgopay.common.reqeust.BaseRequest;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -15,31 +16,37 @@ public class OrderBaseRequest extends BaseRequest implements Serializable {
     /**
      * Merchant Id
      */
+    @NotBlank(message = "merchant_id is empty")
     private String merchant_id;
 
     /**
      * Merchant order number (must be unique)
      */
+    @NotBlank(message = "merchantOrderNo is empty")
     private String merchantOrderNo;
 
     /**
      * Merchant channel code (must be unique)
      */
+    @NotBlank(message = "channelCode is empty")
     private String channelCode;
 
     /**
      * Collection amount
      */
+    @NotBlank(message = "amount is empty")
     private BigDecimal amount;
 
     /**
      * Currency code (e.g. VND, PKR, IDR, USD, CNY)
      */
+    @NotBlank(message = "currency is empty")
     private String currency;
 
     /**
      * Asynchronous notification URL
      */
+    @NotBlank(message = "notificationUrl is empty")
     private String notificationUrl;
 
     /**
