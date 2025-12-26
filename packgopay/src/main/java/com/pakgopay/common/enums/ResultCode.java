@@ -6,18 +6,24 @@ import lombok.Getter;
 public enum ResultCode {
     SUCCESS(0, "success"),
     FAIL(1, "fail"),
-    INVALID_TOKEN(1001, "token is invalid"),
-    TOKEN_IS_EXPIRE(1002, "token is expire"),
-    USER_LOGIN_FAIL(1003, "user login fail"),
-    USER_IS_NOT_EXIST(1004, "user is not exist"),
-    INTERNAL_SERVER_ERROR(1005, "Internal Server Error"),
-    BIND_SECRET_KEY_FAIL(1006, "bind secret key fail"),
-    CODE_IS_EXPIRE(1007, "code is expire"),
-    REFRESH_TOKEN_EXPIRE(1008, "refresh token expire"),
-    USER_PASSWORD_ERROR(1009, "user password error"),
-    USER_VERIFY_FAIL(10010, "user verify fail"),
-    NO_ROLE_INFO_FOUND(10011, "no role info found for this user!"),
-    IS_NOT_WHITE_IP(10012, "client ip is not in white list");
+
+    // common code start with 1001
+    INVALID_TOKEN(100101, "token is invalid"),
+    TOKEN_IS_EXPIRE(100102, "token is expire"),
+    USER_LOGIN_FAIL(100103, "user login fail"),
+    USER_IS_NOT_EXIST(100104, "user is not exist"),
+    INTERNAL_SERVER_ERROR(100105, "Internal Server Error"),
+    BIND_SECRET_KEY_FAIL(100106, "bind secret key fail"),
+    CODE_IS_EXPIRE(100107, "code is expire"),
+    REFRESH_TOKEN_EXPIRE(100108, "refresh token expire"),
+    USER_PASSWORD_ERROR(100109, "user password error"),
+    USER_VERIFY_FAIL(100110, "user verify fail"),
+    NO_ROLE_INFO_FOUND(100111, "no role info found for this user!"),
+
+    // order code start with 1002
+    IS_NOT_WHITE_IP(1002001, "client ip is not in white list"),
+    USER_NOT_ENABLE(1002002,"user is not enabled"),
+    MERCHANT_CODE_IS_EXISTS(1002002,"merchant order id is exits");
 
     private final Integer code;
     private final String message;

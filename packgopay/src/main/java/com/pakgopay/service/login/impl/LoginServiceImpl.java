@@ -1,7 +1,7 @@
 package com.pakgopay.service.login.impl;
 
 import com.google.gson.Gson;
-import com.pakgopay.common.enums.CacheKeys;
+import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.reqeust.LoginRequest;
 import com.pakgopay.common.response.CommonResponse;
@@ -35,7 +35,7 @@ public class LoginServiceImpl implements LoginService {
     public CommonResponse login(LoginRequest loginRequest) {
         String userId = loginRequest.getUserName();
         String password = loginRequest.getPassword();
-        String value = redisUtil.getValue(CacheKeys.USER_INFO_KEY_PREFIX + userId);
+        String value = redisUtil.getValue(CommonConstant.USER_INFO_KEY_PREFIX + userId);
         User user = null;
         if (ObjectUtils.isEmpty(value)) {
             // 缓存没有用户数据，从数据库获取
@@ -59,7 +59,7 @@ public class LoginServiceImpl implements LoginService {
             String token = authorizationService.createAccessIdToken(userId,userName);
             String refreshToken = authorizationService.createRefreshToken(userId, userName);
             // 缓存当前登陆用户 refreshToken 创建的起始时间， 用于刷新token时判断是否需要重新生成refreshToken
-            redisUtil.setWithSecondExpire(CacheKeys.REFRESH_TOKEN_START_TIME_PREFIX + userId, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
+            redisUtil.setWithSecondExpire(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX + userId, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
             // 更新用户最近登陆时间
             user.setLastLoginTime(new Date().toLocaleString());
             try {
@@ -70,7 +70,7 @@ public class LoginServiceImpl implements LoginService {
             }
             // 缓存用户信息 移除多余的信息
             user.setPassword(null);
-            redisUtil.set(CacheKeys.USER_INFO_KEY_PREFIX + userId, new Gson().toJson(user));
+            redisUtil.set(CommonConstant.USER_INFO_KEY_PREFIX + userId, new Gson().toJson(user));
             LoginResponse loginResponse = new LoginResponse();
             loginResponse.setCode(ResultCode.SUCCESS.getCode());
             loginResponse.setMessage("login success");
@@ -90,7 +90,7 @@ public class LoginServiceImpl implements LoginService {
         String token = header.substring(7);
         String userInfo = AuthorizationService.verifyToken(token);
         String userId = userInfo.split("&")[0];
-        boolean remove = redisUtil.remove(CacheKeys.USER_INFO_KEY_PREFIX + userId);
+        boolean remove = redisUtil.remove(CommonConstant.USER_INFO_KEY_PREFIX + userId);
         if (remove) {
             return new CommonResponse(ResultCode.SUCCESS);
         }
@@ -132,11 +132,11 @@ public class LoginServiceImpl implements LoginService {
         String accessToken = authorizationService.createAccessIdToken(account, userName);
         // 判断refreshToken是否要过期 即将过期则刷新RT
         long minTimeOfRefreshToken =  2*AuthorizationService.accessTokenExpirationTime; //refreshToken剩余时常保证在token有效期的2倍以上，否则刷新RT
-        Long refreshTokenStartTime = redisUtil.getValue(CacheKeys.REFRESH_TOKEN_START_TIME_PREFIX+account) == null ? null : Long.parseLong(redisUtil.getValue(CacheKeys.REFRESH_TOKEN_START_TIME_PREFIX+account));
+        Long refreshTokenStartTime = redisUtil.getValue(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX+account) == null ? null : Long.parseLong(redisUtil.getValue(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX+account));
         if (refreshTokenStartTime == null || (refreshTokenStartTime + AuthorizationService.refreshTokenExpirationTime*1000)- System.currentTimeMillis() <= minTimeOfRefreshToken*1000) {
             // 刷新refreshToken
             refreshToken = authorizationService.createRefreshToken(account, userName);
-            redisUtil.setWithSecondExpire(CacheKeys.REFRESH_TOKEN_START_TIME_PREFIX+account, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
+            redisUtil.setWithSecondExpire(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX+account, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
         }
         LoginResponse loginResponse = new LoginResponse();
         loginResponse.setCode(ResultCode.SUCCESS.getCode());

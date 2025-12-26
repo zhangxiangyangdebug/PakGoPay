@@ -1,10 +1,10 @@
 package com.pakgopay.mapper;
 
-import com.pakgopay.mapper.dto.CollectionOrderDto;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
-import java.util.Optional;
-
+@Mapper
 public interface CollectionOrderMapper {
 
-    Optional<CollectionOrderDto> getRequestTimes(String merchantId);
+    Integer isExitMerchantOrderNo(@Param(value = "merchantOrderNo") String merchantOrderNo);
 }
