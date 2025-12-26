@@ -2,9 +2,9 @@ package com.pakgopay.service.order;
 
 import com.pakgopay.common.enums.OrderScope;
 import com.pakgopay.common.enums.OrderType;
-import com.pakgopay.service.order.impl.ColThirdPartyBankTransferHandler;
-import com.pakgopay.service.order.impl.PaySystemHandler;
-import com.pakgopay.service.order.impl.PayThirdPartyBankTransferHandler;
+import com.pakgopay.service.order.handler.ColThirdPartyBankTransferHandler;
+import com.pakgopay.service.order.handler.PaySystemHandler;
+import com.pakgopay.service.order.handler.PayThirdPartyBankTransferHandler;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

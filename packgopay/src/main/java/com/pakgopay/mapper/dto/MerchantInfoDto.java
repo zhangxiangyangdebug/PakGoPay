@@ -94,4 +94,7 @@ public class MerchantInfoDto {
 
     /** xiaoyou 代付IP 白名单（逗号分隔） */
     private String payWhiteIps;
+
+    /** xiaoyou 渠道ID（逗号分隔） */
+    private String channelIds;
 }

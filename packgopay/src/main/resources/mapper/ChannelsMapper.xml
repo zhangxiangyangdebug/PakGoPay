@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.ChannelsMapper">
+
+    <resultMap id="ChannelsResultMap" type="com.pakgopay.mapper.dto.ChannelsDto">
+
+        <id     column="channel_id" property="channelId" javaType="java.lang.Long"/>
+
+        <result column="channel_name" property="channelName" javaType="java.lang.String"/>
+
+        <result column="total_count" property="totalCount" javaType="java.lang.Long"/>
+        <result column="fail_count" property="failCount" javaType="java.lang.Long"/>
+
+        <result column="success_rate" property="successRate" javaType="java.math.BigDecimal"/>
+
+        <result column="daily_collection_limit" property="dailyCollectionLimit" javaType="java.math.BigDecimal"/>
+        <result column="daily_pay_limit" property="dailyPayLimit" javaType="java.math.BigDecimal"/>
+
+        <result column="monthly_collection_limit" property="monthlyCollectionLimit" javaType="java.math.BigDecimal"/>
+
+        <result column="min_amount" property="minAmount" javaType="java.math.BigDecimal"/>
+        <result column="max_amount" property="maxAmount" javaType="java.math.BigDecimal"/>
+
+        <result column="monthly_pay_limit" property="monthlyPayLimit" javaType="java.math.BigDecimal"/>
+
+        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
+        <result column="update_by" property="updateBy" javaType="java.lang.String"/>
+
+        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
+        <result column="create_by" property="createBy" javaType="java.lang.String"/>
+
+        <result column="status" property="status" javaType="java.lang.Integer"/>
+
+        <result column="collection_max_fee" property="collectionMaxFee" javaType="java.math.BigDecimal"/>
+        <result column="collection_rate" property="collectionRate" javaType="java.math.BigDecimal"/>
+        <result column="collection_fixed_fee" property="collectionFixedFee" javaType="java.math.BigDecimal"/>
+        <result column="collection_min_fee" property="collectionMinFee" javaType="java.math.BigDecimal"/>
+
+        <result column="pay_rate" property="payRate" javaType="java.math.BigDecimal"/>
+        <result column="pay_fixed_fee" property="payFixedFee" javaType="java.math.BigDecimal"/>
+        <result column="pay_max_fee" property="payMaxFee" javaType="java.math.BigDecimal"/>
+        <result column="pay_min_fee" property="payMinFee" javaType="java.math.BigDecimal"/>
+
+        <result column="remark" property="remark" javaType="java.lang.String"/>
+
+        <result column="payment_ids" property="paymentIds" javaType="java.lang.String"/>
+
+    </resultMap>
+
+    <sql id="BaseColumns">
+        channel_id,
+        channel_name,
+        total_count,
+        fail_count,
+        success_rate,
+        daily_collection_limit,
+        daily_pay_limit,
+        monthly_collection_limit,
+        min_amount,
+        max_amount,
+        monthly_pay_limit,
+        update_time,
+        update_by,
+        create_time,
+        create_by,
+        status,
+        collection_max_fee,
+        collection_rate,
+        collection_fixed_fee,
+        collection_min_fee,
+        pay_rate,
+        pay_fixed_fee,
+        pay_max_fee,
+        pay_min_fee,
+        remark,
+        payment_ids
+    </sql>
+
+    <!-- findByChannelId -->
+    <select id="findByChannelId" resultMap="ChannelsResultMap">
+        select <include refid="BaseColumns"/>
+        from channels
+        where channel_id = #{channelId}
+        limit 1
+    </select>
+
+    <!-- getAllChannels -->
+    <select id="getAllChannels" resultMap="ChannelsResultMap">
+        select <include refid="BaseColumns"/>
+        from channels
+        order by create_time desc
+    </select>
+
+    <!-- insert -->
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.ChannelsDto">
+        insert into channels (
+        <include refid="BaseColumns"/>
+        ) values (
+        #{channelId},
+        #{channelName},
+        #{totalCount},
+        #{failCount},
+        #{successRate},
+        #{dailyCollectionLimit},
+        #{dailyPayLimit},
+        #{monthlyCollectionLimit},
+        #{minAmount},
+        #{maxAmount},
+        #{monthlyPayLimit},
+        #{updateTime},
+        #{updateBy},
+        #{createTime},
+        #{createBy},
+        #{status},
+        #{collectionMaxFee},
+        #{collectionRate},
+        #{collectionFixedFee},
+        #{collectionMinFee},
+        #{payRate},
+        #{payFixedFee},
+        #{payMaxFee},
+        #{payMinFee},
+        #{remark},
+        #{paymentIds}
+        )
+    </insert>
+
+    <!-- updateByChannelId -->
+    <update id="updateByChannelId" parameterType="com.pakgopay.mapper.dto.ChannelsDto">
+        update channels
+        set
+            channel_name = #{channelName},
+            total_count = #{totalCount},
+            fail_count = #{failCount},
+            success_rate = #{successRate},
+            daily_collection_limit = #{dailyCollectionLimit},
+            daily_pay_limit = #{dailyPayLimit},
+            monthly_collection_limit = #{monthlyCollectionLimit},
+            min_amount = #{minAmount},
+            max_amount = #{maxAmount},
+            monthly_pay_limit = #{monthlyPayLimit},
+            update_time = #{updateTime},
+            update_by = #{updateBy},
+            create_time = #{createTime},
+            create_by = #{createBy},
+            status = #{status},
+            collection_max_fee = #{collectionMaxFee},
+            collection_rate = #{collectionRate},
+            collection_fixed_fee = #{collectionFixedFee},
+            collection_min_fee = #{collectionMinFee},
+            pay_rate = #{payRate},
+            pay_fixed_fee = #{payFixedFee},
+            pay_max_fee = #{payMaxFee},
+            pay_min_fee = #{payMinFee},
+            remark = #{remark},
+            payment_ids = #{paymentIds}
+        where channel_id = #{channelId}
+    </update>
+
+    <!-- deleteByChannelId -->
+    <delete id="deleteByChannelId">
+        delete from channels
+        where channel_id = #{channelId}
+    </delete>
+
+    <!-- getPaymentNosByChannelIds -->
+    <select id="getPaymentIdsByChannelIds" resultType="java.lang.String">
+        select
+        payment_ids
+        from channels
+        where channel_id in
+        <foreach collection="channelIds" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+        <if test="status != null">
+            and status = #{status}
+        </if>
+    </select>
+
+</mapper>

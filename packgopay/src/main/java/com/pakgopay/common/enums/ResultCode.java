@@ -19,12 +19,13 @@ public enum ResultCode {
     USER_PASSWORD_ERROR(100109, "user password error"),
     USER_VERIFY_FAIL(100110, "user verify fail"),
     NO_ROLE_INFO_FOUND(100111, "no role info found for this user!"),
+    USER_IS_NOT_IN_USE(100112,"user is not in use"),
 
     // order code start with 1002
-    IS_NOT_WHITE_IP(1002001, "client ip is not in white list"),
-    USER_NOT_ENABLE(1002002,"user is not enabled"),
-    MERCHANT_CODE_IS_EXISTS(1002002,"merchant order id is exits"),
-    USER_IS_NOT_IN_USE(1002003,"user is not in use");
+    ORDER_PARAM_VALID(100201, "request param is valid"),
+    IS_NOT_WHITE_IP(100202, "client ip is not in white list"),
+    USER_NOT_ENABLE(100203,"user is not enabled"),
+    MERCHANT_CODE_IS_EXISTS(100204,"merchant order id is exits");
 
     private final Integer code;
     private final String message;
