@@ -1,4 +1,4 @@
-package com.pakgopay.util;
+package com.pakgopay.service.order;
 
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.mapper.AgentInfoMapper;
@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-public class MerchantCheckUtil {
+public class MerchantCheckService {
 
     @Autowired
     private MerchantInfoMapper merchantInfoMapper;
@@ -122,8 +122,8 @@ public class MerchantCheckUtil {
             return Set.of("127.0.0.1");
         }
 
-        return Arrays.stream(ipWhitelist.split(",")).map(String::trim)          // 去空格
-                .filter(s -> !s.isEmpty())  // 去空值
-                .collect(Collectors.toSet()); // 自动去重
+        return Arrays.stream(ipWhitelist.split(",")).map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
     }
 }

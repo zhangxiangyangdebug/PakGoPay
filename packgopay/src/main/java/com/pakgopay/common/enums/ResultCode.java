@@ -21,9 +21,10 @@ public enum ResultCode {
     NO_ROLE_INFO_FOUND(100111, "no role info found for this user!"),
 
     // order code start with 1002
-    IS_NOT_WHITE_IP(1002001, "client ip is not in white list"),
-    USER_NOT_ENABLE(1002002,"user is not enabled"),
-    MERCHANT_CODE_IS_EXISTS(1002002,"merchant order id is exits");
+    ORDER_PARAM_VALID(100201, "request param is valid"),
+    IS_NOT_WHITE_IP(100202, "client ip is not in white list"),
+    USER_NOT_ENABLE(100203,"user is not enabled"),
+    MERCHANT_CODE_IS_EXISTS(100204,"merchant order id is exits");
 
     private final Integer code;
     private final String message;
