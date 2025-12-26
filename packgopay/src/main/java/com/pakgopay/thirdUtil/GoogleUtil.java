@@ -25,9 +25,9 @@ public class GoogleUtil {
         return (long)(random.nextInt(upperBound - lowerBound + 1) + lowerBound);
     }
 
-    public static String getQrCode(String secretKey) {
+    public static String getQrCode(String secretKey, String userName) {
         Long num = getNum(5);
-        String base64Pic = QrCodeUtils.creatRrCode(GoogleAuthenticator.getQrCodeText(secretKey,num.toString(),""),200,200);
+        String base64Pic = QrCodeUtils.creatRrCode(GoogleAuthenticator.getQrCodeText(secretKey,userName,""),200,200);
         return base64Pic;
     }
 

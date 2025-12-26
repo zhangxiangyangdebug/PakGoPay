@@ -2,8 +2,7 @@ package com.pakgopay.controller;
 
 import com.pakgopay.common.reqeust.CreateUserRequest;
 import com.pakgopay.common.response.CommonResponse;
-import com.pakgopay.mapper.RoleMapper;
-import com.pakgopay.service.login.impl.SystemConfigService;
+import com.pakgopay.service.systemConfig.SystemConfigService;
 import com.pakgopay.service.login.impl.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -34,8 +33,18 @@ public class SystemConfigController {
         return systemConfigService.loginUserList();
     }
 
-    @GetMapping("/stopLoginUser")
-    public CommonResponse stopLoginUser(String userId, Integer googleCode, String operatorId){
-        return systemConfigService.stopLoginUser(userId, googleCode, operatorId);
+    @GetMapping("/manageLoginUserStatus")
+    public CommonResponse manageLoginUserStatus(String userId, Integer status, Integer googleCode, String operatorId){
+        return systemConfigService.manageLoginUserStatus(userId, status, googleCode, operatorId);
+    }
+
+    @GetMapping("/deleteLoginUser")
+    public CommonResponse deleteLoginUser(String userId, Integer googleCode, String operatorId){
+        return systemConfigService.deleteLoginUser(userId, googleCode, operatorId);
+    }
+
+    @GetMapping("/loginUserByLoginName")
+    public CommonResponse loginUserByLoginName(String loginName){
+        return systemConfigService.loginUserByLoginName(loginName);
     }
 }

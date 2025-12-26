@@ -53,6 +53,11 @@ public class LoginServiceImpl implements LoginService {
             return CommonResponse.fail(ResultCode.USER_IS_NOT_EXIST);
         }
 
+        // 用户状态是否启用
+        if (user.getStatus() == 0) {
+            return CommonResponse.fail(ResultCode.USER_IS_NOT_IN_USE);
+        }
+
         // 检验谷歌令牌验证码
         if (GoogleUtil.verifyQrCode(user.getLoginSecret(), loginRequest.getCode())) {
             // 登陆成功
@@ -112,14 +117,14 @@ public class LoginServiceImpl implements LoginService {
         if (localSecretKey == null) {
             localSecretKey = GoogleUtil.getSecretKey();
             // 往数据库存入该用户的密钥
-            int result = userMapper.bingSecretKey(localSecretKey, userInfo.getLoginSecret());
+            int result = userMapper.bingSecretKey(localSecretKey, userName);
             if (result == 0) {
                 return new CommonResponse(ResultCode.BIND_SECRET_KEY_FAIL);
             }
         }
         String secretKey = localSecretKey == null ? GoogleUtil.getSecretKey() : localSecretKey;
 
-        String qrCode = GoogleUtil.getQrCode(secretKey);
+        String qrCode = GoogleUtil.getQrCode(secretKey, userName);
         return CommonResponse.success(qrCode);
     }
 

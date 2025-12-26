@@ -52,7 +52,7 @@
         SELECT * FROM user_info
     </select>
     <select id="getOneUser" resultMap="userResultMap">
-        SELECT user_id, login_name, login_secret from user_info where login_name = #{userName} and password = #{password}
+        SELECT user_id, login_name, login_secret, status from user_info where login_name = #{userName} and password = #{password}
     </select>
 
     <select id="getSecretKey" resultMap="userResultMap">
@@ -64,7 +64,7 @@
     </select>
     
     <update id="bingSecretKey">
-        update user_info set login_secret = #{secretKey} where user_id = #{userId}
+        update user_info set login_secret = #{secretKey} where login_name = #{userName}
     </update>
 
     <update id="setLastLoginTime">
@@ -80,6 +80,14 @@
     </insert>
 
     <update id="stopLoginUser">
-        UPDATE USER_INFO SET status = 0 where user_id = #{userId}
+        UPDATE USER_INFO SET status = #{status} where user_id = #{userId}
     </update>
+
+    <delete id="deleteUserByUserId">
+        DELETE FROM USER_INFO WHERE user_id = #{userId}
+    </delete>
+
+    <select id="loginUserByLoginName" resultMap="userResultMap">
+        SELECT * FROM USER_INFO WHERE login_name = #{loginName}
+    </select>
 </mapper>

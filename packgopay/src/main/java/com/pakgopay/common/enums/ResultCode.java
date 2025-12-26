@@ -23,7 +23,8 @@ public enum ResultCode {
     // order code start with 1002
     IS_NOT_WHITE_IP(1002001, "client ip is not in white list"),
     USER_NOT_ENABLE(1002002,"user is not enabled"),
-    MERCHANT_CODE_IS_EXISTS(1002002,"merchant order id is exits");
+    MERCHANT_CODE_IS_EXISTS(1002002,"merchant order id is exits"),
+    USER_IS_NOT_IN_USE(1002003,"user is not in use");
 
     private final Integer code;
     private final String message;

@@ -39,6 +39,10 @@ public class CommonResponse<T> implements Serializable {
     }
 
     public static <T> CommonResponse<T> success(String data) {
+        return new CommonResponse<>(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMessage(), data);
+    }
+
+    public static <T> CommonResponse<T> success(Object data) {
         return new CommonResponse<>(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMessage(), JSON.toJSONString(data));
     }
 
