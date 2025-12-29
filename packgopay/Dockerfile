@@ -1,14 +1,27 @@
-FROM thingsboard/openjdk17:1.20.0
+# 使用官方Maven镜像作为构建环境
+FROM library/maven AS build
 
+# 设置工作目录
 WORKDIR /app
-ADD *.jar app.jar
-COPY packgopay-0.0.1-SNAPSHOT.jar app.jar
-ENV SPRING_PROFILES_ACTIVE=dev
-ENV TZ=Asia/Shanghai
-# 远程调试接口
-ENV JAVA_TOOL_OPTIONS="-agentlib:jdwp=transport=dt_socket,address=8002,server=y,suspend=n"
-EXPOSE 8002
-EXPOSE 8090
-VOLUME /tmp
 
-ENTRYPOINT ["java","-jar","-Xmx512m","app.jar"]
+# 将项目文件复制到容器中
+COPY src ./src
+COPY pom.xml .
+
+# 编译项目
+RUN mvn -f pom.xml clean package
+
+# 使用官方OpenJDK镜像作为运行时环境
+FROM library/openjdk:26-ea-21-jdk
+
+# 设置工作目录
+WORKDIR /app
+
+# 从构建阶段复制编译后的JAR文件到运行时镜像中
+COPY --from=build /app/target/your-spring-boot-app.jar /app/app.jar
+
+# 暴露端口
+EXPOSE 8080
+
+# 指定容器启动时执行的命令
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
