@@ -1,5 +1,5 @@
 FROM thingsboard/openjdk17:1.20.0
-
+RUN mvn package
 WORKDIR /app
 ADD *.jar app.jar
 COPY packgopay-0.0.1-SNAPSHOT.jar app.jar
