@@ -95,13 +95,12 @@
         bank_user_name
     </sql>
 
-    <!-- findEnableInfoByPaymentNo -->
-    <select id="findEnableInfoByPaymentNo" resultMap="PaymentsResultMap">
+    <!-- findEByPaymentNo -->
+    <select id="findEByPaymentNo" resultMap="PaymentsResultMap">
         select
         <include refid="BaseColumns"/>
         from payments
         where payment_no = #{paymentNo}
-            and collection_enable = '1'
     </select>
 
     <!-- findByPaymentId -->
@@ -205,7 +204,7 @@
         where payment_id = #{paymentId}
     </delete>
 
-    <select id="findEnableInfoByPaymentNo" resultMap="PaymentsResultMap">
+    <select id="findEnableInfoByPaymentNos" resultMap="PaymentsResultMap">
         select
         <include refid="BaseColumns"/>
         from payments

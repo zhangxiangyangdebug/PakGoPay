@@ -11,7 +11,7 @@ import java.util.Set;
 @Mapper
 public interface PaymentsMapper {
 
-    List<PaymentsDto> findEnableInfoByPaymentNo(@Param("paymentNo") Integer paymentNo);
+    List<PaymentsDto> findEByPaymentNo(@Param("paymentNo") Integer paymentNo);
 
     PaymentsDto findByPaymentId(@Param("paymentId") Long paymentId);
 
@@ -28,5 +28,5 @@ public interface PaymentsMapper {
 
     int deleteByPaymentId(@Param("paymentId") Long paymentId);
 
-    List<PaymentsDto> findEnableInfoByPaymentNo(Integer paymentNo, Set<String> paymentIdList);
+    List<PaymentsDto> findEnableInfoByPaymentNos(Integer paymentNo, Set<String> paymentIdList);
 }

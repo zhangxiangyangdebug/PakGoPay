@@ -58,12 +58,12 @@ public class ChannelPaymentService {
         }
 
 
-        List<PaymentsDto> paymentsDtoList = paymentsMapper.findEnableInfoByPaymentNo(collectionOrderRequest.getPaymentNo(), paymentIdList);
+        List<PaymentsDto> paymentsDtoList = paymentsMapper.findEnableInfoByPaymentNos(collectionOrderRequest.getPaymentNo(), paymentIdList);
         if (paymentsDtoList == null || paymentsDtoList.isEmpty()) {
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "merchants do not have matching payment");
         }
 
-        //  投票通道成功率高的
+
 
 
     }
