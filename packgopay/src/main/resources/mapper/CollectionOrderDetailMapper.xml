@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.CollectionOrderDetailMapper">
+
+    <!-- result map -->
+    <resultMap id="CollectionOrderDetailResultMap"
+               type="com.pakgopay.mapper.dto.CollectionOrderDetailDto">
+
+        <id column="order_id" property="orderId"/>
+
+        <result column="amount" property="amount"/>
+        <result column="actual_amount" property="actualAmount"/>
+        <result column="floating_amount" property="floatingAmount"/>
+
+        <result column="currency_id" property="currencyId"/>
+        <result column="user_id" property="userId"/>
+
+        <result column="callback_token" property="callbackToken"/>
+        <result column="callback_url" property="callbackUrl"/>
+        <result column="callback_times" property="callbackTimes"/>
+        <result column="last_callback_time" property="lastCallbackTime"/>
+
+        <result column="fixed_fee" property="fixedFee"/>
+        <result column="merchant_rate" property="merchantRate"/>
+        <result column="merchant_fee" property="merchantFee"/>
+
+        <result column="agent1_rate" property="agent1Rate"/>
+        <result column="agent1_fixed_fee" property="agent1FixedFee"/>
+        <result column="agent1_fee" property="agent1Fee"/>
+
+        <result column="agent2_rate" property="agent2Rate"/>
+        <result column="agent2_fixed_fee" property="agent2FixedFee"/>
+        <result column="agent2_fee" property="agent2Fee"/>
+
+        <result column="agent3_rate" property="agent3Rate"/>
+        <result column="agent3_fixed_fee" property="agent3FixedFee"/>
+        <result column="agent3_fee" property="agent3Fee"/>
+
+        <result column="request_ip" property="requestIp"/>
+        <result column="operate_type" property="operateType"/>
+        <result column="remark" property="remark"/>
+
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+
+        <result column="collection_mode" property="collectionMode"/>
+        <result column="payment_id" property="paymentId"/>
+    </resultMap>
+
+    <!-- columns -->
+    <sql id="BaseColumns">
+        order_id,
+        amount,
+        actual_amount,
+        floating_amount,
+        currency_id,
+        user_id,
+        callback_token,
+        callback_url,
+        callback_times,
+        last_callback_time,
+        fixed_fee,
+        merchant_rate,
+        merchant_fee,
+        agent1_rate,
+        agent1_fixed_fee,
+        agent1_fee,
+        agent2_rate,
+        agent2_fixed_fee,
+        agent2_fee,
+        agent3_rate,
+        agent3_fixed_fee,
+        agent3_fee,
+        request_ip,
+        operate_type,
+        remark,
+        create_time,
+        update_time,
+        collection_mode,
+        payment_id
+    </sql>
+
+    <!-- findByOrderId -->
+    <select id="findByOrderId"
+            parameterType="string"
+            resultMap="CollectionOrderDetailResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM collection_order_detail
+        WHERE order_id = #{orderId}
+        LIMIT 1
+    </select>
+
+    <!-- insert -->
+    <insert id="insert"
+            parameterType="com.pakgopay.mapper.dto.CollectionOrderDetailDto">
+        INSERT INTO collection_order_detail (
+        <include refid="BaseColumns"/>
+        ) VALUES (
+        #{orderId},
+        #{amount},
+        #{actualAmount},
+        #{floatingAmount},
+        #{currencyId},
+        #{userId},
+        #{callbackToken},
+        #{callbackUrl},
+        #{callbackTimes},
+        #{lastCallbackTime},
+        #{fixedFee},
+        #{merchantRate},
+        #{merchantFee},
+        #{agent1Rate},
+        #{agent1FixedFee},
+        #{agent1Fee},
+        #{agent2Rate},
+        #{agent2FixedFee},
+        #{agent2Fee},
+        #{agent3Rate},
+        #{agent3FixedFee},
+        #{agent3Fee},
+        #{requestIp},
+        #{operateType},
+        #{remark},
+        #{createTime},
+        #{updateTime},
+        #{collectionMode},
+        #{paymentId}
+        )
+    </insert>
+
+    <!-- updateByOrderId -->
+    <update id="updateByOrderId"
+            parameterType="com.pakgopay.mapper.dto.CollectionOrderDetailDto">
+        UPDATE collection_order_detail
+        <set>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="actualAmount != null">actual_amount = #{actualAmount},</if>
+            <if test="floatingAmount != null">floating_amount = #{floatingAmount},</if>
+
+            <if test="callbackToken != null">callback_token = #{callbackToken},</if>
+            <if test="callbackUrl != null">callback_url = #{callbackUrl},</if>
+            <if test="callbackTimes != null">callback_times = #{callbackTimes},</if>
+            <if test="lastCallbackTime != null">last_callback_time = #{lastCallbackTime},</if>
+
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        WHERE order_id = #{orderId}
+    </update>
+
+    <!-- callback times add +1 -->
+    <update id="increaseCallbackTimes">
+        UPDATE collection_order_detail
+        SET
+            callback_times = IFNULL(callback_times, 0) + 1,
+            last_callback_time = #{lastCallbackTime},
+            update_time = #{lastCallbackTime}
+        WHERE order_id = #{orderId}
+    </update>
+
+    <select id="getCollectionOrderDetailInfosByPaymentIds"
+            resultMap="CollectionOrderDetailResultMap">
+
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM collection_order_detail
+        <where>
+            <if test="paymentIds != null and !paymentIds.isEmpty()">
+                payment_id IN
+                <foreach collection="paymentIds" item="pid" open="(" close=")" separator=",">
+                    #{pid}
+                </foreach>
+            </if>
+            <if test="paymentIds == null or paymentIds.isEmpty()">
+                AND 1 = 0
+            </if>
+            AND create_time &gt;= #{startTime}
+            AND create_time &lt;  #{endTime}
+        </where>
+
+    </select>
+
+
+</mapper>

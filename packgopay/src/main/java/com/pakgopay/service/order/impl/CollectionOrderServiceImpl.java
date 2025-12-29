@@ -35,7 +35,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         // request validate
         validateCollectionRequest(collectionOrderRequest, merchantInfoDto);
         // get payment id
-        channelPaymentService.getPaymentId(collectionOrderRequest, merchantInfoDto);
+        Long paymentId = channelPaymentService.getPaymentId(collectionOrderRequest, merchantInfoDto);
 
         return null;
     }

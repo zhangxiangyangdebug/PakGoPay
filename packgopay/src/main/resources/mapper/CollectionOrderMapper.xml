@@ -10,20 +10,18 @@
     <!-- ========================= -->
     <resultMap id="CollectionOrderResultMap"
                type="com.pakgopay.mapper.dto.CollectionOrderDto">
-        <id column="id" property="id" javaType="java.lang.Long"/>
         <result column="merchant_id" property="merchantId" javaType="java.lang.Long"/>
-        <result column="order_id" property="orderId" javaType="java.lang.Long"/>
+        <result column="order_id" property="orderId" javaType="java.lang.String"/>
         <result column="order_status" property="orderStatus" javaType="java.lang.Integer"/>
         <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
         <result column="callback_status" property="callbackStatus" javaType="java.lang.Integer"/>
-        <result column="request_times" property="requestTimes" javaType="java.lang.Integer"/>
         <result column="remark" property="remark" javaType="java.lang.String"/>
         <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
         <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
     </resultMap>
 
     <sql id="BaseColumns">
-        id,merchant_id,order_id,order_status,order_type,callback_status,request_times,remark,create_time,update_time
+        merchant_id,order_id,order_status,order_type,callback_status,remark,create_time,update_time
     </sql>
 
     <select id="isExitMerchantOrderNo" resultType="java.lang.Integer">

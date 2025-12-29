@@ -8,6 +8,12 @@ public class CommonConstant {
     // xiaoyou 启用状态-启用
     public static Integer ENABLE_STATUS_ENABLE = 1;
 
+    // xiaoyou 支持类型，代收
+    public static Integer SUPPORT_TYPE_COLLECTION = 0;
+
+    // xiaoyou 支持类型，代付
+    public static Integer SUPPORT_TYPE_PAY = 1;
+
     // xiaoyou ZERO
     public static Integer ZERO = 0;
 

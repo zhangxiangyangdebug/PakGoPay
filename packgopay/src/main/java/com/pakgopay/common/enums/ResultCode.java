@@ -25,7 +25,10 @@ public enum ResultCode {
     ORDER_PARAM_VALID(100201, "request param is valid"),
     IS_NOT_WHITE_IP(100202, "client ip is not in white list"),
     USER_NOT_ENABLE(100203,"user is not enabled"),
-    MERCHANT_CODE_IS_EXISTS(100204,"merchant order id is exits");
+    MERCHANT_CODE_IS_EXISTS(100204,"merchant order id is exits"),
+    MERCHANT_HAS_NO_AVAILABLE_CHANNEL(100205,"the merchant has no available channels."),
+    ORDER_AMOUNT_OVER_LIMIT(100206,"the order over amount limit."),
+    PAYMENT_AMOUNT_OVER_LIMIT(100207,"exceeding the daily/monthly available limit for the channel");
 
     private final Integer code;
     private final String message;

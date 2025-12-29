@@ -28,5 +28,5 @@ public interface PaymentsMapper {
 
     int deleteByPaymentId(@Param("paymentId") Long paymentId);
 
-    List<PaymentsDto> findEnableInfoByPaymentNos(Integer paymentNo, Set<String> paymentIdList);
+    List<PaymentsDto> findEnableInfoByPaymentNos(@Param("supportType") Integer supportType,@Param("paymentNo") Integer paymentNo, @Param("paymentIdList") Set<String> paymentIdList);
 }

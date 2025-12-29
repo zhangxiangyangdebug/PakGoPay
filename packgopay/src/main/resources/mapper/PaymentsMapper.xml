@@ -10,8 +10,7 @@
         <id     column="payment_id" property="paymentId" javaType="java.lang.Long"/>
 
         <result column="payment_name" property="paymentName" javaType="java.lang.String"/>
-        <result column="collection_enable" property="collectionEnable" javaType="java.lang.String"/>
-        <result column="pay_enable" property="payEnable" javaType="java.lang.String"/>
+        <result column="support_type" property="supportType" javaType="java.lang.Integer"/>
         <result column="isThird" property="isThird" javaType="java.lang.String"/>
 
         <result column="payment_no" property="paymentNo" javaType="java.lang.Integer"/>
@@ -25,13 +24,13 @@
         <result column="payment_check_pay_url" property="paymentCheckPayUrl" javaType="java.lang.String"/>
         <result column="payment_check_collection_url" property="paymentCheckCollectionUrl" javaType="java.lang.String"/>
 
-        <result column="payment_max_amount" property="paymentMaxAmount" javaType="java.lang.String"/>
-        <result column="payment_min_amount" property="paymentMinAmount" javaType="java.lang.String"/>
+        <result column="payment_max_amount" property="paymentMaxAmount" javaType="java.lang.BigDecimal"/>
+        <result column="payment_min_amount" property="paymentMinAmount" javaType="java.lang.BigDecimal"/>
 
-        <result column="collection_daily_limit" property="collectionDailyLimit" javaType="java.lang.String"/>
-        <result column="pay_daily_limit" property="payDailyLimit" javaType="java.lang.String"/>
-        <result column="collection_monthly_limit" property="collectionMonthlyLimit" javaType="java.lang.String"/>
-        <result column="pay_monthly_limit" property="payMonthlyLimit" javaType="java.lang.String"/>
+        <result column="collection_daily_limit" property="collectionDailyLimit" javaType="java.lang.BigDecimal"/>
+        <result column="pay_daily_limit" property="payDailyLimit" javaType="java.lang.BigDecimal"/>
+        <result column="collection_monthly_limit" property="collectionMonthlyLimit" javaType="java.lang.BigDecimal"/>
+        <result column="pay_monthly_limit" property="payMonthlyLimit" javaType="java.lang.BigDecimal"/>
 
         <result column="collection_interface_param" property="collectionInterfaceParam" javaType="java.lang.String"/>
         <result column="pay_interface_param" property="payInterfaceParam" javaType="java.lang.String"/>
@@ -55,14 +54,14 @@
         <result column="bank_name" property="bankName" javaType="java.lang.String"/>
         <result column="bank_account" property="bankAccount" javaType="java.lang.String"/>
         <result column="bank_user_name" property="bankUserName" javaType="java.lang.String"/>
+        <result column="status" property="status" javaType="java.lang.Integer"/>
 
     </resultMap>
 
     <sql id="BaseColumns">
         payment_id,
         payment_name,
-        collection_enable,
-        pay_enable,
+        support_type,
         isThird,
         payment_no,
         payment_pay_rate,
@@ -92,7 +91,8 @@
         payment_type,
         bank_name,
         bank_account,
-        bank_user_name
+        bank_user_name,
+        status
     </sql>
 
     <!-- findEByPaymentNo -->
@@ -125,7 +125,7 @@
         ) values (
         #{paymentId},
         #{paymentName},
-        #{collectionEnable},
+        #{supportType},
         #{payEnable},
         #{isThird},
         #{paymentNo},
@@ -156,7 +156,8 @@
         #{paymentType},
         #{bankName},
         #{bankAccount},
-        #{bankUserName}
+        #{bankUserName},
+        #{status}
         )
     </insert>
 
@@ -165,8 +166,7 @@
         update payments
         set
             payment_name = #{paymentName},
-            collection_enable = #{collectionEnable},
-            pay_enable = #{payEnable},
+            support_type = #{supportType},
             isThird = #{isThird},
             payment_no = #{paymentNo},
             payment_pay_rate = #{paymentPayRate},
@@ -194,7 +194,8 @@
             payment_type = #{paymentType},
             bank_name = #{bankName},
             bank_account = #{bankAccount},
-            bank_user_name = #{bankUserName}
+            bank_user_name = #{bankUserName},
+            status = #{status}
         where payment_id = #{paymentId}
     </update>
 
@@ -209,13 +210,14 @@
         <include refid="BaseColumns"/>
         from payments
         where payment_no = #{paymentNo}
-        <if test="paymentIdList != null and paymentIdList.size() > 0">
+        <if test="paymentIdList != null and !paymentIdList.isEmpty()">
             and payment_id in
             <foreach collection="paymentIdList" item="pid" open="(" close=")" separator=",">
                 #{pid}
             </foreach>
         </if>
-        and (status = '1')
+        and (status = 1)
+        and support_type IN (2, #{supportType})
     </select>
 
 

@@ -8,11 +8,6 @@ import java.time.LocalDateTime;
 public class CollectionOrderDto {
 
     /**
-     * Primary key ID
-     */
-    private Long id;
-
-    /**
      * Merchant ID
      */
     private Long merchantId;
@@ -20,7 +15,7 @@ public class CollectionOrderDto {
     /**
      * Order ID
      */
-    private Long orderId;
+    private String orderId;
 
     /**
      * Order status
@@ -36,11 +31,6 @@ public class CollectionOrderDto {
      * Callback status
      */
     private Integer callbackStatus;
-
-    /**
-     * Callback request times
-     */
-    private Integer requestTimes;
 
     /**
      * Remark

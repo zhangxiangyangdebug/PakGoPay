@@ -2,6 +2,7 @@ package com.pakgopay.mapper.dto;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -13,11 +14,8 @@ public class PaymentsDto {
     /** xiaoyou 通道名称 */
     private String paymentName;
 
-    /** xiaoyou 是否能代收0：否、1：是（varchar） */
-    private String collectionEnable;
-
-    /** xiaoyou 是否能代付0：否1：是（varchar） */
-    private String payEnable;
+    /** xiaoyou 支持类型0：代收、1：代付、2:代收/代付 */
+    private String supportType;
 
     /** xiaoyou 是否是三方通道0：否、1：是（varchar） */
     private String isThird;
@@ -44,22 +42,22 @@ public class PaymentsDto {
     private String paymentCheckCollectionUrl;
 
     /** xiaoyou 最大金额（varchar） */
-    private String paymentMaxAmount;
+    private BigDecimal paymentMaxAmount;
 
     /** xiaoyou 最小金额（varchar） */
-    private String paymentMinAmount;
+    private BigDecimal paymentMinAmount;
 
     /** xiaoyou 代收日限额（varchar） */
-    private String collectionDailyLimit;
+    private BigDecimal collectionDailyLimit;
 
     /** xiaoyou 代付日限额（varchar） */
-    private String payDailyLimit;
+    private BigDecimal payDailyLimit;
 
     /** xiaoyou 代收月限额（varchar） */
-    private String collectionMonthlyLimit;
+    private BigDecimal collectionMonthlyLimit;
 
     /** xiaoyou 代付月限额（varchar） */
-    private String payMonthlyLimit;
+    private BigDecimal payMonthlyLimit;
 
     /** xiaoyou 代收接口参数 */
     private String collectionInterfaceParam;
