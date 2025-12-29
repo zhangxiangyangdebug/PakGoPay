@@ -24,13 +24,13 @@
         <result column="payment_check_pay_url" property="paymentCheckPayUrl" javaType="java.lang.String"/>
         <result column="payment_check_collection_url" property="paymentCheckCollectionUrl" javaType="java.lang.String"/>
 
-        <result column="payment_max_amount" property="paymentMaxAmount" javaType="java.lang.BigDecimal"/>
-        <result column="payment_min_amount" property="paymentMinAmount" javaType="java.lang.BigDecimal"/>
+        <result column="payment_max_amount" property="paymentMaxAmount" javaType="java.math.BigDecimal"/>
+        <result column="payment_min_amount" property="paymentMinAmount" javaType="java.math.BigDecimal"/>
 
-        <result column="collection_daily_limit" property="collectionDailyLimit" javaType="java.lang.BigDecimal"/>
-        <result column="pay_daily_limit" property="payDailyLimit" javaType="java.lang.BigDecimal"/>
-        <result column="collection_monthly_limit" property="collectionMonthlyLimit" javaType="java.lang.BigDecimal"/>
-        <result column="pay_monthly_limit" property="payMonthlyLimit" javaType="java.lang.BigDecimal"/>
+        <result column="collection_daily_limit" property="collectionDailyLimit" javaType="java.math.BigDecimal"/>
+        <result column="pay_daily_limit" property="payDailyLimit" javaType="java.math.BigDecimal"/>
+        <result column="collection_monthly_limit" property="collectionMonthlyLimit" javaType="java.math.BigDecimal"/>
+        <result column="pay_monthly_limit" property="payMonthlyLimit" javaType="java.math.BigDecimal"/>
 
         <result column="collection_interface_param" property="collectionInterfaceParam" javaType="java.lang.String"/>
         <result column="pay_interface_param" property="payInterfaceParam" javaType="java.lang.String"/>

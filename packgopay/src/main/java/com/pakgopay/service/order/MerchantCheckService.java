@@ -35,6 +35,12 @@ public class MerchantCheckService {
         return CommonConstant.ZERO.equals(count);
     }
 
+    public boolean existsPayMerchantOrderNo(String merchantOrderNo) {
+        // TODO xiaoyou 从redis中获取判断，不存在则存入，数据写入数据库后，删除该数据
+        Integer count = collectionOrderMapper.isExitMerchantOrderNo(merchantOrderNo);
+        return CommonConstant.ZERO.equals(count);
+    }
+
     /**
      * check user is enabled
      *

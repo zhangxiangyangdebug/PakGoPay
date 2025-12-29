@@ -9,6 +9,7 @@ import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.service.order.ChannelPaymentService;
 import com.pakgopay.service.order.CollectionOrderService;
 import com.pakgopay.service.order.MerchantCheckService;
+import com.pakgopay.util.SnowflakeIdGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -26,16 +27,20 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
     @Override
     public CommonResponse createCollectionOrder(CollectionOrderRequest collectionOrderRequest) throws PakGoPayException {
         Long userId = Long.valueOf(collectionOrderRequest.getUserId());
+        // 1. get merchant info
         MerchantInfoDto merchantInfoDto = merchantCheckService.getConfigurationInfo(userId);
         // merchant is not exists
         if (merchantInfoDto == null) {
             throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
         }
 
-        // request validate
+        // 2. check request validate
         validateCollectionRequest(collectionOrderRequest, merchantInfoDto);
-        // get payment id
+        // 3. get available payment id
         Long paymentId = channelPaymentService.getPaymentId(collectionOrderRequest, merchantInfoDto);
+
+        // 4. create system transaction no
+        String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId("COLL");
 
         return null;
     }

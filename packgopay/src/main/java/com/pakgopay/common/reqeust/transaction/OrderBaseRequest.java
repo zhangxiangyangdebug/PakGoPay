@@ -1,6 +1,7 @@
 package com.pakgopay.common.reqeust.transaction;
 
 import com.pakgopay.common.reqeust.BaseRequest;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -35,6 +36,7 @@ public class OrderBaseRequest extends BaseRequest implements Serializable {
      * Collection amount
      */
     @NotBlank(message = "amount is empty")
+    @Min(value = 0)
     private BigDecimal amount;
 
     /**
