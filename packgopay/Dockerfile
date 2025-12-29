@@ -1,4 +1,4 @@
-FROM adoptopenjdk/openjdk17
+FROM thingsboard/openjdk17:1.20.0
 
 WORKDIR /app
 ADD *.jar app.jar
@@ -11,4 +11,4 @@ EXPOSE 8002
 EXPOSE 8090
 VOLUME /tmp
 
-ENTRYPOINT ["exec","java","-jar","-Xmx512m","app.jar"]
+ENTRYPOINT ["java","-jar","-Xmx512m","app.jar"]

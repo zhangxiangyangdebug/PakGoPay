@@ -9,6 +9,7 @@ import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.mapper.MenuItemMapper;
 import com.pakgopay.mapper.RoleMapper;
 import com.pakgopay.mapper.RoleMenuMapper;
+import com.pakgopay.mapper.UserMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,10 +34,12 @@ public class MenuItemServiceImpl {
 
     @Autowired
     private RoleMenuMapper roleMenuMapper;
+    @Autowired
+    private UserMapper userMapper;
 
     public CommonResponse menu(String  userId) throws JsonProcessingException {
         // 根据userID查询user-role表 拿到用户角色
-        Integer roleId = roleMapper.queryRoleInfoByUserId(Integer.parseInt(userId));
+        Integer roleId = userMapper.getOneUserByUserId(userId).getRoleId();
         if (roleId == null) {
             return CommonResponse.fail(ResultCode.NO_ROLE_INFO_FOUND);
         }

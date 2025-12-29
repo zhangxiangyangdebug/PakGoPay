@@ -1,23 +1,36 @@
 package com.pakgopay.mapper;
 
-import com.pakgopay.entity.User;
+import com.pakgopay.mapper.dto.UserDTO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
+import java.sql.Timestamp;
+import java.util.List;
 
 @Mapper
 public interface UserMapper {
 
-     User selectAllUser();
+     List<UserDTO> selectAllUser();
 
-     User getOneUser(@Param(value = "userId") String userId, @Param(value = "password") String password);
+     UserDTO loginUserByLoginName(@Param(value = "loginName") String loginName);
 
-     User getOneUserByUsername(@Param(value = "userId") Integer userId);
+     UserDTO getOneUser(@Param(value = "userName") String userName, @Param(value = "password") String password);
 
-     User getSecretKey(@Param(value = "userId") String userId, @Param(value = "password") String password);
+     UserDTO getOneUserByUserId(@Param(value = "userId") String userId);
 
-     int bingSecretKey(@Param(value = "secretKey")  String secretKey,@Param(value = "userId") String userId);
+     UserDTO getSecretKey(@Param(value = "userName") String userId, @Param(value = "password") String password);
 
-     int setLastLoginTime(@Param(value = "lastLoginTime") String lastLoginTime, @Param(value = "userId") String userId);
+     int bingSecretKey(@Param(value = "secretKey")  String secretKey,@Param(value = "userName") String userName);
 
-     User findRoleId(@Param(value = "userName") String userName);
+     int setLastLoginTime(@Param(value = "lastLoginTime") Timestamp lastLoginTime, @Param(value = "userId") String userId);
+
+     UserDTO findRoleId(@Param(value = "userName") String userName);
+
+     int createUser(@Param(value="user") UserDTO user);
+
+     String getSecretKeyByUserId(@Param(value = "userId") String userId);
+
+     int stopLoginUser(@Param(value = "userId") String userId, @Param(value = "status") Integer status);
+
+    int deleteUserByUserId(String userId);
 }
