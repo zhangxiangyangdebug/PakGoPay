@@ -50,7 +50,7 @@ public class MerchantCheckService {
      *
      * @return result
      */
-    public boolean isEnableMerchant(Integer merchantStatus, Long agentUserId) {
+    public boolean isEnableMerchant(Integer merchantStatus, String agentUserId) {
         // xiaoyou 商户启用状态
         if (!CommonConstant.ENABLE_STATUS_ENABLE.equals(merchantStatus)) {
             return false;
@@ -77,7 +77,7 @@ public class MerchantCheckService {
      * @return check result
      */
     @Cacheable(cacheNames = "col_ip_isAllow", key = "#userId")
-    public boolean isColIpAllowed(Long userId, String clientIp, String whiteIps) {
+    public boolean isColIpAllowed(String userId, String clientIp, String whiteIps) {
         Set<String> allowedIps = parseIpWhitelist(whiteIps);
         return allowedIps.contains(clientIp);
     }
@@ -91,7 +91,7 @@ public class MerchantCheckService {
      */
     @CacheEvict(cacheNames = "col_ip_isAllow", key = "#userId")
     @Transactional
-    public void updateColIpWhitelist(Long userId, String ips) {
+    public void updateColIpWhitelist(String userId, String ips) {
         MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
         merchantInfoDto.setColWhiteIps(ips);
         merchantInfoMapper.upDateColWhiteIpsByUserId(userId, ips);
@@ -105,7 +105,7 @@ public class MerchantCheckService {
      * @return check result
      */
     @Cacheable(cacheNames = "pay_ip_isAllow", key = "#userId")
-    public boolean isPayIpAllowed(Long userId, String clientIp, String whiteIps) {
+    public boolean isPayIpAllowed(String userId, String clientIp, String whiteIps) {
         Set<String> allowedIps = parseIpWhitelist(whiteIps);
         return allowedIps.contains(clientIp);
     }
@@ -118,13 +118,13 @@ public class MerchantCheckService {
      */
     @CacheEvict(cacheNames = "pay_ip_isAllow", key = "#userId")
     @Transactional
-    public void updatePayIpWhitelist(Long userId, String ips) {
+    public void updatePayIpWhitelist(String userId, String ips) {
         MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
         merchantInfoDto.setPayWhiteIps(ips);
         merchantInfoMapper.upDatePayWhiteIpsByUserId(userId, ips);
     }
 
-    public MerchantInfoDto getConfigurationInfo(Long userId) {
+    public MerchantInfoDto getConfigurationInfo(String userId) {
         return merchantInfoMapper.findByUserId(userId);
     }
 

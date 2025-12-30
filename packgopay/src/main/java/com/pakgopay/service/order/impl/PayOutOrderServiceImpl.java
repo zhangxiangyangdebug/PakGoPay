@@ -1,6 +1,7 @@
 package com.pakgopay.service.order.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.entity.TransactionInfo;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.transaction.PayOutOrderRequest;
@@ -26,9 +27,10 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
 
     @Override
     public CommonResponse createPayOutOrder(PayOutOrderRequest payOrderRequest) throws PakGoPayException {
-        Long userId = Long.valueOf(payOrderRequest.getUserId());
+        TransactionInfo transactionInfo = new TransactionInfo();
         // 1. get merchant info
-        MerchantInfoDto merchantInfoDto = merchantCheckService.getConfigurationInfo(userId);
+        MerchantInfoDto merchantInfoDto = merchantCheckService.getConfigurationInfo(payOrderRequest.getUserId());
+        transactionInfo.setMerchantInfo(merchantInfoDto);
         // merchant is not exists
         if (merchantInfoDto == null) {
             throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
@@ -39,10 +41,11 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         // 3. get available payment id
         Long paymentId = channelPaymentService.getPaymentId(
                 payOrderRequest.getPaymentNo(), payOrderRequest.getAmount(),
-                merchantInfoDto.getChannelIds(), CommonConstant.SUPPORT_TYPE_PAY);
+                merchantInfoDto.getChannelIds(), CommonConstant.SUPPORT_TYPE_PAY, transactionInfo);
 
         // 4. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId("PAY");
+        transactionInfo.setOrderId(systemTransactionNo);
 
         // 5. calculate transaction fee
 //        channelPaymentService.calculateTransactionFee();
@@ -51,9 +54,9 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
     }
 
     private void validatePayOutRequest(PayOutOrderRequest payOutOrderRequest, MerchantInfoDto merchantInfoDto) throws PakGoPayException {
-        Long userId = Long.valueOf(payOutOrderRequest.getUserId());
         // check ip white list
-        if (merchantCheckService.isPayIpAllowed(userId, payOutOrderRequest.getClientIp(), merchantInfoDto.getColWhiteIps())) {
+        if (merchantCheckService.isPayIpAllowed(
+                payOutOrderRequest.getUserId(), payOutOrderRequest.getClientIp(), merchantInfoDto.getColWhiteIps())) {
             throw new PakGoPayException(ResultCode.IS_NOT_WHITE_IP);
         }
 

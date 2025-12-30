@@ -2,14 +2,15 @@ package com.pakgopay.service.order;
 
 
 import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.entity.TransactionInfo;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.mapper.ChannelsMapper;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.PaymentsMapper;
-import com.pakgopay.mapper.dto.ChannelsDto;
+import com.pakgopay.mapper.dto.ChannelDto;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
-import com.pakgopay.mapper.dto.PaymentsDto;
+import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.util.CommontUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,29 +36,35 @@ public class ChannelPaymentService {
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;
 
-    public Long getPaymentId(Integer paymentNo, BigDecimal amount, String channelIds, Integer supportType) throws PakGoPayException {
+    public Long getPaymentId(Integer paymentNo, BigDecimal amount, String channelIds, Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException {
 
         // key:payment_id value:channel_id
-        Map<Long, List<Long>> paymentMap = new HashMap<>();
+        Map<Long, ChannelDto> paymentMap = new HashMap<>();
         // 1. get payment info list through channel ids and payment no
-        List<PaymentsDto> paymentsDtoList = getPaymentInfosByChannel(paymentNo, channelIds, supportType, paymentMap);
+        List<PaymentDto> paymentDtoList = getPaymentInfosByChannel(paymentNo, channelIds, supportType, paymentMap);
 
         // 2. filter no limit payment infos
-        List<PaymentsDto> availablePayments = filterNoLimitPayments(amount, paymentsDtoList);
+        List<PaymentDto> availablePayments = filterNoLimitPayments(amount, paymentDtoList);
 
         // TODO xiaoyou 成功率投票
-        PaymentsDto paymentsDto = availablePayments.get(0);
+        PaymentDto paymentDto = availablePayments.get(0);
         log.info(
                 "merchant payment search success, paymentId={}, paymentName={}",
-                paymentsDto.getPaymentId(),
-                paymentsDto.getPaymentName());
+                paymentDto.getPaymentId(),
+                paymentDto.getPaymentName());
 
+        // payment info
+        transactionInfo.setPaymentId(paymentDto.getPaymentId());
+        transactionInfo.setPaymentInfo(paymentDto);
+        // channel info
+        transactionInfo.setChannelId(paymentMap.get(paymentDto.getPaymentId()).getChannelId());
+        transactionInfo.setChannelInfo(paymentMap.get(paymentDto.getPaymentId()));
 
-        return paymentsDto.getPaymentId();
+        return paymentDto.getPaymentId();
     }
 
-    private List<PaymentsDto> getPaymentInfosByChannel(
-            Integer paymentNo, String channelIds, Integer supportType, Map<Long, List<Long>> paymentMap)
+    private List<PaymentDto> getPaymentInfosByChannel(
+            Integer paymentNo, String channelIds, Integer supportType, Map<Long, ChannelDto> paymentMap)
             throws PakGoPayException {
         log.info("filterNoLimitPayments start, channelIds {}", channelIds);
         // 1. obtain merchant's channel id list
@@ -76,30 +83,30 @@ public class ChannelPaymentService {
         Set<Long> paymentIdList = getAssociatePaymentIdByChannel(channelIdList, paymentMap);
 
         // 3. obtain merchant's available payment infos by channel ids
-        List<PaymentsDto> paymentsDtoList = paymentsMapper.
+        List<PaymentDto> paymentDtoList = paymentsMapper.
                 findEnableInfoByPaymentNos(supportType, paymentNo, paymentIdList);
-        if (paymentsDtoList == null || paymentsDtoList.isEmpty()) {
+        if (paymentDtoList == null || paymentDtoList.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "Merchants have no available matching payments");
         }
-        return paymentsDtoList;
+        return paymentDtoList;
     }
 
-    private List<PaymentsDto> filterNoLimitPayments(BigDecimal amount, List<PaymentsDto> paymentsDtoList) throws PakGoPayException {
-        log.info("filterNoLimitPayments start, paymentsDtoList size {}", paymentsDtoList.size());
+    private List<PaymentDto> filterNoLimitPayments(BigDecimal amount, List<PaymentDto> paymentDtoList) throws PakGoPayException {
+        log.info("filterNoLimitPayments start, paymentsDtoList size {}", paymentDtoList.size());
 
         // Filter orders by amount that match the maximum and minimum range of the channel.
-        paymentsDtoList = paymentsDtoList.stream().filter(dto ->
+        paymentDtoList = paymentDtoList.stream().filter(dto ->
                         // check payment min amount
                         amount.compareTo(dto.getPaymentMinAmount()) > 0
                                 // check payment max amount
                                 && amount.compareTo(dto.getPaymentMaxAmount()) < 0)
                 .toList();
-        if (paymentsDtoList.isEmpty()) {
+        if (paymentDtoList.isEmpty()) {
             throw new PakGoPayException(ResultCode.ORDER_AMOUNT_OVER_LIMIT);
         }
 
         // get current day and month, used amount
-        List<Long> enAblePaymentIds = paymentsDtoList.stream().map(PaymentsDto::getPaymentId).toList();
+        List<Long> enAblePaymentIds = paymentDtoList.stream().map(PaymentDto::getPaymentId).toList();
         LocalDate today = LocalDate.now();
         LocalDateTime startTime = today.withDayOfMonth(1).atStartOfDay();
         LocalDateTime endTime = startTime.plusMonths(1);
@@ -125,7 +132,7 @@ public class ChannelPaymentService {
         }
 
         // filter no limit payment
-        List<PaymentsDto> availablePayments = paymentsDtoList.stream().filter(dto ->
+        List<PaymentDto> availablePayments = paymentDtoList.stream().filter(dto ->
                         // compare daily limit amount
                         CommontUtil.safeAdd(currentDayAmountSum.get(dto.getPaymentId()), amount).
                                 compareTo(dto.getCollectionDailyLimit()) < 0
@@ -144,15 +151,15 @@ public class ChannelPaymentService {
         return availablePayments;
     }
 
-    private Set<Long> getAssociatePaymentIdByChannel(Set<Long> channelIdList, Map<Long, List<Long>> paymentMap) throws PakGoPayException {
-        List<ChannelsDto> paymentIds = channelsMapper.
+    private Set<Long> getAssociatePaymentIdByChannel(Set<Long> channelIdList, Map<Long, ChannelDto> paymentMap) throws PakGoPayException {
+        List<ChannelDto> channelInfos = channelsMapper.
                 getPaymentIdsByChannelIds(channelIdList.stream().toList(), CommonConstant.ENABLE_STATUS_ENABLE);
-        if (paymentIds.isEmpty()) {
+        if (channelInfos.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not payment");
         }
 
         Set<Long> paymentIdList = new HashSet<>();
-        paymentIds.forEach(dto -> {
+        channelInfos.forEach(dto -> {
             String ids = dto.getPaymentIds();
             if (!StringUtils.hasText(ids)) {
                 return;
@@ -160,17 +167,7 @@ public class ChannelPaymentService {
             Set<Long> tempSet = Arrays.stream(ids.split(",")).map(String::trim)
                     .filter(s -> !s.isEmpty()).map(Long::valueOf)
                     .collect(Collectors.toSet());
-            tempSet.forEach(id -> {
-                if (paymentMap.get(id) == null) {
-                    List<Long> channelId = new ArrayList<>() {
-                    };
-                    channelId.add(dto.getChannelId());
-                    paymentMap.put(id, channelId);
-                } else {
-                    paymentMap.get(id).add(dto.getChannelId());
-                }
-
-            });
+            tempSet.forEach(id -> paymentMap.put(id, dto));
             paymentIdList.addAll(tempSet);
         });
 

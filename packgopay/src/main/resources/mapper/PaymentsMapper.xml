@@ -5,7 +5,7 @@
 
 <mapper namespace="com.pakgopay.mapper.PaymentsMapper">
 
-    <resultMap id="PaymentsResultMap" type="com.pakgopay.mapper.dto.PaymentsDto">
+    <resultMap id="PaymentsResultMap" type="com.pakgopay.mapper.dto.PaymentDto">
 
         <id     column="payment_id" property="paymentId" javaType="java.lang.Long"/>
 
@@ -38,7 +38,7 @@
         <result column="collection_callback_addr" property="collectionCallbackAddr" javaType="java.lang.String"/>
         <result column="pay_callback_addr" property="payCallbackAddr" javaType="java.lang.String"/>
 
-        <result column="currency_id" property="currencyId" javaType="java.lang.Integer"/>
+        <result column="currency_type" property="currencyType" javaType="java.lang.String"/>
 
         <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
         <result column="create_by" property="createBy" javaType="java.lang.String"/>
@@ -99,14 +99,14 @@
     <select id="findEByPaymentNo" resultMap="PaymentsResultMap">
         select
         <include refid="BaseColumns"/>
-        from payments
+        from payment
         where payment_no = #{paymentNo}
     </select>
 
     <!-- findByPaymentId -->
     <select id="findByPaymentId" resultMap="PaymentsResultMap">
         select <include refid="BaseColumns"/>
-        from payments
+        from payment
         where payment_id = #{paymentId}
         limit 1
     </select>
@@ -114,13 +114,13 @@
     <!-- getAllPayments -->
     <select id="getAllPayments" resultMap="PaymentsResultMap">
         select <include refid="BaseColumns"/>
-        from payments
+        from payment
         order by create_time desc
     </select>
 
     <!-- insert -->
-    <insert id="insert" parameterType="com.pakgopay.mapper.dto.PaymentsDto">
-        insert into payments (
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.PaymentDto">
+        insert into payment (
         <include refid="BaseColumns"/>
         ) values (
         #{paymentId},
@@ -145,7 +145,7 @@
         #{payInterfaceParam},
         #{collectionCallbackAddr},
         #{payCallbackAddr},
-        #{currencyId},
+        #{currencyType},
         #{createTime},
         #{createBy},
         #{updateTime},
@@ -162,8 +162,8 @@
     </insert>
 
     <!-- updateByPaymentId -->
-    <update id="updateByPaymentId" parameterType="com.pakgopay.mapper.dto.PaymentsDto">
-        update payments
+    <update id="updateByPaymentId" parameterType="com.pakgopay.mapper.dto.PaymentDto">
+        update payment
         set
             payment_name = #{paymentName},
             support_type = #{supportType},
@@ -185,7 +185,7 @@
             pay_interface_param = #{payInterfaceParam},
             collection_callback_addr = #{collectionCallbackAddr},
             pay_callback_addr = #{payCallbackAddr},
-            currency_id = #{currencyId},
+            currency_type = #{currencyType},
             update_time = #{updateTime},
             update_by = #{updateBy},
             remark = #{remark},
@@ -201,14 +201,14 @@
 
     <!-- deleteByPaymentId -->
     <delete id="deleteByPaymentId">
-        delete from payments
+        delete from payment
         where payment_id = #{paymentId}
     </delete>
 
     <select id="findEnableInfoByPaymentNos" resultMap="PaymentsResultMap">
         select
         <include refid="BaseColumns"/>
-        from payments
+        from payment
         where payment_no = #{paymentNo}
         <if test="paymentIdList != null and !paymentIdList.isEmpty()">
             and payment_id in

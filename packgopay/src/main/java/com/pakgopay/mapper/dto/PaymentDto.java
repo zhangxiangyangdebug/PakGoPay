@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-public class PaymentsDto implements Serializable {
+public class PaymentDto implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -75,7 +75,7 @@ public class PaymentsDto implements Serializable {
     private String payCallbackAddr;
 
     /** xiaoyou 币种 */
-    private Integer currencyId;
+    private String currencyType;
 
     /** xiaoyou 创建时间 */
     private LocalDateTime createTime;

@@ -5,7 +5,7 @@
 
 <mapper namespace="com.pakgopay.mapper.ChannelsMapper">
 
-    <resultMap id="ChannelsResultMap" type="com.pakgopay.mapper.dto.ChannelsDto">
+    <resultMap id="ChannelsResultMap" type="com.pakgopay.mapper.dto.ChannelDto">
 
         <id     column="channel_id" property="channelId" javaType="java.lang.Long"/>
 
@@ -82,7 +82,7 @@
     <!-- findByChannelId -->
     <select id="findByChannelId" resultMap="ChannelsResultMap">
         select <include refid="BaseColumns"/>
-        from channels
+        from channel
         where channel_id = #{channelId}
         limit 1
     </select>
@@ -90,13 +90,13 @@
     <!-- getAllChannels -->
     <select id="getAllChannels" resultMap="ChannelsResultMap">
         select <include refid="BaseColumns"/>
-        from channels
+        from channel
         order by create_time desc
     </select>
 
     <!-- insert -->
-    <insert id="insert" parameterType="com.pakgopay.mapper.dto.ChannelsDto">
-        insert into channels (
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.ChannelDto">
+        insert into channel (
         <include refid="BaseColumns"/>
         ) values (
         #{channelId},
@@ -129,8 +129,8 @@
     </insert>
 
     <!-- updateByChannelId -->
-    <update id="updateByChannelId" parameterType="com.pakgopay.mapper.dto.ChannelsDto">
-        update channels
+    <update id="updateByChannelId" parameterType="com.pakgopay.mapper.dto.ChannelDto">
+        update channel
         set
             channel_name = #{channelName},
             total_count = #{totalCount},
@@ -162,7 +162,7 @@
 
     <!-- deleteByChannelId -->
     <delete id="deleteByChannelId">
-        delete from channels
+        delete from channel
         where channel_id = #{channelId}
     </delete>
 
@@ -171,7 +171,7 @@
         select
         channel_id,
         payment_ids
-        from channels
+        from channel
         where channel_id in
         <if test="channelIds == null or channelIds.isEmpty()">
             1 = 0
