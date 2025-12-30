@@ -5,13 +5,12 @@
 
 <mapper namespace="com.pakgopay.mapper.PaymentsMapper">
 
-    <resultMap id="PaymentsResultMap" type="com.pakgopay.mapper.dto.PaymentsDto">
+    <resultMap id="PaymentsResultMap" type="com.pakgopay.mapper.dto.PaymentDto">
 
         <id     column="payment_id" property="paymentId" javaType="java.lang.Long"/>
 
         <result column="payment_name" property="paymentName" javaType="java.lang.String"/>
-        <result column="collection_enable" property="collectionEnable" javaType="java.lang.String"/>
-        <result column="pay_enable" property="payEnable" javaType="java.lang.String"/>
+        <result column="support_type" property="supportType" javaType="java.lang.Integer"/>
         <result column="isThird" property="isThird" javaType="java.lang.String"/>
 
         <result column="payment_no" property="paymentNo" javaType="java.lang.Integer"/>
@@ -25,13 +24,13 @@
         <result column="payment_check_pay_url" property="paymentCheckPayUrl" javaType="java.lang.String"/>
         <result column="payment_check_collection_url" property="paymentCheckCollectionUrl" javaType="java.lang.String"/>
 
-        <result column="payment_max_amount" property="paymentMaxAmount" javaType="java.lang.String"/>
-        <result column="payment_min_amount" property="paymentMinAmount" javaType="java.lang.String"/>
+        <result column="payment_max_amount" property="paymentMaxAmount" javaType="java.math.BigDecimal"/>
+        <result column="payment_min_amount" property="paymentMinAmount" javaType="java.math.BigDecimal"/>
 
-        <result column="collection_daily_limit" property="collectionDailyLimit" javaType="java.lang.String"/>
-        <result column="pay_daily_limit" property="payDailyLimit" javaType="java.lang.String"/>
-        <result column="collection_monthly_limit" property="collectionMonthlyLimit" javaType="java.lang.String"/>
-        <result column="pay_monthly_limit" property="payMonthlyLimit" javaType="java.lang.String"/>
+        <result column="collection_daily_limit" property="collectionDailyLimit" javaType="java.math.BigDecimal"/>
+        <result column="pay_daily_limit" property="payDailyLimit" javaType="java.math.BigDecimal"/>
+        <result column="collection_monthly_limit" property="collectionMonthlyLimit" javaType="java.math.BigDecimal"/>
+        <result column="pay_monthly_limit" property="payMonthlyLimit" javaType="java.math.BigDecimal"/>
 
         <result column="collection_interface_param" property="collectionInterfaceParam" javaType="java.lang.String"/>
         <result column="pay_interface_param" property="payInterfaceParam" javaType="java.lang.String"/>
@@ -39,7 +38,7 @@
         <result column="collection_callback_addr" property="collectionCallbackAddr" javaType="java.lang.String"/>
         <result column="pay_callback_addr" property="payCallbackAddr" javaType="java.lang.String"/>
 
-        <result column="currency_id" property="currencyId" javaType="java.lang.Integer"/>
+        <result column="currency_type" property="currencyType" javaType="java.lang.String"/>
 
         <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
         <result column="create_by" property="createBy" javaType="java.lang.String"/>
@@ -55,14 +54,14 @@
         <result column="bank_name" property="bankName" javaType="java.lang.String"/>
         <result column="bank_account" property="bankAccount" javaType="java.lang.String"/>
         <result column="bank_user_name" property="bankUserName" javaType="java.lang.String"/>
+        <result column="status" property="status" javaType="java.lang.Integer"/>
 
     </resultMap>
 
     <sql id="BaseColumns">
         payment_id,
         payment_name,
-        collection_enable,
-        pay_enable,
+        support_type,
         isThird,
         payment_no,
         payment_pay_rate,
@@ -92,21 +91,22 @@
         payment_type,
         bank_name,
         bank_account,
-        bank_user_name
+        bank_user_name,
+        status
     </sql>
 
     <!-- findEByPaymentNo -->
     <select id="findEByPaymentNo" resultMap="PaymentsResultMap">
         select
         <include refid="BaseColumns"/>
-        from payments
+        from payment
         where payment_no = #{paymentNo}
     </select>
 
     <!-- findByPaymentId -->
     <select id="findByPaymentId" resultMap="PaymentsResultMap">
         select <include refid="BaseColumns"/>
-        from payments
+        from payment
         where payment_id = #{paymentId}
         limit 1
     </select>
@@ -114,18 +114,18 @@
     <!-- getAllPayments -->
     <select id="getAllPayments" resultMap="PaymentsResultMap">
         select <include refid="BaseColumns"/>
-        from payments
+        from payment
         order by create_time desc
     </select>
 
     <!-- insert -->
-    <insert id="insert" parameterType="com.pakgopay.mapper.dto.PaymentsDto">
-        insert into payments (
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.PaymentDto">
+        insert into payment (
         <include refid="BaseColumns"/>
         ) values (
         #{paymentId},
         #{paymentName},
-        #{collectionEnable},
+        #{supportType},
         #{payEnable},
         #{isThird},
         #{paymentNo},
@@ -145,7 +145,7 @@
         #{payInterfaceParam},
         #{collectionCallbackAddr},
         #{payCallbackAddr},
-        #{currencyId},
+        #{currencyType},
         #{createTime},
         #{createBy},
         #{updateTime},
@@ -156,17 +156,17 @@
         #{paymentType},
         #{bankName},
         #{bankAccount},
-        #{bankUserName}
+        #{bankUserName},
+        #{status}
         )
     </insert>
 
     <!-- updateByPaymentId -->
-    <update id="updateByPaymentId" parameterType="com.pakgopay.mapper.dto.PaymentsDto">
-        update payments
+    <update id="updateByPaymentId" parameterType="com.pakgopay.mapper.dto.PaymentDto">
+        update payment
         set
             payment_name = #{paymentName},
-            collection_enable = #{collectionEnable},
-            pay_enable = #{payEnable},
+            support_type = #{supportType},
             isThird = #{isThird},
             payment_no = #{paymentNo},
             payment_pay_rate = #{paymentPayRate},
@@ -185,7 +185,7 @@
             pay_interface_param = #{payInterfaceParam},
             collection_callback_addr = #{collectionCallbackAddr},
             pay_callback_addr = #{payCallbackAddr},
-            currency_id = #{currencyId},
+            currency_type = #{currencyType},
             update_time = #{updateTime},
             update_by = #{updateBy},
             remark = #{remark},
@@ -194,28 +194,30 @@
             payment_type = #{paymentType},
             bank_name = #{bankName},
             bank_account = #{bankAccount},
-            bank_user_name = #{bankUserName}
+            bank_user_name = #{bankUserName},
+            status = #{status}
         where payment_id = #{paymentId}
     </update>
 
     <!-- deleteByPaymentId -->
     <delete id="deleteByPaymentId">
-        delete from payments
+        delete from payment
         where payment_id = #{paymentId}
     </delete>
 
     <select id="findEnableInfoByPaymentNos" resultMap="PaymentsResultMap">
         select
         <include refid="BaseColumns"/>
-        from payments
+        from payment
         where payment_no = #{paymentNo}
-        <if test="paymentIdList != null and paymentIdList.size() > 0">
+        <if test="paymentIdList != null and !paymentIdList.isEmpty()">
             and payment_id in
             <foreach collection="paymentIdList" item="pid" open="(" close=")" separator=",">
                 #{pid}
             </foreach>
         </if>
-        and (status = '1')
+        and (status = 1)
+        and support_type IN (2, #{supportType})
     </select>
 
 

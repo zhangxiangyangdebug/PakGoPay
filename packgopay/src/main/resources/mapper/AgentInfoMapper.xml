@@ -7,8 +7,8 @@
 
     <resultMap id="AgentInfoResultMap" type="com.pakgopay.mapper.dto.AgentInfoDto">
 
-        <id     column="user_id"                   property="userId"                 javaType="java.lang.Long"/>
-        <result column="parent_id"                 property="parentId"               javaType="java.lang.Long"/>
+        <id     column="user_id"                   property="userId"                 javaType="java.lang.String"/>
+        <result column="parent_id"                 property="parentId"               javaType="java.lang.String"/>
 
         <result column="merchant_name"             property="merchantName"           javaType="java.lang.String"/>
 

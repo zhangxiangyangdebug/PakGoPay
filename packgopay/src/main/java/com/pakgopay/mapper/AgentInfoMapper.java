@@ -12,7 +12,7 @@ public interface AgentInfoMapper {
     /**
      * xiaoyou 通过 userId 查询代理（商户）全部信息
      */
-    AgentInfoDto findByUserId(@Param("userId") Long userId);
+    AgentInfoDto findByUserId(@Param("userId") String userId);
 
     /**
      * xiaoyou 查询所有代理信息

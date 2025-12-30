@@ -1,7 +1,7 @@
 package com.pakgopay.mapper;
 
 
-import com.pakgopay.mapper.dto.PaymentsDto;
+import com.pakgopay.mapper.dto.PaymentDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -11,22 +11,25 @@ import java.util.Set;
 @Mapper
 public interface PaymentsMapper {
 
-    List<PaymentsDto> findEByPaymentNo(@Param("paymentNo") Integer paymentNo);
+    List<PaymentDto> findEByPaymentNo(@Param("paymentNo") Integer paymentNo);
 
-    PaymentsDto findByPaymentId(@Param("paymentId") Long paymentId);
+    PaymentDto findByPaymentId(@Param("paymentId") Long paymentId);
 
-    List<PaymentsDto> getAllPayments();
+    List<PaymentDto> getAllPayments();
 
     /**
      * Please modify the payment_ids field in the channels table simultaneously when inserting data.
+     *
      * @param dto data
      * @return modify lines
      */
-    int insert(PaymentsDto dto);
+    int insert(PaymentDto dto);
 
-    int updateByPaymentId(PaymentsDto dto);
+    int updateByPaymentId(PaymentDto dto);
 
     int deleteByPaymentId(@Param("paymentId") Long paymentId);
 
-    List<PaymentsDto> findEnableInfoByPaymentNos(Integer paymentNo, Set<String> paymentIdList);
+    List<PaymentDto> findEnableInfoByPaymentNos(
+            @Param("supportType") Integer supportType,
+            @Param("paymentNo") Integer paymentNo, @Param("paymentIdList") Set<Long> paymentIdList);
 }

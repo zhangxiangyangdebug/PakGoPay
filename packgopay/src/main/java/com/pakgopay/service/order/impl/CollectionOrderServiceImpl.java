@@ -1,6 +1,7 @@
 package com.pakgopay.service.order.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.entity.TransactionInfo;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.transaction.CollectionOrderRequest;
@@ -9,6 +10,7 @@ import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.service.order.ChannelPaymentService;
 import com.pakgopay.service.order.CollectionOrderService;
 import com.pakgopay.service.order.MerchantCheckService;
+import com.pakgopay.util.SnowflakeIdGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,26 +26,36 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
     ChannelPaymentService channelPaymentService;
 
     @Override
-    public CommonResponse createCollectionOrder(CollectionOrderRequest collectionOrderRequest) throws PakGoPayException {
-        Long userId = Long.valueOf(collectionOrderRequest.getUserId());
-        MerchantInfoDto merchantInfoDto = merchantCheckService.getConfigurationInfo(userId);
+    public CommonResponse createCollectionOrder(CollectionOrderRequest colOrderRequest) throws PakGoPayException {
+        TransactionInfo transactionInfo = new TransactionInfo();
+        // 1. get merchant info
+        MerchantInfoDto merchantInfoDto = merchantCheckService.getConfigurationInfo(colOrderRequest.getUserId());
+        transactionInfo.setMerchantInfo(merchantInfoDto);
         // merchant is not exists
         if (merchantInfoDto == null) {
             throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
         }
 
-        // request validate
-        validateCollectionRequest(collectionOrderRequest, merchantInfoDto);
-        // get payment id
-        channelPaymentService.getPaymentId(collectionOrderRequest, merchantInfoDto);
+        // 2. check request validate
+        validateCollectionRequest(colOrderRequest, merchantInfoDto);
+        // 3. get available payment id
+        Long paymentId = channelPaymentService.getPaymentId(
+                colOrderRequest.getPaymentNo(), colOrderRequest.getAmount(),
+                merchantInfoDto.getChannelIds(), CommonConstant.SUPPORT_TYPE_COLLECTION, transactionInfo);
+
+        // 4. create system transaction no
+        String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId("COLL");
+        transactionInfo.setOrderId(systemTransactionNo);
 
         return null;
     }
 
-    private void validateCollectionRequest(CollectionOrderRequest collectionOrderRequest, MerchantInfoDto merchantInfoDto) throws PakGoPayException {
-        Long userId = Long.valueOf(collectionOrderRequest.getUserId());
+    private void validateCollectionRequest(
+            CollectionOrderRequest collectionOrderRequest, MerchantInfoDto merchantInfoDto) throws PakGoPayException {
         // check ip white list
-        if (merchantCheckService.isColIpAllowed(userId, collectionOrderRequest.getClientIp(), merchantInfoDto.getColWhiteIps())) {
+        if (merchantCheckService.isColIpAllowed(
+                collectionOrderRequest.getUserId(), collectionOrderRequest.getClientIp(),
+                merchantInfoDto.getColWhiteIps())) {
             throw new PakGoPayException(ResultCode.IS_NOT_WHITE_IP);
         }
 

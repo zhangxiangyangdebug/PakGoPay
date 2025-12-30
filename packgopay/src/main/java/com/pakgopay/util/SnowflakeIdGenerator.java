@@ -1,7 +1,6 @@
 package com.pakgopay.util;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -107,11 +106,9 @@ public class SnowflakeIdGenerator {
         return Instant.now().toEpochMilli();
     }
 
-    public static void main(String[] args) throws InterruptedException {
+    public static String getSnowFlakeId(String prefix) {
         SnowflakeIdGenerator idGenerator = new SnowflakeIdGenerator(WORKER_ID);
         long id = idGenerator.nextId();
-        System.out.println(id);
-        System.out.println(idGenerator.extractTimeMillis(id));
-
+        return prefix + String.valueOf(id);
     }
 }

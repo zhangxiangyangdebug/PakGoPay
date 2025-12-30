@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.PayOrderMapper">
+
+    <!-- Result map (explicit javaType) -->
+    <resultMap id="PayOrderResultMap" type="com.pakgopay.mapper.dto.PayOrderDto">
+        <id column="order_id" property="orderId" javaType="java.lang.String"/>
+
+        <result column="amount" property="amount" javaType="java.math.BigDecimal"/>
+        <result column="actual_amount" property="actualAmount" javaType="java.math.BigDecimal"/>
+
+        <result column="callback_token" property="callbackToken" javaType="java.lang.String"/>
+        <result column="callback_url" property="callbackUrl" javaType="java.lang.String"/>
+        <result column="callback_times" property="callbackTimes" javaType="java.lang.Integer"/>
+
+        <!-- Note: DB column name is last_callbak_time -->
+        <result column="last_callbak_time" property="lastCallbackTime" javaType="java.time.LocalDateTime"/>
+        <result column="success_callback_time" property="successCallbackTime" javaType="java.time.LocalDateTime"/>
+        <result column="callback_status" property="callbackStatus" javaType="java.lang.Integer"/>
+
+        <result column="user_id" property="userId" javaType="java.lang.String"/>
+
+        <result column="merchant_fixed_fee" property="merchantFixedFee" javaType="java.math.BigDecimal"/>
+        <result column="merchant_rate" property="merchantRate" javaType="java.math.BigDecimal"/>
+        <result column="merchant_fee" property="merchantFee" javaType="java.math.BigDecimal"/>
+
+        <result column="agent1_fixed_fee" property="agent1FixedFee" javaType="java.math.BigDecimal"/>
+        <result column="agent1_rate" property="agent1Rate" javaType="java.math.BigDecimal"/>
+        <result column="agent1_fee" property="agent1Fee" javaType="java.math.BigDecimal"/>
+
+        <!-- Note: DB columns are agnet2_* / agnet3_* -->
+        <result column="agnet2_fixed_fee" property="agent2FixedFee" javaType="java.math.BigDecimal"/>
+        <result column="agnet2_rate" property="agent2Rate" javaType="java.math.BigDecimal"/>
+        <result column="agnet2_fee" property="agent2Fee" javaType="java.math.BigDecimal"/>
+
+        <result column="agnet3_fixed_fee" property="agent3FixedFee" javaType="java.math.BigDecimal"/>
+        <result column="agnet3_rate" property="agent3Rate" javaType="java.math.BigDecimal"/>
+        <result column="agnet3_fee" property="agent3Fee" javaType="java.math.BigDecimal"/>
+
+        <result column="request_ip" property="requestIp" javaType="java.lang.String"/>
+
+        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
+        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
+        <result column="request_time" property="requestTime" javaType="java.time.LocalDateTime"/>
+
+        <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
+        <result column="payment_mode" property="paymentMode" javaType="java.lang.Integer"/>
+
+        <result column="merchant_id" property="merchantId" javaType="java.lang.String"/>
+        <result column="payment_id" property="paymentId" javaType="java.lang.Long"/>
+        <result column="channel_id" property="channelId" javaType="java.lang.Long"/>
+
+        <result column="order_status" property="orderStatus" javaType="java.lang.String"/>
+        <result column="remark" property="remark" javaType="java.lang.String"/>
+        <result column="currency_type" property="currencyType" javaType="java.lang.String"/>
+
+        <result column="operate_type" property="operateType" javaType="java.lang.Integer"/>
+    </resultMap>
+
+    <!-- Base columns -->
+    <sql id="BaseColumns">
+        order_id,amount,actual_amount,callback_token,callback_url,callback_times,last_callbak_time,success_callback_time,callback_status,user_id,
+        merchant_fixed_fee,merchant_rate,merchant_fee,agent1_fixed_fee,agent1_rate,agent1_fee,agnet2_fixed_fee,agnet2_rate,agnet2_fee,agnet3_fixed_fee,agnet3_rate,agnet3_fee,
+        request_ip,create_time,update_time,request_time,order_type,payment_mode,merchant_id,payment_id,channel_id,order_status,
+        remark,currency_type,operate_type
+    </sql>
+
+    <!-- Insert -->
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.PayOrderDto">
+        INSERT INTO pay_order (
+        <include refid="BaseColumns"/>
+        ) VALUES (
+        #{orderId},#{amount},#{actualAmount},#{callbackToken},#{callbackUrl},#{callbackTimes},#{lastCallbackTime},#{successCallbackTime},#{callbackStatus},#{userId},
+        #{merchantFixedFee},#{merchantRate},#{merchantFee},#{agent1FixedFee},#{agent1Rate},#{agent1Fee},#{agent2FixedFee},#{agent2Rate},#{agent2Fee},#{agent3FixedFee},#{agent3Rate},#{agent3Fee},
+        #{requestIp},#{createTime},#{updateTime},#{requestTime},#{orderType},#{paymentMode},#{merchantId},#{paymentId},#{channelId},#{orderStatus},
+        #{remark},#{currencyType},#{operateType}
+        )
+    </insert>
+
+    <!-- Query by order ID -->
+    <select id="findByOrderId" parameterType="string" resultMap="PayOrderResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM pay_order
+        WHERE order_id = #{orderId}
+        LIMIT 1
+    </select>
+
+    <!-- Update by order_id (update non-null fields only) -->
+    <update id="updateByOrderId" parameterType="com.pakgopay.mapper.dto.PayOrderDto">
+        UPDATE pay_order
+        <set>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="actualAmount != null">actual_amount = #{actualAmount},</if>
+
+            <if test="callbackToken != null">callback_token = #{callbackToken},</if>
+            <if test="callbackUrl != null">callback_url = #{callbackUrl},</if>
+            <if test="callbackTimes != null">callback_times = #{callbackTimes},</if>
+            <if test="lastCallbackTime != null">last_callbak_time = #{lastCallbackTime},</if>
+            <if test="successCallbackTime != null">success_callback_time = #{successCallbackTime},</if>
+            <if test="callbackStatus != null">callback_status = #{callbackStatus},</if>
+
+            <if test="merchantFixedFee != null">merchant_fixed_fee = #{merchantFixedFee},</if>
+            <if test="merchantRate != null">merchant_rate = #{merchantRate},</if>
+            <if test="merchantFee != null">merchant_fee = #{merchantFee},</if>
+
+            <if test="agent1FixedFee != null">agent1_fixed_fee = #{agent1FixedFee},</if>
+            <if test="agent1Rate != null">agent1_rate = #{agent1Rate},</if>
+            <if test="agent1Fee != null">agent1_fee = #{agent1Fee},</if>
+
+            <if test="agent2FixedFee != null">agnet2_fixed_fee = #{agent2FixedFee},</if>
+            <if test="agent2Rate != null">agnet2_rate = #{agent2Rate},</if>
+            <if test="agent2Fee != null">agnet2_fee = #{agent2Fee},</if>
+
+            <if test="agent3FixedFee != null">agnet3_fixed_fee = #{agent3FixedFee},</if>
+            <if test="agent3Rate != null">agnet3_rate = #{agent3Rate},</if>
+            <if test="agent3Fee != null">agnet3_fee = #{agent3Fee},</if>
+
+            <if test="requestIp != null">request_ip = #{requestIp},</if>
+
+            <if test="orderType != null">order_type = #{orderType},</if>
+            <if test="paymentMode != null">payment_mode = #{paymentMode},</if>
+
+            <if test="orderStatus != null">order_status = #{orderStatus},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="currencyType != null and currencyType != ''">currency_type = #{currencyType},</if>
+            <if test="operateType != null">operate_type = #{operateType},</if>
+
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        WHERE order_id = #{orderId}
+    </update>
+
+    <!-- Increase callback retry times (atomic) -->
+    <update id="increaseCallbackTimes">
+        UPDATE pay_order
+        SET
+            callback_times = IFNULL(callback_times, 0) + 1,
+            last_callbak_time = #{lastCallbackTime},
+            update_time = #{lastCallbackTime}
+        WHERE order_id = #{orderId}
+    </update>
+
+    <!-- Query by payment IDs and time range -->
+    <select id="getPayOrderInfosByPaymentIds" resultMap="PayOrderResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM pay_order
+        <where>
+            <if test="paymentIds == null or paymentIds.isEmpty()">
+                1 = 0
+            </if>
+            <if test="paymentIds != null and !paymentIds.isEmpty()">
+                payment_id IN
+                <foreach collection="paymentIds" item="pid" open="(" close=")" separator=",">
+                    #{pid}
+                </foreach>
+                <if test="startTime != null">
+                    AND create_time &gt;= #{startTime}
+                </if>
+                <if test="endTime != null">
+                    AND create_time &lt; #{endTime}
+                </if>
+            </if>
+        </where>
+    </select>
+
+</mapper>

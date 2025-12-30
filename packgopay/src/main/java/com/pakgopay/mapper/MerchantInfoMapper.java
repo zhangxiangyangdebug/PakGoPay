@@ -11,7 +11,7 @@ public interface MerchantInfoMapper {
     /**
      * 1、findByUserId 通过 userId 查询
      */
-    MerchantInfoDto findByUserId(@Param("userId") Long userId);
+    MerchantInfoDto findByUserId(@Param("userId") String userId);
 
     /**
      * 2、saveData 插入保存数据
@@ -20,15 +20,15 @@ public interface MerchantInfoMapper {
     int saveData(MerchantInfoDto dto);
 
     /** xiaoyou 3、upDatePayWhiteIpsByUserId：通过指定 userId 更新 pay_white_ips */
-    int upDatePayWhiteIpsByUserId(@Param("userId") Long userId,
+    int upDatePayWhiteIpsByUserId(@Param("userId") String userId,
                                   @Param("payWhiteIps") String payWhiteIps);
 
     /** xiaoyou 4、upDateColWhiteIpsByUserId：通过指定 userId 更新 col_white_ips */
-    int upDateColWhiteIpsByUserId(@Param("userId") Long userId,
+    int upDateColWhiteIpsByUserId(@Param("userId") String userId,
                                   @Param("colWhiteIps") String colWhiteIps);
 
     /**
      * 5、getEnableStatus 通过指定 userId 获取 status
      */
-    Integer getEnableStatus(@Param("userId") Long userId);
+    Integer getEnableStatus(@Param("userId") String userId);
 }

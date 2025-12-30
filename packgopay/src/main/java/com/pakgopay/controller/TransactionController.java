@@ -1,5 +1,6 @@
 package com.pakgopay.controller;
 
+import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.common.reqeust.transaction.PayOutOrderRequest;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.async.WebAsyncTask;
 
 @RestController
 @RequestMapping("/pakGoPay/server/v1")
@@ -26,14 +28,35 @@ public class TransactionController {
 
 
     @PostMapping(value = "/createCollectionOrder")
-    public CommonResponse createCollectionOrder(HttpServletRequest request, @Valid @RequestBody CollectionOrderRequest collectionOrderRequest) throws PakGoPayException {
-        CommonResponse commonResponse = collectionOrderService.createCollectionOrder(collectionOrderRequest);
-        return commonResponse;
+    public WebAsyncTask<CommonResponse> createCollectionOrder(HttpServletRequest request, @Valid @RequestBody CollectionOrderRequest collectionOrderRequest) throws PakGoPayException {
+        WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L,
+                () -> collectionOrderService.createCollectionOrder(collectionOrderRequest));
+
+        task.onTimeout(() -> {
+            throw new PakGoPayException(ResultCode.REQUEST_TIME_OUT, "createCollectionOrder async timeout");
+        });
+
+        task.onError(() -> {
+            throw new PakGoPayException(ResultCode.FAIL, "createCollectionOrder async error");
+        });
+
+        return task;
     }
 
     @PostMapping(value = "/createPayOutOrder")
-    public CommonResponse createPayOutOrder(HttpServletRequest request, @Valid @RequestBody PayOutOrderRequest payOutOrderRequest) {
-        CommonResponse commonResponse = payOutOrderService.createPayOutOrder(payOutOrderRequest);
-        return commonResponse;
+    public WebAsyncTask<CommonResponse> createPayOutOrder(HttpServletRequest request, @Valid @RequestBody PayOutOrderRequest payOutOrderRequest) {
+        WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L,
+                () -> payOutOrderService.createPayOutOrder(payOutOrderRequest));
+        ;
+
+        task.onTimeout(() -> {
+            throw new PakGoPayException(ResultCode.REQUEST_TIME_OUT, "createPayOutOrder async timeout");
+        });
+
+        task.onError(() -> {
+            throw new PakGoPayException(ResultCode.FAIL, "createPayOutOrder async error");
+        });
+
+        return task;
     }
 }

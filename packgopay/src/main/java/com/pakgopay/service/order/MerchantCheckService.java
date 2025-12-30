@@ -4,6 +4,7 @@ import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.mapper.AgentInfoMapper;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.MerchantInfoMapper;
+import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.dto.AgentInfoDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import lombok.extern.slf4j.Slf4j;
@@ -29,8 +30,18 @@ public class MerchantCheckService {
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;
 
+    @Autowired
+    private PayOrderMapper payOrderMapper;
+
     public boolean existsColMerchantOrderNo(String merchantOrderNo) {
+        // TODO xiaoyou 从redis中获取判断，不存在则存入，数据写入数据库后，删除该数据
         Integer count = collectionOrderMapper.isExitMerchantOrderNo(merchantOrderNo);
+        return CommonConstant.ZERO.equals(count);
+    }
+
+    public boolean existsPayMerchantOrderNo(String merchantOrderNo) {
+        // TODO xiaoyou 从redis中获取判断，不存在则存入，数据写入数据库后，删除该数据
+        Integer count = payOrderMapper.isExitMerchantOrderNo(merchantOrderNo);
         return CommonConstant.ZERO.equals(count);
     }
 
@@ -39,7 +50,7 @@ public class MerchantCheckService {
      *
      * @return result
      */
-    public boolean isEnableMerchant(Integer merchantStatus, Long agentUserId) {
+    public boolean isEnableMerchant(Integer merchantStatus, String agentUserId) {
         // xiaoyou 商户启用状态
         if (!CommonConstant.ENABLE_STATUS_ENABLE.equals(merchantStatus)) {
             return false;
@@ -66,7 +77,7 @@ public class MerchantCheckService {
      * @return check result
      */
     @Cacheable(cacheNames = "col_ip_isAllow", key = "#userId")
-    public boolean isColIpAllowed(Long userId, String clientIp, String whiteIps) {
+    public boolean isColIpAllowed(String userId, String clientIp, String whiteIps) {
         Set<String> allowedIps = parseIpWhitelist(whiteIps);
         return allowedIps.contains(clientIp);
     }
@@ -80,7 +91,7 @@ public class MerchantCheckService {
      */
     @CacheEvict(cacheNames = "col_ip_isAllow", key = "#userId")
     @Transactional
-    public void updateColIpWhitelist(Long userId, String ips) {
+    public void updateColIpWhitelist(String userId, String ips) {
         MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
         merchantInfoDto.setColWhiteIps(ips);
         merchantInfoMapper.upDateColWhiteIpsByUserId(userId, ips);
@@ -94,7 +105,7 @@ public class MerchantCheckService {
      * @return check result
      */
     @Cacheable(cacheNames = "pay_ip_isAllow", key = "#userId")
-    public boolean isPayIpAllowed(Long userId, String clientIp, String whiteIps) {
+    public boolean isPayIpAllowed(String userId, String clientIp, String whiteIps) {
         Set<String> allowedIps = parseIpWhitelist(whiteIps);
         return allowedIps.contains(clientIp);
     }
@@ -107,13 +118,13 @@ public class MerchantCheckService {
      */
     @CacheEvict(cacheNames = "pay_ip_isAllow", key = "#userId")
     @Transactional
-    public void updatePayIpWhitelist(Long userId, String ips) {
+    public void updatePayIpWhitelist(String userId, String ips) {
         MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
         merchantInfoDto.setPayWhiteIps(ips);
         merchantInfoMapper.upDatePayWhiteIpsByUserId(userId, ips);
     }
 
-    public MerchantInfoDto getConfigurationInfo(Long userId) {
+    public MerchantInfoDto getConfigurationInfo(String userId) {
         return merchantInfoMapper.findByUserId(userId);
     }
 
