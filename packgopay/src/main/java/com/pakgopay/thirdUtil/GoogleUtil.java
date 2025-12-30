@@ -1,6 +1,8 @@
 package com.pakgopay.thirdUtil;
 
 
+import com.pakgopay.service.common.AuthorizationService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.Random;
@@ -35,4 +37,10 @@ public class GoogleUtil {
         return GoogleAuthenticator.checkCode(secretKey, code, System.currentTimeMillis());
     }
 
+    public static String getUserInfoFromToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        String token = header.substring(7);
+        String userInfo = AuthorizationService.verifyToken(token);
+        return userInfo;
+    }
 }
