@@ -2,11 +2,14 @@ package com.pakgopay.mapper.dto;
 
 import lombok.Data;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-public class MerchantInfoDto {
+public class MerchantInfoDto implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     /** xiaoyou 用户ID */
     private Long userId;

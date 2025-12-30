@@ -167,14 +167,20 @@
     </delete>
 
     <!-- getPaymentNosByChannelIds -->
-    <select id="getPaymentIdsByChannelIds" resultType="java.lang.String">
+    <select id="getPaymentIdsByChannelIds" resultMap="ChannelsResultMap">
         select
+        channel_id,
         payment_ids
         from channels
         where channel_id in
-        <foreach collection="channelIds" item="id" open="(" close=")" separator=",">
-            #{id}
-        </foreach>
+        <if test="channelIds == null or channelIds.isEmpty()">
+            1 = 0
+        </if>
+        <if test="channelIds != null and !channelIds.isEmpty()">
+            <foreach collection="channelIds" item="id" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+        </if>
         <if test="status != null">
             and status = #{status}
         </if>

@@ -25,8 +25,8 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
     ChannelPaymentService channelPaymentService;
 
     @Override
-    public CommonResponse createCollectionOrder(CollectionOrderRequest collectionOrderRequest) throws PakGoPayException {
-        Long userId = Long.valueOf(collectionOrderRequest.getUserId());
+    public CommonResponse createCollectionOrder(CollectionOrderRequest colOrderRequest) throws PakGoPayException {
+        Long userId = Long.valueOf(colOrderRequest.getUserId());
         // 1. get merchant info
         MerchantInfoDto merchantInfoDto = merchantCheckService.getConfigurationInfo(userId);
         // merchant is not exists
@@ -35,9 +35,11 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         }
 
         // 2. check request validate
-        validateCollectionRequest(collectionOrderRequest, merchantInfoDto);
+        validateCollectionRequest(colOrderRequest, merchantInfoDto);
         // 3. get available payment id
-        Long paymentId = channelPaymentService.getPaymentId(collectionOrderRequest, merchantInfoDto);
+        Long paymentId = channelPaymentService.getPaymentId(
+                colOrderRequest.getPaymentNo(), colOrderRequest.getAmount(),
+                merchantInfoDto.getChannelIds(), CommonConstant.SUPPORT_TYPE_COLLECTION);
 
         // 4. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId("COLL");

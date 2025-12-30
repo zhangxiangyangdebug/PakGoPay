@@ -4,6 +4,7 @@ import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.mapper.AgentInfoMapper;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.MerchantInfoMapper;
+import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.dto.AgentInfoDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,9 @@ public class MerchantCheckService {
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;
 
+    @Autowired
+    private PayOrderMapper payOrderMapper;
+
     public boolean existsColMerchantOrderNo(String merchantOrderNo) {
         // TODO xiaoyou 从redis中获取判断，不存在则存入，数据写入数据库后，删除该数据
         Integer count = collectionOrderMapper.isExitMerchantOrderNo(merchantOrderNo);
@@ -37,7 +41,7 @@ public class MerchantCheckService {
 
     public boolean existsPayMerchantOrderNo(String merchantOrderNo) {
         // TODO xiaoyou 从redis中获取判断，不存在则存入，数据写入数据库后，删除该数据
-        Integer count = collectionOrderMapper.isExitMerchantOrderNo(merchantOrderNo);
+        Integer count = payOrderMapper.isExitMerchantOrderNo(merchantOrderNo);
         return CommonConstant.ZERO.equals(count);
     }
 

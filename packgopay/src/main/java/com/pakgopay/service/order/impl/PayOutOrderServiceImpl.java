@@ -6,8 +6,10 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
+import com.pakgopay.service.order.ChannelPaymentService;
 import com.pakgopay.service.order.MerchantCheckService;
 import com.pakgopay.service.order.PayOutOrderService;
+import com.pakgopay.util.SnowflakeIdGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -19,9 +21,12 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
     @Autowired
     MerchantCheckService merchantCheckService;
 
+    @Autowired
+    ChannelPaymentService channelPaymentService;
+
     @Override
-    public CommonResponse createPayOutOrder(PayOutOrderRequest payOutOrderRequest) throws PakGoPayException {
-        Long userId = Long.valueOf(payOutOrderRequest.getUserId());
+    public CommonResponse createPayOutOrder(PayOutOrderRequest payOrderRequest) throws PakGoPayException {
+        Long userId = Long.valueOf(payOrderRequest.getUserId());
         // 1. get merchant info
         MerchantInfoDto merchantInfoDto = merchantCheckService.getConfigurationInfo(userId);
         // merchant is not exists
@@ -30,14 +35,17 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         }
 
         // 2. check request validate
-        validatePayOutRequest(payOutOrderRequest, merchantInfoDto);
+        validatePayOutRequest(payOrderRequest, merchantInfoDto);
+        // 3. get available payment id
+        Long paymentId = channelPaymentService.getPaymentId(
+                payOrderRequest.getPaymentNo(), payOrderRequest.getAmount(),
+                merchantInfoDto.getChannelIds(), CommonConstant.SUPPORT_TYPE_PAY);
 
+        // 4. create system transaction no
+        String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId("PAY");
 
-
-
-
-
-
+        // 5. calculate transaction fee
+//        channelPaymentService.calculateTransactionFee();
 
         return null;
     }

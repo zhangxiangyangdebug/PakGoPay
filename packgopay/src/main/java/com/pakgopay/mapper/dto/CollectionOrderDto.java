@@ -2,49 +2,122 @@ package com.pakgopay.mapper.dto;
 
 import lombok.Data;
 
+import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-public class CollectionOrderDto {
+public class CollectionOrderDto implements Serializable {
 
-    /**
-     * Merchant ID
-     */
-    private Long merchantId;
+    private static final long serialVersionUID = 1L;
 
-    /**
-     * Order ID
-     */
+    /** Order ID */
     private String orderId;
 
-    /**
-     * Order status
-     */
-    private Integer orderStatus;
+    /** Order amount */
+    private BigDecimal amount;
 
-    /**
-     * Order type (e.g. collection / payout)
-     */
-    private Integer orderType;
+    /** Actual order amount */
+    private BigDecimal actualAmount;
 
-    /**
-     * Callback status
-     */
-    private Integer callbackStatus;
+    /** Floating amount */
+    private BigDecimal floatingAmount;
 
-    /**
-     * Remark
-     */
+    /** Currency code (e.g. USD, CNY) */
+    private String currencyType;
+
+    /** User ID */
+    private String userId;
+
+    /** Callback token */
+    private String callbackToken;
+
+    /** Callback URL */
+    private String callbackUrl;
+
+    /** Callback retry times */
+    private Integer callbackTimes;
+
+    /** Last callback time */
+    private LocalDateTime lastCallbackTime;
+
+    /** Merchant fixed fee */
+    private BigDecimal merchantFixedFee;
+
+    /** Merchant rate */
+    private BigDecimal merchantRate;
+
+    /** Merchant fee */
+    private BigDecimal merchantFee;
+
+    /** Level 1 agent rate */
+    private BigDecimal agent1Rate;
+
+    /** Level 1 agent fixed fee */
+    private String agent1FixedFee;
+
+    /** Level 1 agent commission */
+    private String agent1Fee;
+
+    /** Level 2 agent rate */
+    private String agent2Rate;
+
+    /** Level 2 agent fixed fee */
+    private String agent2FixedFee;
+
+    /** Level 2 agent commission */
+    private String agent2Fee;
+
+    /** Level 3 agent rate */
+    private String agent3Rate;
+
+    /** Level 3 agent fixed fee */
+    private String agent3FixedFee;
+
+    /** Level 3 agent commission */
+    private String agent3Fee;
+
+    /** Request IP */
+    private String requestIp;
+
+    /** Operation type: 1-system completed, 2-manual confirmation */
+    private String operateType;
+
+    /** Remark */
     private String remark;
 
-    /**
-     * Create time
-     */
+    /** Create time */
     private LocalDateTime createTime;
 
-    /**
-     * Update time
-     */
+    /** Update time */
     private LocalDateTime updateTime;
+
+    /** Collection mode: 1-third-party, 2-system */
+    private Integer collectionMode;
+
+    /** Payment channel ID */
+    private Long paymentId;
+
+    /** Order type: 1-system order, 2-manual order */
+    private Integer orderType;
+
+    /** Callback status: 1-success, 2-failed, 3-pending */
+    private String callbackStatus;
+
+    /** Merchant ID */
+    private String merchantId;
+
+    /** Order status: 1-processing, 2-failed */
+    private Integer orderStatus;
+
+    /** Order request time */
+    private LocalDateTime requestTime;
+
+    /** Callback success time */
+    private LocalDateTime successCallbackTime;
+
+    /** Channel ID */
+    private Long channelId;
+
 
 }

@@ -1,6 +1,6 @@
 package com.pakgopay.mapper;
 
-import com.pakgopay.mapper.dto.CollectionOrderDetailDto;
+import com.pakgopay.mapper.dto.CollectionOrderDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -11,24 +11,23 @@ import java.util.Optional;
 @Mapper
 public interface CollectionOrderMapper {
 
-    // ------------------------------------- collection_order ---------------------------------------------------------
     Integer isExitMerchantOrderNo(@Param(value = "merchantOrderNo") String merchantOrderNo);
 
+    /** Query order by order ID */
+    Optional<CollectionOrderDto> findByOrderId(@Param("orderId") String orderId);
 
-    // ------------------------------------- collection_order_detail --------------------------------------------------
-    Optional<CollectionOrderDetailDto> findByOrderId(@Param("orderId") String orderId);
+    /** Insert order */
+    int insert(CollectionOrderDto dto);
 
-    int insert(CollectionOrderDetailDto dto);
+    /** Update order by order ID */
+    int updateByOrderId(CollectionOrderDto dto);
 
-    int updateByOrderId(CollectionOrderDetailDto dto);
-
-    /**
-     * callBack times add +1
-     */
+    /** Increase callback retry times */
     int increaseCallbackTimes(@Param("orderId") String orderId,
                               @Param("lastCallbackTime") LocalDateTime lastCallbackTime);
 
-    List<CollectionOrderDetailDto> getCollectionOrderDetailInfosByPaymentIds(
+    /** Query orders by payment IDs and time range */
+    List<CollectionOrderDto> getCollectionOrderInfosByPaymentIds(
             @Param("paymentIds") List<Long> paymentIds,
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime

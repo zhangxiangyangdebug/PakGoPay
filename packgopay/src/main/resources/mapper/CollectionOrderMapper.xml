@@ -10,25 +10,180 @@
     <!-- ========================= -->
     <resultMap id="CollectionOrderResultMap"
                type="com.pakgopay.mapper.dto.CollectionOrderDto">
-        <result column="merchant_id" property="merchantId" javaType="java.lang.Long"/>
-        <result column="order_id" property="orderId" javaType="java.lang.String"/>
-        <result column="order_status" property="orderStatus" javaType="java.lang.Integer"/>
-        <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
-        <result column="callback_status" property="callbackStatus" javaType="java.lang.Integer"/>
+
+        <!-- Primary key -->
+        <id column="order_id" property="orderId" javaType="java.lang.String"/>
+
+        <!-- Amounts -->
+        <result column="amount" property="amount" javaType="java.math.BigDecimal"/>
+        <result column="actual_amount" property="actualAmount" javaType="java.math.BigDecimal"/>
+        <result column="floating_amount" property="floatingAmount" javaType="java.math.BigDecimal"/>
+
+        <!-- Currency -->
+        <result column="currency_type" property="currencyType" javaType="java.lang.String"/>
+
+        <!-- User -->
+        <result column="user_id" property="userId" javaType="java.lang.String"/>
+
+        <!-- Callback info -->
+        <result column="callback_token" property="callbackToken" javaType="java.lang.String"/>
+        <result column="callback_url" property="callbackUrl" javaType="java.lang.String"/>
+        <result column="callback_times" property="callbackTimes" javaType="java.lang.Integer"/>
+        <result column="last_callback_time" property="lastCallbackTime" javaType="java.time.LocalDateTime"/>
+
+        <!-- Merchant fees -->
+        <result column="merchant_fixed_fee" property="merchantFixedFee" javaType="java.math.BigDecimal"/>
+        <result column="merchant_rate" property="merchantRate" javaType="java.math.BigDecimal"/>
+        <result column="merchant_fee" property="merchantFee" javaType="java.math.BigDecimal"/>
+
+        <!-- Agent level 1 -->
+        <result column="agent1_rate" property="agent1Rate" javaType="java.math.BigDecimal"/>
+        <result column="agent1_fixed_fee" property="agent1FixedFee" javaType="java.lang.String"/>
+        <result column="agent1_fee" property="agent1Fee" javaType="java.lang.String"/>
+
+        <!-- Agent level 2 -->
+        <result column="agent2_rate" property="agent2Rate" javaType="java.lang.String"/>
+        <result column="agent2_fixed_fee" property="agent2FixedFee" javaType="java.lang.String"/>
+        <result column="agent2_fee" property="agent2Fee" javaType="java.lang.String"/>
+
+        <!-- Agent level 3 -->
+        <result column="agent3_rate" property="agent3Rate" javaType="java.lang.String"/>
+        <result column="agent3_fixed_fee" property="agent3FixedFee" javaType="java.lang.String"/>
+        <result column="agent3_fee" property="agent3Fee" javaType="java.lang.String"/>
+
+        <!-- Request info -->
+        <result column="request_ip" property="requestIp" javaType="java.lang.String"/>
+        <result column="operate_type" property="operateType" javaType="java.lang.String"/>
         <result column="remark" property="remark" javaType="java.lang.String"/>
+
+        <!-- Time -->
         <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
         <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
+
+        <!-- Payment -->
+        <result column="collection_mode" property="collectionMode" javaType="java.lang.Integer"/>
+        <result column="payment_id" property="paymentId" javaType="java.lang.Long"/>
+
+        <!-- Order status -->
+        <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
+        <result column="callback_status" property="callbackStatus" javaType="java.lang.String"/>
+        <result column="merchant_id" property="merchantId" javaType="java.lang.String"/>
+        <result column="order_status" property="orderStatus" javaType="java.lang.Integer"/>
+
+        <!-- Callback times -->
+        <result column="request_time" property="requestTime" javaType="java.time.LocalDateTime"/>
+        <result column="success_callback_time" property="successCallbackTime" javaType="java.time.LocalDateTime"/>
+
+        <!-- Channel -->
+        <result column="channel_id" property="channelId" javaType="java.lang.Long"/>
+
     </resultMap>
 
+
+    <!-- Base columns -->
     <sql id="BaseColumns">
-        merchant_id,order_id,order_status,order_type,callback_status,remark,create_time,update_time
+        order_id,amount,actual_amount,floating_amount,currency_type,user_id,callback_token,callback_url,callback_times,
+        last_callback_time,merchant_fixed_fee,merchant_rate,merchant_fee,
+        agent1_rate,agent1_fixed_fee,agent1_fee,agent2_rate,agent2_fixed_fee,agent2_fee,agent3_rate,agent3_fixed_fee,agent3_fee,
+        request_ip,operate_type,remark,create_time,update_time,collection_mode,payment_id,order_type,callback_status,
+        merchant_id,order_status,request_time,success_callback_time,channel_id
     </sql>
+
+    <!-- Insert order -->
+    <insert id="insert">
+        INSERT INTO collection_order (
+        <include refid="BaseColumns"/>
+        ) VALUES (
+        #{orderId},#{amount},#{actualAmount},#{floatingAmount},#{currencyType},#{userId},#{callbackToken},#{callbackUrl},#{callbackTimes},
+        #{lastCallbackTime},#{merchantFixedFee},#{merchantRate},#{merchantFee},
+        #{agent1Rate},#{agent1FixedFee},#{agent1Fee},#{agent2Rate},#{agent2FixedFee},#{agent2Fee},#{agent3Rate},#{agent3FixedFee},#{agent3Fee},
+        #{requestIp},#{operateType},#{remark},#{createTime},#{updateTime},#{collectionMode},#{paymentId},#{orderType},#{callbackStatus},
+        #{merchantId},#{orderStatus},#{requestTime},#{successCallbackTime},#{channelId}
+        )
+    </insert>
+
+    <select id="findByOrderId" parameterType="string" resultMap="CollectionOrderResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM collection_order
+        WHERE order_id = #{orderId}
+        LIMIT 1
+    </select>
+
+    <update id="updateByOrderId" parameterType="com.pakgopay.mapper.dto.CollectionOrderDto">
+        UPDATE collection_order
+        <set>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="actualAmount != null">actual_amount = #{actualAmount},</if>
+            <if test="floatingAmount != null">floating_amount = #{floatingAmount},</if>
+
+            <if test="currencyType != null and currencyType != ''">
+                currency_type = #{currencyType},
+            </if>
+
+            <if test="callbackToken != null">callback_token = #{callbackToken},</if>
+            <if test="callbackUrl != null">callback_url = #{callbackUrl},</if>
+            <if test="callbackTimes != null">callback_times = #{callbackTimes},</if>
+            <if test="lastCallbackTime != null">
+                last_callback_time = #{lastCallbackTime},
+            </if>
+
+            <if test="merchantFixedFee != null">
+                merchant_fixed_fee = #{merchantFixedFee},
+            </if>
+            <if test="merchantRate != null">merchant_rate = #{merchantRate},</if>
+            <if test="merchantFee != null">merchant_fee = #{merchantFee},</if>
+
+            <if test="orderStatus != null">order_status = #{orderStatus},</if>
+            <if test="callbackStatus != null">callback_status = #{callbackStatus},</if>
+
+            <if test="successCallbackTime != null">
+                success_callback_time = #{successCallbackTime},
+            </if>
+
+            <if test="updateTime != null">
+                update_time = #{updateTime},
+            </if>
+        </set>
+        WHERE order_id = #{orderId}
+    </update>
+
+    <update id="increaseCallbackTimes">
+        UPDATE collection_order
+        SET
+            callback_times = IFNULL(callback_times, 0) + 1,
+            last_callback_time = #{lastCallbackTime},
+            update_time = #{lastCallbackTime}
+        WHERE order_id = #{orderId}
+    </update>
 
     <select id="isExitMerchantOrderNo" resultType="java.lang.Integer">
         select
             count(1)
         from collection_order
         where merchant_order_no = #{merchantOrderNo}
+    </select>
+
+    <select id="getCollectionOrderInfosByPaymentIds"
+            resultMap="CollectionOrderResultMap">
+
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM collection_order
+        <where>
+            <if test="paymentIds != null and !paymentIds.isEmpty()">
+                payment_id IN
+                <foreach collection="paymentIds" item="pid" open="(" close=")" separator=",">
+                    #{pid}
+                </foreach>
+            </if>
+            <if test="paymentIds == null or paymentIds.isEmpty()">
+                AND 1 = 0
+            </if>
+            AND create_time &gt;= #{startTime}
+            AND create_time &lt;  #{endTime}
+        </where>
+
     </select>
 
 </mapper>

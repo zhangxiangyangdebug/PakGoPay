@@ -19,5 +19,5 @@ public interface ChannelsMapper {
 
     int deleteByChannelId(@Param("channelId") Long channelId);
 
-    String getPaymentIdsByChannelIds(@Param("channelIds") List<String> channelIds, @Param("status") Integer status);
+    List<ChannelsDto> getPaymentIdsByChannelIds(@Param("channelIds") List<Long> channelIds, @Param("status") Integer status);
 }

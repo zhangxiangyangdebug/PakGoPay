@@ -19,6 +19,7 @@ public interface PaymentsMapper {
 
     /**
      * Please modify the payment_ids field in the channels table simultaneously when inserting data.
+     *
      * @param dto data
      * @return modify lines
      */
@@ -28,5 +29,7 @@ public interface PaymentsMapper {
 
     int deleteByPaymentId(@Param("paymentId") Long paymentId);
 
-    List<PaymentsDto> findEnableInfoByPaymentNos(@Param("supportType") Integer supportType,@Param("paymentNo") Integer paymentNo, @Param("paymentIdList") Set<String> paymentIdList);
+    List<PaymentsDto> findEnableInfoByPaymentNos(
+            @Param("supportType") Integer supportType,
+            @Param("paymentNo") Integer paymentNo, @Param("paymentIdList") Set<Long> paymentIdList);
 }
