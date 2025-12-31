@@ -13,13 +13,8 @@
 
         <result column="merchant_name" property="merchantName" javaType="java.lang.String"/>
 
-        <result column="collection_enabled" property="collectionEnabled" javaType="java.lang.Integer"/>
-        <result column="pay_enabled" property="payEnabled" javaType="java.lang.Integer"/>
-
-        <result column="daily_collection_limit" property="dailyCollectionLimit" javaType="java.math.BigDecimal"/>
-        <result column="daily_pay_limit" property="dailyPayLimit" javaType="java.math.BigDecimal"/>
-        <result column="monthly_collection_limit" property="monthlyCollectionLimit" javaType="java.math.BigDecimal"/>
-        <result column="monthly_pay_limit" property="monthlyPayLimit" javaType="java.math.BigDecimal"/>
+        <result column="collection_enabled" property="collectionEnabled" javaType="java.lang.Boolean"/>
+        <result column="pay_enabled" property="payEnabled" javaType="java.lang.Boolean"/>
 
         <result column="status" property="status" javaType="java.lang.Integer"/>
         <result column="risk_level" property="riskLevel" javaType="java.lang.Integer"/>
@@ -52,7 +47,6 @@
 
     <sql id="BaseColumns">
         user_id, parent_id, merchant_name, collection_enabled, pay_enabled,
-        daily_collection_limit, daily_pay_limit, monthly_collection_limit, monthly_pay_limit,
         status, risk_level, notification_enable,
         create_time, create_by, update_time, update_by,
         collection_rate, collection_fixed_fee, collection_max_fee, collection_min_fee,
@@ -75,7 +69,6 @@
         <include refid="BaseColumns"/>
         ) values (
         #{userId}, #{parentId}, #{merchantName}, #{collectionEnabled}, #{payEnabled},
-        #{dailyCollectionLimit}, #{dailyPayLimit}, #{monthlyCollectionLimit}, #{monthlyPayLimit},
         #{status}, #{riskLevel}, #{notificationEnable},
         #{createTime}, #{createBy}, #{updateTime}, #{updateBy},
         #{collectionRate}, #{collectionFixedFee}, #{collectionMaxFee}, #{collectionMinFee},

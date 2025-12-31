@@ -8,5 +8,7 @@ import jakarta.validation.Valid;
 
 public interface CollectionOrderService {
 
-    public CommonResponse createCollectionOrder(@Valid CollectionOrderRequest collectionOrderRequest) throws PakGoPayException;
+    CommonResponse createCollectionOrder(@Valid CollectionOrderRequest collectionOrderRequest) throws PakGoPayException;
+
+    CommonResponse queryOrderInfo(String userId, String merchantOrderNo) throws PakGoPayException;
 }

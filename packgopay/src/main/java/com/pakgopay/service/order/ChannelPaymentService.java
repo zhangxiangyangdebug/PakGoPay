@@ -3,13 +3,16 @@ package com.pakgopay.service.order;
 
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.entity.TransactionInfo;
+import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.mapper.ChannelsMapper;
 import com.pakgopay.mapper.CollectionOrderMapper;
+import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.PaymentsMapper;
 import com.pakgopay.mapper.dto.ChannelDto;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
+import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.util.CommontUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -36,18 +39,33 @@ public class ChannelPaymentService {
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;
 
-    public Long getPaymentId(Integer paymentNo, BigDecimal amount, String channelIds, Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException {
+    @Autowired
+    private PayOrderMapper payOrderMapper;
+
+    /**
+     * get available payment ids
+     * @param channelIds channel ids
+     * @param supportType orderType (Collection / Payout)
+     * @param transactionInfo transaction info
+     * @return payment ids
+     * @throws PakGoPayException Business Exception
+     */
+    public Long getPaymentId(
+            String channelIds, Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException {
 
         // key:payment_id value:channel_id
         Map<Long, ChannelDto> paymentMap = new HashMap<>();
         // 1. get payment info list through channel ids and payment no
-        List<PaymentDto> paymentDtoList = getPaymentInfosByChannel(paymentNo, channelIds, supportType, paymentMap);
+        List<PaymentDto> paymentDtoList = getPaymentInfosByChannel(transactionInfo.getPaymentNo(), channelIds, supportType, paymentMap);
 
-        // 2. filter no limit payment infos
-        List<PaymentDto> availablePayments = filterNoLimitPayments(amount, paymentDtoList);
+        // 2. filter support currency payment
+        paymentDtoList = filterSupportCurrencyPayments(paymentDtoList, transactionInfo.getCurrency());
+
+        // 3. filter no limit payment infos
+        paymentDtoList = filterNoLimitPayments(transactionInfo.getAmount(), paymentDtoList, supportType);
 
         // TODO xiaoyou 成功率投票
-        PaymentDto paymentDto = availablePayments.get(0);
+        PaymentDto paymentDto = paymentDtoList.get(0);
         log.info(
                 "merchant payment search success, paymentId={}, paymentName={}",
                 paymentDto.getPaymentId(),
@@ -63,6 +81,15 @@ public class ChannelPaymentService {
         return paymentDto.getPaymentId();
     }
 
+    /**
+     * get payment infos by merchant's channel and payment no
+     * @param paymentNo payment no
+     * @param channelIds merchant's channel
+     * @param supportType orderType (Collection / Payout)
+     * @param paymentMap payment map channel (key: payment id value: channel info)
+     * @return paymentInfo
+     * @throws PakGoPayException business Exception
+     */
     private List<PaymentDto> getPaymentInfosByChannel(
             Integer paymentNo, String channelIds, Integer supportType, Map<Long, ChannelDto> paymentMap)
             throws PakGoPayException {
@@ -91,7 +118,32 @@ public class ChannelPaymentService {
         return paymentDtoList;
     }
 
-    private List<PaymentDto> filterNoLimitPayments(BigDecimal amount, List<PaymentDto> paymentDtoList) throws PakGoPayException {
+    /**
+     * filter payment that not support this order currency
+     * @param availablePayments available payments
+     * @param currency currency type (example:VND,PKR,USD)
+     * @return filtered payments
+     * @throws PakGoPayException business Exception
+     */
+    private List<PaymentDto> filterSupportCurrencyPayments(List<PaymentDto> availablePayments, String currency) throws PakGoPayException {
+        availablePayments = availablePayments.stream().filter(payment -> {
+            return payment.getCurrencyType().equals(currency);
+        }).toList();
+        if (availablePayments.isEmpty()) {
+            throw new PakGoPayException(ResultCode.PAYMENT_NOT_SUPPORT_CURRENCY, "channel is not support this currency: " + currency);
+        }
+        return availablePayments;
+    }
+
+    /**
+     * filter payment that over limit daily/montly amount sum
+     * @param amount order amount
+     * @param paymentDtoList payment infos
+     * @param supportType orderType (Collection / Payout)
+     * @return filtered payments
+     * @throws PakGoPayException business Exception
+     */
+    private List<PaymentDto> filterNoLimitPayments(BigDecimal amount, List<PaymentDto> paymentDtoList, Integer supportType) throws PakGoPayException {
         log.info("filterNoLimitPayments start, paymentsDtoList size {}", paymentDtoList.size());
 
         // Filter orders by amount that match the maximum and minimum range of the channel.
@@ -107,29 +159,9 @@ public class ChannelPaymentService {
 
         // get current day and month, used amount
         List<Long> enAblePaymentIds = paymentDtoList.stream().map(PaymentDto::getPaymentId).toList();
-        LocalDate today = LocalDate.now();
-        LocalDateTime startTime = today.withDayOfMonth(1).atStartOfDay();
-        LocalDateTime endTime = startTime.plusMonths(1);
-        List<CollectionOrderDto> collectionOrderDetailDtoList =
-                collectionOrderMapper.getCollectionOrderInfosByPaymentIds(enAblePaymentIds, startTime, endTime);
         Map<Long, BigDecimal> currentDayAmountSum = new HashMap<>();
         Map<Long, BigDecimal> currentMonthAmountSum = new HashMap<>();
-
-        for (CollectionOrderDto dto : collectionOrderDetailDtoList) {
-            if (dto.getPaymentId() == null || dto.getAmount() == null) {
-                continue;
-            }
-            // current day data
-            if (dto.getCreateTime().equals(today.atStartOfDay())) {
-                currentDayAmountSum.merge(dto.getPaymentId(),
-                        dto.getAmount(), BigDecimal::add
-                );
-            }
-            // current month data
-            currentMonthAmountSum.merge(
-                    dto.getPaymentId(), dto.getAmount(), BigDecimal::add
-            );
-        }
+        getCurrentAmountSumByType(enAblePaymentIds, supportType, currentDayAmountSum, currentMonthAmountSum);
 
         // filter no limit payment
         List<PaymentDto> availablePayments = paymentDtoList.stream().filter(dto ->
@@ -151,6 +183,70 @@ public class ChannelPaymentService {
         return availablePayments;
     }
 
+    /**
+     * get current daily/monthly amount sum
+     *
+     * @param enAblePaymentIds      paymentId
+     * @param supportType           orderType (Collection / Payout)
+     * @param currentDayAmountSum   daily amount (key: paymentId value: amount sum)
+     * @param currentMonthAmountSum monthly amount (key: paymentId value: amount sum)
+     */
+    private void getCurrentAmountSumByType(
+            List<Long> enAblePaymentIds, Integer supportType, Map<Long, BigDecimal> currentDayAmountSum,
+            Map<Long, BigDecimal> currentMonthAmountSum) {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startTime = today.withDayOfMonth(1).atStartOfDay();
+        LocalDateTime endTime = startTime.plusMonths(1);
+        if (CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)) {
+            // order type Collection
+            List<CollectionOrderDto> collectionOrderDetailDtoList =
+                    collectionOrderMapper.getCollectionOrderInfosByPaymentIds(enAblePaymentIds, startTime, endTime);
+
+            for (CollectionOrderDto dto : collectionOrderDetailDtoList) {
+                if (dto.getPaymentId() == null || dto.getAmount() == null) {
+                    continue;
+                }
+                // current day data
+                if (dto.getCreateTime().equals(today.atStartOfDay())) {
+                    currentDayAmountSum.merge(dto.getPaymentId(),
+                            dto.getAmount(), BigDecimal::add
+                    );
+                }
+                // current month data
+                currentMonthAmountSum.merge(
+                        dto.getPaymentId(), dto.getAmount(), BigDecimal::add
+                );
+            }
+        } else {
+            // order type Payout
+            List<PayOrderDto> payOrderDtoList =
+                    payOrderMapper.getPayOrderInfosByPaymentIds(enAblePaymentIds, startTime, endTime);
+
+            for (PayOrderDto dto : payOrderDtoList) {
+                if (dto.getPaymentId() == null || dto.getAmount() == null) {
+                    continue;
+                }
+                // current day data
+                if (dto.getCreateTime().equals(today.atStartOfDay())) {
+                    currentDayAmountSum.merge(dto.getPaymentId(),
+                            dto.getAmount(), BigDecimal::add
+                    );
+                }
+                // current month data
+                currentMonthAmountSum.merge(
+                        dto.getPaymentId(), dto.getAmount(), BigDecimal::add
+                );
+            }
+        }
+    }
+
+    /**
+     * get merchant's payment ids by channel isd
+     * @param channelIdList channel ids
+     * @param paymentMap payment map channel (key: payment id value: channel info)
+     * @return payment ids
+     * @throws PakGoPayException business Exception
+     */
     private Set<Long> getAssociatePaymentIdByChannel(Set<Long> channelIdList, Map<Long, ChannelDto> paymentMap) throws PakGoPayException {
         List<ChannelDto> channelInfos = channelsMapper.
                 getPaymentIdsByChannelIds(channelIdList.stream().toList(), CommonConstant.ENABLE_STATUS_ENABLE);
@@ -175,5 +271,10 @@ public class ChannelPaymentService {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not payment");
         }
         return paymentIdList;
+    }
+
+    public void calculateTransactionFee(TransactionInfo transactionInfo, OrderType orderType) {
+
+        // TODO
     }
 }

@@ -14,6 +14,9 @@ public class PayOrderDto implements Serializable {
     /** Order ID */
     private String orderId;
 
+    /** merchant order no */
+    private String merchantOrderNo;
+
     /** Order amount */
     private BigDecimal amount;
 
@@ -38,8 +41,8 @@ public class PayOrderDto implements Serializable {
     /** Callback status: 1-success, 2-failed, 3-pending */
     private Integer callbackStatus;
 
-    /** User ID */
-    private String userId;
+    /** Merchant's User ID (not system) */
+    private String merchantUserId;
 
     /** Merchant fixed fee */
     private BigDecimal merchantFixedFee;
@@ -115,7 +118,5 @@ public class PayOrderDto implements Serializable {
 
     /** Operate type: 1-system completed, 2-manual confirmation */
     private Integer operateType;
-
-    // getters / setters (use Lombok @Data if you prefer)
 }
 
