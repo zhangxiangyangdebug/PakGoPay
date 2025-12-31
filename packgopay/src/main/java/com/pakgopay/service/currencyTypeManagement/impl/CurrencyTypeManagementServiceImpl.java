@@ -73,7 +73,7 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
         } catch (PakGoPayException e) {
             return CommonResponse.fail(e);
         } catch (Exception e) {
-            return CommonResponse.fail(ResultCode.FAIL,"add currency type failed");
+            return CommonResponse.fail(ResultCode.FAIL,"add currency type failed "+ e.getMessage());
         }
     }
 

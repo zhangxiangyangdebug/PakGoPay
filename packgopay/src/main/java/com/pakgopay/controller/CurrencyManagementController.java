@@ -21,7 +21,7 @@ public class CurrencyManagementController {
 
     @PostMapping("/addCurrencyType")
     public CommonResponse addCurrencyType(@RequestBody CurrencyTypeRequest currencyTypeRequest, HttpServletRequest request) {
-        return null;
+        return currencyTypeManagementService.addNewCurrencyType(currencyTypeRequest, request);
     }
 
     @GetMapping("/getCurrencyById")

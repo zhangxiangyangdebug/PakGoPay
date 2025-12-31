@@ -18,14 +18,14 @@
         <result column="currency_accuracy" property="currencyAccuracy" javaType="java.math.BigDecimal"/>
     </resultMap>
     <select id="getAllCurrencyType" resultMap="currencyTypeMap">
-        SELECT id, currency_type, name, icon, create_time, create_by, update_time, update_by, exchange_rate, remark, isRate  FROM currency
+        SELECT id, currency_type, name, icon, create_time, create_by, update_time, update_by, exchange_rate, remark, isRate, currency_accuracy  FROM currency
     </select>
 
     <insert id="addNewCurrency">
-        INSERT INTO currency (currency_type, name, icon, create_time, crate_by, update_time, update_by, exchange_rate, remark, isRate, currency_accuracy) values (#{currencyType},#{name},#{icon},#{createTime},#{createBy},#{updateTime},#{updateBy},#{exchangeRate},#{remark},#{isRate}, #{currencyAccuracy})
+        INSERT INTO currency (currency_type, name, icon, create_time, create_by, update_time, update_by, exchange_rate, remark, isRate, currency_accuracy) values (#{currencyType},#{name},#{icon},#{createTime},#{createBy},#{updateTime},#{updateBy},#{exchangeRate},#{remark},#{isRate}, #{currencyAccuracy})
     </insert>
 
     <select id="getCurrencyById" resultMap="currencyTypeMap">
-        SELECT id, currency_type, name, icon, create_time, create_by, update_time, update_by, exchange_rate, remark, isRate  FROM currency WHERE id = #{id}
+        SELECT id, currency_type, name, icon, create_time, create_by, update_time, update_by, exchange_rate, remark, isRate, currency_accuracy  FROM currency WHERE id = #{id}
     </select>
 </mapper>
