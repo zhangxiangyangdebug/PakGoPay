@@ -1,5 +1,6 @@
 package com.pakgopay.filter;
 
+import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.service.common.AuthorizationService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -28,8 +29,6 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-
-        System.out.println("lsa11111");
         try {
             String traceId = UUID.randomUUID().toString().replace("-", "");
             MDC.put(TRACE_ID, traceId);
@@ -55,7 +54,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 //filterChain.doFilter(request, response);
                 //response.sendError(200, "token is expire");
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
-
+                //response.sendError(ResultCode.TOKEN_IS_EXPIRE.getCode(), ResultCode.TOKEN_IS_EXPIRE.getMessage());
             }
             String userName = null;
 

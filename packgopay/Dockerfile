@@ -1,5 +1,5 @@
 # 使用官方Maven镜像作为构建环境
-FROM library/maven AS build
+FROM library/maven:3.9-amazoncorretto-21 AS build
 
 # 设置工作目录
 WORKDIR /app
@@ -18,7 +18,7 @@ FROM library/openjdk:26-ea-21-jdk
 WORKDIR /app
 
 # 从构建阶段复制编译后的JAR文件到运行时镜像中
-COPY --from=build /app/target/your-spring-boot-app.jar /app/app.jar
+COPY --from=build /app/target/packgopay-0.0.1.jar /app/app.jar
 
 # 暴露端口
 EXPOSE 8080

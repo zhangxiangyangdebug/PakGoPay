@@ -13,4 +13,7 @@ public class BaseRequest {
      * client Ip
      */
     String clientIp;
+
+
+    Long googleCode;
 }

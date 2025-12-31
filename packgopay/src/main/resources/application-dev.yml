@@ -1,4 +1,6 @@
 spring:
+  main:
+    allow-bean-definition-overriding: true
   application:
     name: PakGoPay
   rabbitmq:
@@ -23,8 +25,7 @@ spring:
       minimum-idle: 5
       connection-timeout: 1000
       idle-timeout: 60000
-      max-lifetime: 300000
-
+      max-lifetime: 30000
 server:
   address: 0.0.0.0
   port: 8090

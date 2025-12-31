@@ -8,6 +8,8 @@
         <result column="role_id" property="roleId" javaType="java.lang.Integer"/>
         <result column="role_name" property="roleName" javaType="java.lang.String"/>
         <result column="remark" property="remark" javaType="java.lang.String"/>
+        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
+        <result column="update_time" property="createTime" javaType="java.time.LocalDateTime"/>
     </resultMap>
 
     <select id="queryRoleInfoByUserId" resultType="java.lang.Integer">
@@ -15,6 +17,18 @@
     </select>
 
     <select id="getRoleList" resultMap="roleMap">
-        SELECT role_id, role_name from role;
+        SELECT role_id, role_name, remark, create_time, update_time from role;
     </select>
+
+    <select id="getRoleListByRoleName" resultMap="roleMap">
+        SELECT role_id, role_name, remark, create_time, update_time from role where role_name = #{roleName}
+    </select>
+
+    <insert id="addNewRole" parameterType="com.pakgopay.mapper.dto.Role">
+        INSERT INTO role (role_name, remark, create_time, update_time) values (#{role.roleName}, #{role.remark}, #{role.createTime}, #{role.updateTime})
+    </insert>
+
+    <delete id="deleteRole">
+        DELETE FROM role where role_id = #{roleId}
+    </delete>
 </mapper>

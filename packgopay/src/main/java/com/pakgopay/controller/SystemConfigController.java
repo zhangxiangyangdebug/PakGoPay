@@ -1,9 +1,15 @@
 package com.pakgopay.controller;
 
 import com.pakgopay.common.reqeust.CreateUserRequest;
+import com.pakgopay.common.reqeust.roleManagement.AddRoleRequest;
+import com.pakgopay.common.reqeust.roleManagement.DeleteRoleRequest;
+import com.pakgopay.common.reqeust.roleManagement.ModifyRoleRequest;
 import com.pakgopay.common.response.CommonResponse;
+import com.pakgopay.mapper.dto.Role;
 import com.pakgopay.service.systemConfig.SystemConfigService;
 import com.pakgopay.service.login.impl.UserService;
+import jakarta.servlet.http.HttpServletRequest;
+import org.apache.ibatis.annotations.Param;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,8 +30,8 @@ public class SystemConfigController {
 
 
     @GetMapping("/roleList")
-    public CommonResponse roleList(){
-        return systemConfigService.roleList();
+    public CommonResponse roleList(@RequestParam(required = false) String roleName){
+        return systemConfigService.roleList(roleName);
     }
 
     @GetMapping("/loginUserList")
@@ -46,5 +52,25 @@ public class SystemConfigController {
     @GetMapping("/loginUserByLoginName")
     public CommonResponse loginUserByLoginName(String loginName){
         return systemConfigService.loginUserByLoginName(loginName);
+    }
+
+    @PostMapping("/addRole")
+    public CommonResponse addRoleInfo(@RequestBody AddRoleRequest addRoleRequest, HttpServletRequest request){
+        return systemConfigService.addRoleInfo(addRoleRequest, request);
+    }
+
+    @PostMapping("/modifyRoleInfo")
+    public CommonResponse modifyRoleInfo(@RequestBody ModifyRoleRequest modifyRoleRequest, HttpServletRequest request){
+        return systemConfigService.modifyRoleInfo(modifyRoleRequest, request);
+    }
+
+    @PostMapping("/deleteRole")
+    public CommonResponse deleteRole(@RequestBody DeleteRoleRequest deleteRoleRequest, HttpServletRequest request){
+        return systemConfigService.deleteRole(deleteRoleRequest, request);
+    }
+
+    @GetMapping("/getRoleInfoByRoleId")
+    public CommonResponse getRoleInfoOfMenu(Integer roleId) {
+        return systemConfigService.getRoleMenuInfoByRoleId(roleId);
     }
 }
