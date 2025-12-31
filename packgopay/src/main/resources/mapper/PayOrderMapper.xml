@@ -8,6 +8,7 @@
     <!-- Result map (explicit javaType) -->
     <resultMap id="PayOrderResultMap" type="com.pakgopay.mapper.dto.PayOrderDto">
         <id column="order_id" property="orderId" javaType="java.lang.String"/>
+        <id column="merchant_order_no" property="merchantOrderNo" javaType="java.lang.String"/>
 
         <result column="amount" property="amount" javaType="java.math.BigDecimal"/>
         <result column="actual_amount" property="actualAmount" javaType="java.math.BigDecimal"/>
@@ -62,7 +63,7 @@
 
     <!-- Base columns -->
     <sql id="BaseColumns">
-        order_id,amount,actual_amount,callback_token,callback_url,callback_times,last_callbak_time,success_callback_time,callback_status,user_id,
+        order_id,merchant_order_no,amount,actual_amount,callback_token,callback_url,callback_times,last_callbak_time,success_callback_time,callback_status,user_id,
         merchant_fixed_fee,merchant_rate,merchant_fee,agent1_fixed_fee,agent1_rate,agent1_fee,agnet2_fixed_fee,agnet2_rate,agnet2_fee,agnet3_fixed_fee,agnet3_rate,agnet3_fee,
         request_ip,create_time,update_time,request_time,order_type,payment_mode,merchant_id,payment_id,channel_id,order_status,
         remark,currency_type,operate_type
@@ -73,7 +74,7 @@
         INSERT INTO pay_order (
         <include refid="BaseColumns"/>
         ) VALUES (
-        #{orderId},#{amount},#{actualAmount},#{callbackToken},#{callbackUrl},#{callbackTimes},#{lastCallbackTime},#{successCallbackTime},#{callbackStatus},#{userId},
+        #{orderId},#{merchantOrderNo},#{amount},#{actualAmount},#{callbackToken},#{callbackUrl},#{callbackTimes},#{lastCallbackTime},#{successCallbackTime},#{callbackStatus},#{userId},
         #{merchantFixedFee},#{merchantRate},#{merchantFee},#{agent1FixedFee},#{agent1Rate},#{agent1Fee},#{agent2FixedFee},#{agent2Rate},#{agent2Fee},#{agent3FixedFee},#{agent3Rate},#{agent3Fee},
         #{requestIp},#{createTime},#{updateTime},#{requestTime},#{orderType},#{paymentMode},#{merchantId},#{paymentId},#{channelId},#{orderStatus},
         #{remark},#{currencyType},#{operateType}
@@ -93,6 +94,7 @@
     <update id="updateByOrderId" parameterType="com.pakgopay.mapper.dto.PayOrderDto">
         UPDATE pay_order
         <set>
+            <if test="merchantOrderNo != null">merchant_order_no = #{merchantOrderNo},</if>
             <if test="amount != null">amount = #{amount},</if>
             <if test="actualAmount != null">actual_amount = #{actualAmount},</if>
 

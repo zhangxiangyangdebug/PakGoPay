@@ -14,6 +14,9 @@ public class CollectionOrderDto implements Serializable {
     /** Order ID */
     private String orderId;
 
+    /** merchant order no */
+    private String merchantOrderNo;
+
     /** Order amount */
     private BigDecimal amount;
 
@@ -26,8 +29,8 @@ public class CollectionOrderDto implements Serializable {
     /** Currency code (e.g. USD, CNY) */
     private String currencyType;
 
-    /** User ID */
-    private String userId;
+    /** Merchant's User ID (not system) */
+    private String merchantUserId;
 
     /** Callback token */
     private String callbackToken;

@@ -30,7 +30,11 @@ public enum ResultCode {
     MERCHANT_CODE_IS_EXISTS(100204,"merchant order id is exits"),
     MERCHANT_HAS_NO_AVAILABLE_CHANNEL(100205,"the merchant has no available channels."),
     ORDER_AMOUNT_OVER_LIMIT(100206,"the order over amount limit."),
-    PAYMENT_AMOUNT_OVER_LIMIT(100207,"exceeding the daily/monthly available limit for the channel");
+    PAYMENT_AMOUNT_OVER_LIMIT(100207,"exceeding the daily/monthly available limit for the channel"),
+    PAYMENT_NOT_SUPPORT_CURRENCY(100208,"channel is not support this currency"),
+    MERCHANT_NOT_SUPPORT_COLLECTION(100209, "merchant is not support collection"),
+    MERCHANT_NOT_SUPPORT_PAYOUT(100210, "merchant is not support payout"),
+    MERCHANT_ORDER_NO_NOT_EXISTS(100211, "merchantOrderNo is not exits");
 
     private final Integer code;
     private final String message;

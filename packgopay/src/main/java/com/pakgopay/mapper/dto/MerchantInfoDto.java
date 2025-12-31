@@ -21,22 +21,10 @@ public class MerchantInfoDto implements Serializable {
     private String merchantName;
 
     /** xiaoyou 是否开启代收（0-否 1-是） */
-    private Integer collectionEnabled;
+    private Boolean collectionEnabled;
 
     /** xiaoyou 是否开启代付（0-否 1-是） */
-    private Integer payEnabled;
-
-    /** xiaoyou 每日代收限额 */
-    private BigDecimal dailyCollectionLimit;
-
-    /** xiaoyou 每日代付限额 */
-    private BigDecimal dailyPayLimit;
-
-    /** xiaoyou 每月代收限额 */
-    private BigDecimal monthlyCollectionLimit;
-
-    /** xiaoyou 每月代付限额 */
-    private BigDecimal monthlyPayLimit;
+    private Boolean payEnabled;
 
     /** xiaoyou 状态（0-禁用 1-启用） */
     private Integer status;
