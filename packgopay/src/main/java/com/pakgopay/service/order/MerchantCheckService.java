@@ -1,6 +1,8 @@
 package com.pakgopay.service.order;
 
 import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.enums.ResultCode;
+import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.mapper.AgentInfoMapper;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.MerchantInfoMapper;
@@ -34,6 +36,7 @@ public class MerchantCheckService {
     private PayOrderMapper payOrderMapper;
 
     public boolean existsColMerchantOrderNo(String merchantOrderNo) {
+        log.info("existsColMerchantOrderNo start");
         // TODO xiaoyou 从redis中获取判断，不存在则存入，数据写入数据库后，删除该数据
         Integer count = collectionOrderMapper.isExitMerchantOrderNo(merchantOrderNo);
         return CommonConstant.ZERO.equals(count);
@@ -51,13 +54,16 @@ public class MerchantCheckService {
      * @return result
      */
     public boolean isEnableMerchant(Integer merchantStatus, String agentUserId) {
+        log.info("isEnableMerchant start");
         // xiaoyou 商户启用状态
         if (!CommonConstant.ENABLE_STATUS_ENABLE.equals(merchantStatus)) {
+            log.warn("merchantStatus is disable");
             return false;
         }
 
         // xiaoyou 商户无代理，无需判断代理是否启用
         if (agentUserId == null) {
+            log.warn("merchant has not agent");
             return true;
         }
 
@@ -78,6 +84,7 @@ public class MerchantCheckService {
      */
     @Cacheable(cacheNames = "col_ip_isAllow", key = "#userId")
     public boolean isColIpAllowed(String userId, String clientIp, String whiteIps) {
+        log.info("validateCollectionRequest start");
         Set<String> allowedIps = parseIpWhitelist(whiteIps);
         return allowedIps.contains(clientIp);
     }
@@ -124,8 +131,14 @@ public class MerchantCheckService {
         merchantInfoMapper.upDatePayWhiteIpsByUserId(userId, ips);
     }
 
-    public MerchantInfoDto getConfigurationInfo(String userId) {
-        return merchantInfoMapper.findByUserId(userId);
+    public MerchantInfoDto getMerchantInfo(String userId) throws PakGoPayException {
+        log.info("getMerchantInfo start");
+        try {
+            return merchantInfoMapper.findByUserId(userId);
+        } catch (Exception e) {
+            log.error("merchantInfoMapper findByUserId failed, message: {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
     }
 
     private Set<String> parseIpWhitelist(String ipWhitelist) {

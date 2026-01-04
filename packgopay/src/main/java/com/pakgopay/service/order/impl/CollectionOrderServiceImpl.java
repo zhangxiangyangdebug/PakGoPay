@@ -38,12 +38,14 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
 
     @Override
     public CommonResponse createCollectionOrder(CollectionOrderRequest colOrderRequest) throws PakGoPayException {
+        log.info("createCollectionOrder start");
         TransactionInfo transactionInfo = new TransactionInfo();
         // 1. get merchant info
-        MerchantInfoDto merchantInfoDto = merchantCheckService.getConfigurationInfo(colOrderRequest.getUserId());
+        MerchantInfoDto merchantInfoDto = merchantCheckService.getMerchantInfo(colOrderRequest.getUserId());
         transactionInfo.setMerchantInfo(merchantInfoDto);
         // merchant is not exists
         if (merchantInfoDto == null) {
+            log.error("merchant info is not exist, userId {}", colOrderRequest.getUserId());
             throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
         }
 
@@ -59,6 +61,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
 
         // 4. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.COLLECTION_PREFIX);
+        log.info("generator system transactionNo :{}", systemTransactionNo);
         transactionInfo.setTransactionNo(systemTransactionNo);
 
         return null;
@@ -78,8 +81,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         } catch (PakGoPayException e) {
             log.error("record is not exists, transactionNo {}", transactionNo);
             throw e;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.error("collection order findByTransactionNo failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
@@ -123,32 +125,40 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
 
     private void validateCollectionRequest(
             CollectionOrderRequest collectionOrderRequest, MerchantInfoDto merchantInfoDto) throws PakGoPayException {
+        log.info("validateCollectionRequest start");
         // check ip white list
         if (merchantCheckService.isColIpAllowed(
                 collectionOrderRequest.getUserId(), collectionOrderRequest.getClientIp(),
                 merchantInfoDto.getColWhiteIps())) {
+            log.error("isColIpAllowed failed, clientIp: {}", collectionOrderRequest.getClientIp());
             throw new PakGoPayException(ResultCode.IS_NOT_WHITE_IP);
         }
 
         // check Merchant order code is uniqueness
         if(merchantCheckService.existsColMerchantOrderNo(collectionOrderRequest.getMerchantOrderNo())){
+            log.error("existsColMerchantOrderNo failed, merchantOrderNo: {}", collectionOrderRequest.getMerchantOrderNo());
             throw new PakGoPayException(ResultCode.MERCHANT_CODE_IS_EXISTS);
         }
 
         // amount check
         if (collectionOrderRequest.getAmount().compareTo(BigDecimal.ZERO) <= CommonConstant.ZERO) {
+            log.error("The transaction amount must be greater than 0, amount: {}", collectionOrderRequest.getAmount());
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "The transaction amount must be greater than 0.");
         }
 
         // check user is enabled
         if (merchantCheckService.isEnableMerchant(merchantInfoDto.getStatus(), merchantInfoDto.getParentId())) {
+            log.error("The merchant status is disable, merchantName: {}", merchantInfoDto.getMerchantName());
             throw new PakGoPayException(ResultCode.USER_NOT_ENABLE);
         }
 
         // check merchant is support collection
         if (!merchantInfoDto.getCollectionEnabled()) {
+            log.error("The merchant is not support collection, merchantName: {}", merchantInfoDto.getMerchantName());
             throw new PakGoPayException(ResultCode.MERCHANT_NOT_SUPPORT_COLLECTION);
         }
+
+        log.info("validateCollectionRequest success");
     }
 
 }

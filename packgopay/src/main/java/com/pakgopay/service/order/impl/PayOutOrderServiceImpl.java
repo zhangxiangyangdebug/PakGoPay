@@ -38,12 +38,14 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
 
     @Override
     public CommonResponse createPayOutOrder(PayOutOrderRequest payOrderRequest) throws PakGoPayException {
+        log.info("createPayOutOrder start");
         TransactionInfo transactionInfo = new TransactionInfo();
         // 1. get merchant info
-        MerchantInfoDto merchantInfoDto = merchantCheckService.getConfigurationInfo(payOrderRequest.getUserId());
+        MerchantInfoDto merchantInfoDto = merchantCheckService.getMerchantInfo(payOrderRequest.getUserId());
         transactionInfo.setMerchantInfo(merchantInfoDto);
         // merchant is not exists
         if (merchantInfoDto == null) {
+            log.error("merchant info is not exist, userId {}", payOrderRequest.getUserId());
             throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
         }
 
@@ -59,6 +61,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
 
         // 4. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.PAYOUT_PREFIX);
+        log.info("generator system transactionNo :{}", systemTransactionNo);
         transactionInfo.setTransactionNo(systemTransactionNo);
 
         // 5. calculate transaction fee
@@ -76,13 +79,23 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
 
     @Override
     public CommonResponse queryOrderInfo(String userId, String transactionNo) throws PakGoPayException {
+        log.info("queryOrderInfo start");
         // query collection order info  from db
-        PayOrderDto payOrderDto =
-                payOrderMapper.findByTransactionNo(transactionNo)
-                        .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS));
+        PayOrderDto payOrderDto;
+        try {
+            payOrderDto = payOrderMapper.findByTransactionNo(transactionNo)
+                            .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS));
+        } catch (PakGoPayException e) {
+            log.error("record is not exists, transactionNo {}", transactionNo);
+            throw e;
+        } catch (Exception e) {
+            log.error("payOrderMapper findByTransactionNo failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
 
         // check if the requester and the order owner are the same.
-        if(!payOrderDto.getMerchantId().equals(userId)){
+        if (!payOrderDto.getMerchantId().equals(userId)) {
+            log.error("he order does not belong to user, userId: {} transactionNo: {}", userId, transactionNo);
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "the order does not belong to user");
         }
 
@@ -107,7 +120,8 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
                 result.put("successCallBackTime", successCallBackTime.toString());
             } else {
                 result.put("successCallBackTime", null);
-                log.warn("The transaction status is successful, but the payment time is empty. transaction number: {}", payOrderDto.getMerchantOrderNo());
+                log.warn("The transaction status is successful, but the payment time is empty. transaction number: {}"
+                        , payOrderDto.getMerchantOrderNo());
             }
         }
 
@@ -116,30 +130,37 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
 
     private void validatePayOutRequest(
             PayOutOrderRequest payOutOrderRequest, MerchantInfoDto merchantInfoDto) throws PakGoPayException {
+        log.info("validatePayOutRequest start");
         // check ip white list
         if (merchantCheckService.isPayIpAllowed(
                 payOutOrderRequest.getUserId(), payOutOrderRequest.getClientIp(), merchantInfoDto.getColWhiteIps())) {
+            log.error("isColIpAllowed failed, clientIp: {}", payOutOrderRequest.getClientIp());
             throw new PakGoPayException(ResultCode.IS_NOT_WHITE_IP);
         }
 
         // check Merchant order code is uniqueness
         if(merchantCheckService.existsPayMerchantOrderNo(payOutOrderRequest.getMerchantOrderNo())){
+            log.error("existsColMerchantOrderNo failed, merchantOrderNo: {}", payOutOrderRequest.getMerchantOrderNo());
             throw new PakGoPayException(ResultCode.MERCHANT_CODE_IS_EXISTS);
         }
 
         // amount check
         if (payOutOrderRequest.getAmount().compareTo(BigDecimal.ZERO) <= CommonConstant.ZERO) {
+            log.error("The transaction amount must be greater than 0, amount: {}", payOutOrderRequest.getAmount());
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "The transaction amount must be greater than 0.");
         }
 
         // check user is enabled
         if (merchantCheckService.isEnableMerchant(merchantInfoDto.getStatus(), merchantInfoDto.getParentId())) {
+            log.error("The merchant status is disable, merchantName: {}", merchantInfoDto.getMerchantName());
             throw new PakGoPayException(ResultCode.USER_NOT_ENABLE);
         }
 
         // check merchant is support payout
         if (!merchantInfoDto.getPayEnabled()) {
+            log.error("The merchant is not support collection, merchantName: {}", merchantInfoDto.getMerchantName());
             throw new PakGoPayException(ResultCode.MERCHANT_NOT_SUPPORT_PAYOUT);
         }
+        log.info("validateCollectionRequest success");
     }
 }

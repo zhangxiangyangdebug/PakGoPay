@@ -1,6 +1,7 @@
 package com.pakgopay.service.order;
 
 
+import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.entity.TransactionInfo;
 import com.pakgopay.common.enums.OrderType;
@@ -52,7 +53,7 @@ public class ChannelPaymentService {
      */
     public Long getPaymentId(
             String channelIds, Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException {
-
+        log.info("getPaymentId start, get available payment id");
         // key:payment_id value:channel_id
         Map<Long, ChannelDto> paymentMap = new HashMap<>();
         // 1. get payment info list through channel ids and payment no
@@ -78,6 +79,7 @@ public class ChannelPaymentService {
         transactionInfo.setChannelId(paymentMap.get(paymentDto.getPaymentId()).getChannelId());
         transactionInfo.setChannelInfo(paymentMap.get(paymentDto.getPaymentId()));
 
+        log.info("getPayment id success, id: {}", paymentDto.getPaymentId());
         return paymentDto.getPaymentId();
     }
 
@@ -126,12 +128,15 @@ public class ChannelPaymentService {
      * @throws PakGoPayException business Exception
      */
     private List<PaymentDto> filterSupportCurrencyPayments(List<PaymentDto> availablePayments, String currency) throws PakGoPayException {
+        log.info("filterSupportCurrencyPayments start");
         availablePayments = availablePayments.stream().filter(payment -> {
             return payment.getCurrencyType().equals(currency);
         }).toList();
         if (availablePayments.isEmpty()) {
+            log.error("availablePayments is empty");
             throw new PakGoPayException(ResultCode.PAYMENT_NOT_SUPPORT_CURRENCY, "channel is not support this currency: " + currency);
         }
+        log.error("filterSupportCurrencyPayments end, availablePayments size {}", availablePayments.size());
         return availablePayments;
     }
 
@@ -149,12 +154,21 @@ public class ChannelPaymentService {
         // Filter orders by amount that match the maximum and minimum range of the channel.
         paymentDtoList = paymentDtoList.stream().filter(dto ->
                         // check payment min amount
-                        amount.compareTo(dto.getPaymentMinAmount()) > 0
-                                // check payment max amount
-                                && amount.compareTo(dto.getPaymentMaxAmount()) < 0)
+                {
+                    boolean result = amount.compareTo(dto.getPaymentMinAmount()) > 0
+                            // check payment max amount
+                            && amount.compareTo(dto.getPaymentMaxAmount()) < 0;
+
+                    if (!result) {
+                        log.warn("paymentId: {}, amount max: {} min: {}, over limit amount: {}"
+                                , dto.getPaymentId(), dto.getPaymentMaxAmount(), dto.getPaymentMinAmount(), amount);
+                    }
+                    return result;
+                })
                 .toList();
         if (paymentDtoList.isEmpty()) {
-            throw new PakGoPayException(ResultCode.ORDER_AMOUNT_OVER_LIMIT);
+            log.error("paymentDtoList is empty, amount is over limit, amount: {}", amount);
+            throw new PakGoPayException(ResultCode.ORDER_AMOUNT_OVER_LIMIT, "the amount over merchant's payment limit");
         }
 
         // get current day and month, used amount
@@ -177,7 +191,7 @@ public class ChannelPaymentService {
                                 && amount.compareTo(dto.getPaymentMaxAmount()) < 0)
                 .toList();
         if (availablePayments.isEmpty()) {
-            throw new PakGoPayException(ResultCode.PAYMENT_AMOUNT_OVER_LIMIT, "Merchants have no available matching payments");
+            throw new PakGoPayException(ResultCode.PAYMENT_AMOUNT_OVER_LIMIT, "Merchant‘s payments over daily/monthly limit");
         }
         log.info("no limit payment info size {}", availablePayments.size());
         return availablePayments;
@@ -193,14 +207,26 @@ public class ChannelPaymentService {
      */
     private void getCurrentAmountSumByType(
             List<Long> enAblePaymentIds, Integer supportType, Map<Long, BigDecimal> currentDayAmountSum,
-            Map<Long, BigDecimal> currentMonthAmountSum) {
+            Map<Long, BigDecimal> currentMonthAmountSum) throws PakGoPayException {
+        log.info("getCurrentAmountSumByType start");
         LocalDate today = LocalDate.now();
         LocalDateTime startTime = today.withDayOfMonth(1).atStartOfDay();
         LocalDateTime endTime = startTime.plusMonths(1);
         if (CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)) {
             // order type Collection
-            List<CollectionOrderDto> collectionOrderDetailDtoList =
-                    collectionOrderMapper.getCollectionOrderInfosByPaymentIds(enAblePaymentIds, startTime, endTime);
+            List<CollectionOrderDto> collectionOrderDetailDtoList;
+            try {
+                collectionOrderDetailDtoList =
+                        collectionOrderMapper.getCollectionOrderInfosByPaymentIds(enAblePaymentIds, startTime, endTime);
+            } catch (Exception e) {
+                log.error("collectionOrderMapper getCollectionOrderInfosByPaymentIds failed, message {}", e.getMessage());
+                throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+            }
+
+            if (collectionOrderDetailDtoList == null || collectionOrderDetailDtoList.isEmpty()) {
+                log.error("getCurrentAmountSumByType collectionOrderDetailDtoList is empty");
+                return;
+            }
 
             for (CollectionOrderDto dto : collectionOrderDetailDtoList) {
                 if (dto.getPaymentId() == null || dto.getAmount() == null) {
@@ -214,13 +240,23 @@ public class ChannelPaymentService {
                 }
                 // current month data
                 currentMonthAmountSum.merge(
-                        dto.getPaymentId(), dto.getAmount(), BigDecimal::add
-                );
+                        dto.getPaymentId(), dto.getAmount(), BigDecimal::add);
             }
         } else {
             // order type Payout
-            List<PayOrderDto> payOrderDtoList =
-                    payOrderMapper.getPayOrderInfosByPaymentIds(enAblePaymentIds, startTime, endTime);
+            List<PayOrderDto> payOrderDtoList;
+            try {
+                payOrderDtoList =
+                        payOrderMapper.getPayOrderInfosByPaymentIds(enAblePaymentIds, startTime, endTime);
+            } catch (Exception e) {
+                log.error("payOrderMapper getPayOrderInfosByPaymentIds failed, message {}", e.getMessage());
+                throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+            }
+
+            if (payOrderDtoList == null || payOrderDtoList.isEmpty()) {
+                log.error("getCurrentAmountSumByType payOrderDtoList is empty");
+                return;
+            }
 
             for (PayOrderDto dto : payOrderDtoList) {
                 if (dto.getPaymentId() == null || dto.getAmount() == null) {
@@ -238,6 +274,9 @@ public class ChannelPaymentService {
                 );
             }
         }
+
+        log.info("getCurrentAmountSumByType end, currentDayAmountSum: {}, currentMonthAmountSum: {}"
+                , JSON.toJSONString(currentDayAmountSum), JSON.toJSONString(currentMonthAmountSum));
     }
 
     /**
