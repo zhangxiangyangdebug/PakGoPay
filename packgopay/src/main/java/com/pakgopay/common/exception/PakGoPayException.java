@@ -12,11 +12,16 @@ public class PakGoPayException extends Exception {
     public PakGoPayException(ResultCode resultCode, String message) {
         super(message);
         this.code = resultCode;
+        this.message = message;
     }
 
     public PakGoPayException(ResultCode resultCode) {
         super(resultCode.getMessage());
         this.code = resultCode;
         this.message = resultCode.getMessage();
+    }
+
+    public Integer getErrorCode() {
+        return code.getCode();
     }
 }

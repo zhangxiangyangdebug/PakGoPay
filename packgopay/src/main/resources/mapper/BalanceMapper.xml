@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.BalanceMapper">
+
+    <!-- Result map (explicit javaType) -->
+    <resultMap id="BalanceResultMap" type="com.pakgopay.mapper.dto.BalanceDto">
+        <id column="user_id" property="userId" javaType="java.lang.String"/>
+
+        <result column="available_balance" property="availableBalance" javaType="java.math.BigDecimal"/>
+        <result column="frozen_balance" property="frozenBalance" javaType="java.math.BigDecimal"/>
+        <result column="total_balance" property="totalBalance" javaType="java.math.BigDecimal"/>
+
+        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
+        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
+
+        <result column="remark" property="remark" javaType="java.lang.String"/>
+    </resultMap>
+
+    <!-- Base columns -->
+    <sql id="BaseColumns">
+        user_id,
+        available_balance,
+        frozen_balance,
+        total_balance,
+        create_time,
+        update_time,
+        remark
+    </sql>
+
+    <!-- Query by userId -->
+    <select id="findByUserId" parameterType="string" resultMap="BalanceResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM balance
+        WHERE user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <!-- Insert -->
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.BalanceDto">
+        INSERT INTO balance (
+        <include refid="BaseColumns"/>
+        ) VALUES (
+        #{userId},
+        #{availableBalance},
+        #{frozenBalance},
+        #{totalBalance},
+        #{createTime},
+        #{updateTime},
+        #{remark}
+        )
+    </insert>
+
+    <!-- Update by userId (dynamic set) -->
+    <update id="updateByUserId" parameterType="com.pakgopay.mapper.dto.BalanceDto">
+        UPDATE balance
+        <set>
+            <if test="availableBalance != null">available_balance = #{availableBalance},</if>
+            <if test="frozenBalance != null">frozen_balance = #{frozenBalance},</if>
+            <if test="totalBalance != null">total_balance = #{totalBalance},</if>
+
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- Atomic add available balance -->
+    <update id="addAvailableBalance">
+        UPDATE balance
+        SET
+            available_balance = IFNULL(available_balance, 0) + #{delta},
+            total_balance = IFNULL(total_balance, 0) + #{delta},
+            update_time = #{updateTime}
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- Atomic add frozen balance (usually total_balance unchanged; adjust if your business differs) -->
+    <update id="addFrozenBalance">
+        UPDATE balance
+        SET
+            frozen_balance = IFNULL(frozen_balance, 0) + #{delta},
+            update_time = #{updateTime}
+        WHERE user_id = #{userId}
+    </update>
+
+</mapper>

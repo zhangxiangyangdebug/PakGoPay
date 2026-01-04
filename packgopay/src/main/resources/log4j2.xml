@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<comfiguration status="WARN">
+<Configuration status="WARN">
     <Properties>
         <Property name="logPath">./Users/xiaoyou_02/project/YouPayServer</Property>
-        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %X{traceId} %logger{36} - %msg%n</Property>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [pid=%pid tid=%tid] %-5level %X{traceId} %class{1} - %msg%n</Property>
         <Property name="LOG_DIR">logs</Property>
         <Property name="LOG_FILE_NAME">test.log</Property>
     </Properties>
@@ -15,17 +15,18 @@
             <PatternLayout pattern="${LOG_PATTERN}"/>
             <Policies>
                 <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
-                <SizeBasedTriggeringPolicy size="1kb"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
             </Policies>
         </RollingFile>
     </Appenders>
 
     <loggers>
-        <!--<root level="trace">
-            <appender-ref ref="Console"/>
-        </root>-->
+        <root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
+        </root>
         <logger name="RollingFile" level="INFO" additivity="false">
-            <appender-ref ref="RollingFile"/>
+            <AppenderRef ref="RollingFile"/>
         </logger>
     </loggers>
-</comfiguration>
+</Configuration>

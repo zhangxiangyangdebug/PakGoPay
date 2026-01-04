@@ -2,29 +2,39 @@ package com.pakgopay.service.order.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.entity.TransactionInfo;
+import com.pakgopay.common.enums.OrderStatus;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.common.response.CommonResponse;
+import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
+import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.service.order.ChannelPaymentService;
 import com.pakgopay.service.order.MerchantCheckService;
 import com.pakgopay.service.order.PayOutOrderService;
 import com.pakgopay.util.SnowflakeIdGenerator;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
+@Slf4j
 @Service
 public class PayOutOrderServiceImpl implements PayOutOrderService {
 
     @Autowired
-    MerchantCheckService merchantCheckService;
+    private MerchantCheckService merchantCheckService;
 
     @Autowired
-    ChannelPaymentService channelPaymentService;
+    private ChannelPaymentService channelPaymentService;
+
+    private PayOrderMapper payOrderMapper;
 
     @Override
     public CommonResponse createPayOutOrder(PayOutOrderRequest payOrderRequest) throws PakGoPayException {
@@ -49,7 +59,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
 
         // 4. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.PAYOUT_PREFIX);
-        transactionInfo.setOrderId(systemTransactionNo);
+        transactionInfo.setTransactionNo(systemTransactionNo);
 
         // 5. calculate transaction fee
         // xiaoyou TODO 计算渠道和通道费率和成本
@@ -65,8 +75,43 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
     }
 
     @Override
-    public CommonResponse queryOrderInfo(String userId, String merchantOrderNo) {
-        return null;
+    public CommonResponse queryOrderInfo(String userId, String transactionNo) throws PakGoPayException {
+        // query collection order info  from db
+        PayOrderDto payOrderDto =
+                payOrderMapper.findByTransactionNo(transactionNo)
+                        .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS));
+
+        // check if the requester and the order owner are the same.
+        if(!payOrderDto.getMerchantId().equals(userId)){
+            throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "the order does not belong to user");
+        }
+
+        // construct return data
+        Map<String, Object> result = new HashMap<>();
+        result.put("merchantOrderNo", payOrderDto.getMerchantOrderNo());
+        result.put("transactionNo", payOrderDto.getTransactionNo());
+        result.put("amount", payOrderDto.getAmount());
+        result.put("currency", payOrderDto.getCurrencyType());
+        result.put("status", payOrderDto.getOrderStatus());
+        result.put("createTime", payOrderDto.getCreateTime().toString());
+        result.put("updateTime", payOrderDto.getUpdateTime().toString());
+
+        // TODO If the transaction fails, return the reason for the failure.
+        if (OrderStatus.FAILED.getCode().equals(payOrderDto.getOrderStatus())) {
+            result.put("failureReason", "");
+        }
+
+        if (OrderStatus.SUCCESS.getCode().equals(payOrderDto.getOrderStatus())) {
+            LocalDateTime successCallBackTime = payOrderDto.getSuccessCallbackTime();
+            if (successCallBackTime != null) {
+                result.put("successCallBackTime", successCallBackTime.toString());
+            } else {
+                result.put("successCallBackTime", null);
+                log.warn("The transaction status is successful, but the payment time is empty. transaction number: {}", payOrderDto.getMerchantOrderNo());
+            }
+        }
+
+        return CommonResponse.success(result);
     }
 
     private void validatePayOutRequest(

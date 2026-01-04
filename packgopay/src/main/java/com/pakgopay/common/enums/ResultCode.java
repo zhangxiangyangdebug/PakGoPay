@@ -22,6 +22,8 @@ public enum ResultCode {
     USER_IS_NOT_IN_USE(100112,"user is not in use"),
     REQUEST_TIME_OUT(100113, "request time out"),
     HTTP_REQUEST_FAILED(100113, "http request failed"),
+    DATA_BASE_ERROR(100114, "execute sql failed"),
+    INVALID_PARAMS(100115, "params is invalid"),
 
     // order code start with 1002
     ORDER_PARAM_VALID(100201, "request param is valid"),
@@ -34,7 +36,8 @@ public enum ResultCode {
     PAYMENT_NOT_SUPPORT_CURRENCY(100208,"channel is not support this currency"),
     MERCHANT_NOT_SUPPORT_COLLECTION(100209, "merchant is not support collection"),
     MERCHANT_NOT_SUPPORT_PAYOUT(100210, "merchant is not support payout"),
-    MERCHANT_ORDER_NO_NOT_EXISTS(100211, "merchantOrderNo is not exits");
+    MERCHANT_ORDER_NO_NOT_EXISTS(100211, "merchantOrderNo is not exits"),
+    MERCHANT_HAS_NO_BALANCE_DATA(100212, "user has no balance data");
 
     private final Integer code;
     private final String message;

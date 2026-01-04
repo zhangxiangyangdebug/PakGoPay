@@ -2,6 +2,7 @@ package com.pakgopay.common.reqeust.transaction;
 
 import com.pakgopay.common.reqeust.BaseRequest;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -17,7 +18,7 @@ public class OrderBaseRequest extends BaseRequest implements Serializable {
      * Merchant Id
      */
     @NotBlank(message = "merchant_id is empty")
-    private String merchant_id;
+    private String merchantId;
 
     /**
      * Merchant order number (must be unique)
@@ -28,13 +29,13 @@ public class OrderBaseRequest extends BaseRequest implements Serializable {
     /**
      * Merchant channel code (must be unique)
      */
-    @NotBlank(message = "paymentNo is empty")
+    @NotNull(message = "paymentNo is empty")
     private Integer paymentNo;
 
     /**
      * Collection amount
      */
-    @NotBlank(message = "amount is empty")
+    @NotNull(message = "amount is empty")
     private BigDecimal amount;
 
     /**

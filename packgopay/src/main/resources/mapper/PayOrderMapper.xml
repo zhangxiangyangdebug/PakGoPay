@@ -7,7 +7,7 @@
 
     <!-- Result map (explicit javaType) -->
     <resultMap id="PayOrderResultMap" type="com.pakgopay.mapper.dto.PayOrderDto">
-        <id column="order_id" property="orderId" javaType="java.lang.String"/>
+        <id column="transaction_no" property="transactionNo" javaType="java.lang.String"/>
         <id column="merchant_order_no" property="merchantOrderNo" javaType="java.lang.String"/>
 
         <result column="amount" property="amount" javaType="java.math.BigDecimal"/>
@@ -63,7 +63,7 @@
 
     <!-- Base columns -->
     <sql id="BaseColumns">
-        order_id,merchant_order_no,amount,actual_amount,callback_token,callback_url,callback_times,last_callbak_time,success_callback_time,callback_status,user_id,
+        transaction_no,merchant_order_no,amount,actual_amount,callback_token,callback_url,callback_times,last_callbak_time,success_callback_time,callback_status,user_id,
         merchant_fixed_fee,merchant_rate,merchant_fee,agent1_fixed_fee,agent1_rate,agent1_fee,agnet2_fixed_fee,agnet2_rate,agnet2_fee,agnet3_fixed_fee,agnet3_rate,agnet3_fee,
         request_ip,create_time,update_time,request_time,order_type,payment_mode,merchant_id,payment_id,channel_id,order_status,
         remark,currency_type,operate_type
@@ -74,7 +74,7 @@
         INSERT INTO pay_order (
         <include refid="BaseColumns"/>
         ) VALUES (
-        #{orderId},#{merchantOrderNo},#{amount},#{actualAmount},#{callbackToken},#{callbackUrl},#{callbackTimes},#{lastCallbackTime},#{successCallbackTime},#{callbackStatus},#{userId},
+        #{transactionNo},#{merchantOrderNo},#{amount},#{actualAmount},#{callbackToken},#{callbackUrl},#{callbackTimes},#{lastCallbackTime},#{successCallbackTime},#{callbackStatus},#{userId},
         #{merchantFixedFee},#{merchantRate},#{merchantFee},#{agent1FixedFee},#{agent1Rate},#{agent1Fee},#{agent2FixedFee},#{agent2Rate},#{agent2Fee},#{agent3FixedFee},#{agent3Rate},#{agent3Fee},
         #{requestIp},#{createTime},#{updateTime},#{requestTime},#{orderType},#{paymentMode},#{merchantId},#{paymentId},#{channelId},#{orderStatus},
         #{remark},#{currencyType},#{operateType}
@@ -82,16 +82,16 @@
     </insert>
 
     <!-- Query by order ID -->
-    <select id="findByOrderId" parameterType="string" resultMap="PayOrderResultMap">
+    <select id="findByTransactionNo" parameterType="string" resultMap="PayOrderResultMap">
         SELECT
         <include refid="BaseColumns"/>
         FROM pay_order
-        WHERE order_id = #{orderId}
+        WHERE transaction_no = #{transactionNo}
         LIMIT 1
     </select>
 
-    <!-- Update by order_id (update non-null fields only) -->
-    <update id="updateByOrderId" parameterType="com.pakgopay.mapper.dto.PayOrderDto">
+    <!-- Update by transaction_no (update non-null fields only) -->
+    <update id="updateByTransactionNo" parameterType="com.pakgopay.mapper.dto.PayOrderDto">
         UPDATE pay_order
         <set>
             <if test="merchantOrderNo != null">merchant_order_no = #{merchantOrderNo},</if>
@@ -133,7 +133,7 @@
 
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </set>
-        WHERE order_id = #{orderId}
+        WHERE transaction_no = #{transactionNo}
     </update>
 
     <!-- Increase callback retry times (atomic) -->
@@ -143,7 +143,7 @@
             callback_times = IFNULL(callback_times, 0) + 1,
             last_callbak_time = #{lastCallbackTime},
             update_time = #{lastCallbackTime}
-        WHERE order_id = #{orderId}
+        WHERE transaction_no = #{transactionNo}
     </update>
 
     <!-- Query by payment IDs and time range -->

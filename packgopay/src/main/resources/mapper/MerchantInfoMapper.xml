@@ -3,7 +3,7 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.pakgopay.mappe.MerchantInfoMapper">
+<mapper namespace="com.pakgopay.mapper.MerchantInfoMapper">
 
     <!-- 只在 resultMap 指定 javaType -->
     <resultMap id="MerchantInfoDtoMap" type="com.pakgopay.mapper.dto.MerchantInfoDto">
@@ -95,7 +95,7 @@
     </update>
 
     <!-- 5.getEnableStatus -->
-    <select id="getEnableStatus" resultType="java.lang.String">
+    <select id="getEnableStatus" resultType="java.lang.Integer">
         select status
         from merchant_info
         where user_id = #{userId}

@@ -59,28 +59,42 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
 
         // 4. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.COLLECTION_PREFIX);
-        transactionInfo.setOrderId(systemTransactionNo);
+        transactionInfo.setTransactionNo(systemTransactionNo);
 
         return null;
     }
 
     @Override
-    public CommonResponse queryOrderInfo(String userId, String merchantOrderNo) throws PakGoPayException {
-
+    public CommonResponse queryOrderInfo(String userId, String transactionNo) throws PakGoPayException {
+        log.info("queryOrderInfo start");
         // query collection order info  from db
-        CollectionOrderDto collectionOrderDto =
-                collectionOrderMapper.findByOrderId(merchantOrderNo)
-                        .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS));
+        CollectionOrderDto collectionOrderDto;
+        try {
+            collectionOrderDto =
+                    collectionOrderMapper.findByTransactionNo(transactionNo)
+                            .orElseThrow(() -> new PakGoPayException(
+                                    ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS
+                                    , "record is not exists, transactionNo:" + transactionNo));
+        } catch (PakGoPayException e) {
+            log.error("record is not exists, transactionNo {}", transactionNo);
+            throw e;
+        }
+        catch (Exception e) {
+            log.error("collection order findByTransactionNo failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
 
         // check if the requester and the order owner are the same.
         if(!collectionOrderDto.getMerchantId().equals(userId)){
+            log.info("the order does not belong to user");
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "the order does not belong to user");
         }
 
         // construct return data
         Map<String, Object> result = new HashMap<>();
-        result.put("transactionNo", collectionOrderDto.getMerchantOrderNo());
-        result.put("merchantOrderNo", collectionOrderDto.getOrderId());
+        result.put("merchantOrderNo", collectionOrderDto.getMerchantOrderNo());
+        result.put("transactionNo", collectionOrderDto.getTransactionNo());
         result.put("amount", collectionOrderDto.getAmount());
         result.put("currency", collectionOrderDto.getCurrencyType());
         result.put("status", collectionOrderDto.getOrderStatus());
@@ -89,6 +103,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
 
         // TODO If the transaction fails, return the reason for the failure.
         if (OrderStatus.FAILED.getCode().equals(collectionOrderDto.getOrderStatus())) {
+            log.warn("order status is failed");
             result.put("failureReason", "");
         }
 
@@ -97,13 +112,12 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
             if (successCallBackTime != null) {
                 result.put("successCallBackTime", successCallBackTime.toString());
             } else {
-                // 可以选择不添加 payTime 字段，或者添加 null 值
                 result.put("successCallBackTime", null);
-                // 或者记录警告日志
                 log.warn("The transaction status is successful, but the payment time is empty. transaction number: {}", collectionOrderDto.getMerchantOrderNo());
             }
         }
 
+        log.info("queryOrderInfo end");
         return CommonResponse.success(result);
     }
 

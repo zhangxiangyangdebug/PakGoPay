@@ -32,7 +32,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         try {
             String traceId = UUID.randomUUID().toString().replace("-", "");
             MDC.put(TRACE_ID, traceId);
-            log.info("'lsa11111'");
+            log.info("doFilterInternal, traceId: {}", traceId);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

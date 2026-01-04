@@ -14,16 +14,16 @@ public interface PayOrderMapper {
     Integer isExitMerchantOrderNo(@Param(value = "merchantOrderNo") String merchantOrderNo);
 
     /** Query order by order ID */
-    Optional<PayOrderDto> findByOrderId(@Param("orderId") String orderId);
+    Optional<PayOrderDto> findByTransactionNo(@Param("transactionNo") String transactionNo);
 
     /** Insert order */
     int insert(PayOrderDto dto);
 
     /** Update order by order ID (update non-null fields) */
-    int updateByOrderId(PayOrderDto dto);
+    int updateByTransactionNo(PayOrderDto dto);
 
     /** Increase callback retry times (atomic) */
-    int increaseCallbackTimes(@Param("orderId") String orderId,
+    int increaseCallbackTimes(@Param("transactionNo") String transactionNo,
                               @Param("lastCallbackTime") LocalDateTime lastCallbackTime);
 
     /** Query by payment IDs and time range */

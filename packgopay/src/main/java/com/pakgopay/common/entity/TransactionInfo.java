@@ -15,7 +15,7 @@ public class TransactionInfo {
      * (Collection: start with COLL)
      * (Pay out: start with PAY)
      */
-    private String orderId;
+    private String transactionNo;
 
     // ------------------------ merchant info ---------------------------------
     /**

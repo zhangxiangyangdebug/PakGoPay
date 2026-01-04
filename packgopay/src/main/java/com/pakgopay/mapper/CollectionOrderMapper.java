@@ -14,16 +14,16 @@ public interface CollectionOrderMapper {
     Integer isExitMerchantOrderNo(@Param(value = "merchantOrderNo") String merchantOrderNo);
 
     /** Query order by order ID */
-    Optional<CollectionOrderDto> findByOrderId(@Param("orderId") String orderId);
+    Optional<CollectionOrderDto> findByTransactionNo(@Param("transactionNo") String transactionNo);
 
     /** Insert order */
     int insert(CollectionOrderDto dto);
 
     /** Update order by order ID */
-    int updateByOrderId(CollectionOrderDto dto);
+    int updateByTransactionNo(CollectionOrderDto dto);
 
     /** Increase callback retry times */
-    int increaseCallbackTimes(@Param("orderId") String orderId,
+    int increaseCallbackTimes(@Param("transactionNo") String transactionNo,
                               @Param("lastCallbackTime") LocalDateTime lastCallbackTime);
 
     /** Query orders by payment IDs and time range */

@@ -3,7 +3,7 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.pakgopay.mapper.dto.CollectionOrderDto">
+<mapper namespace="com.pakgopay.mapper.CollectionOrderMapper">
 
     <!-- ========================= -->
     <!-- ResultMap -->
@@ -12,7 +12,7 @@
                type="com.pakgopay.mapper.dto.CollectionOrderDto">
 
         <!-- Primary key -->
-        <id column="order_id" property="orderId" javaType="java.lang.String"/>
+        <id column="transaction_no" property="transactionNo" javaType="java.lang.String"/>
         <id column="merchant_order_no" property="merchantOrderNo" javaType="java.lang.String"/>
 
         <!-- Amounts -->
@@ -24,7 +24,7 @@
         <result column="currency_type" property="currencyType" javaType="java.lang.String"/>
 
         <!-- User -->
-        <result column="user_id" property="userId" javaType="java.lang.String"/>
+        <result column="merchant_user_id" property="merchantUserId" javaType="java.lang.String"/>
 
         <!-- Callback info -->
         <result column="callback_token" property="callbackToken" javaType="java.lang.String"/>
@@ -83,7 +83,7 @@
 
     <!-- Base columns -->
     <sql id="BaseColumns">
-        order_id,merchant_order_no,amount,actual_amount,floating_amount,currency_type,user_id,callback_token,callback_url,callback_times,
+        transaction_no,merchant_order_no,amount,actual_amount,floating_amount,currency_type,merchant_user_id,callback_token,callback_url,callback_times,
         last_callback_time,merchant_fixed_fee,merchant_rate,merchant_fee,
         agent1_rate,agent1_fixed_fee,agent1_fee,agent2_rate,agent2_fixed_fee,agent2_fee,agent3_rate,agent3_fixed_fee,agent3_fee,
         request_ip,operate_type,remark,create_time,update_time,collection_mode,payment_id,order_type,callback_status,
@@ -95,7 +95,7 @@
         INSERT INTO collection_order (
         <include refid="BaseColumns"/>
         ) VALUES (
-        #{orderId},#{merchantOrderNo},#{amount},#{actualAmount},#{floatingAmount},#{currencyType},#{userId},#{callbackToken},#{callbackUrl},#{callbackTimes},
+        #{transactionNo},#{merchantOrderNo},#{amount},#{actualAmount},#{floatingAmount},#{currencyType},#{merchantUserId},#{callbackToken},#{callbackUrl},#{callbackTimes},
         #{lastCallbackTime},#{merchantFixedFee},#{merchantRate},#{merchantFee},
         #{agent1Rate},#{agent1FixedFee},#{agent1Fee},#{agent2Rate},#{agent2FixedFee},#{agent2Fee},#{agent3Rate},#{agent3FixedFee},#{agent3Fee},
         #{requestIp},#{operateType},#{remark},#{createTime},#{updateTime},#{collectionMode},#{paymentId},#{orderType},#{callbackStatus},
@@ -103,15 +103,15 @@
         )
     </insert>
 
-    <select id="findByOrderId" parameterType="string" resultMap="CollectionOrderResultMap">
+    <select id="findByTransactionNo" parameterType="string" resultMap="CollectionOrderResultMap">
         SELECT
         <include refid="BaseColumns"/>
         FROM collection_order
-        WHERE order_id = #{orderId}
+        WHERE transaction_no = #{transactionNo}
         LIMIT 1
     </select>
 
-    <update id="updateByOrderId" parameterType="com.pakgopay.mapper.dto.CollectionOrderDto">
+    <update id="updateByTransactionNo" parameterType="com.pakgopay.mapper.dto.CollectionOrderDto">
         UPDATE collection_order
         <set>
             <if test="merchantOrderNo != null">merchant_order_no = #{merchantOrderNo},</if>
@@ -147,7 +147,7 @@
                 update_time = #{updateTime},
             </if>
         </set>
-        WHERE order_id = #{orderId}
+        WHERE transaction_no = #{transactionNo}
     </update>
 
     <update id="increaseCallbackTimes">
@@ -156,7 +156,7 @@
             callback_times = IFNULL(callback_times, 0) + 1,
             last_callback_time = #{lastCallbackTime},
             update_time = #{lastCallbackTime}
-        WHERE order_id = #{orderId}
+        WHERE transaction_no = #{transactionNo}
     </update>
 
     <select id="isExitMerchantOrderNo" resultType="java.lang.Integer">

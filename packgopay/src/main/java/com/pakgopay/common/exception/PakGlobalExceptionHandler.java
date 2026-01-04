@@ -2,8 +2,10 @@ package com.pakgopay.common.exception;
 
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.response.CommonResponse;
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -17,9 +19,14 @@ public class PakGlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public CommonResponse<Void> handleBodyValid(MethodArgumentNotValidException e) {
-        String msg = e.getBindingResult().getFieldErrors().get(0).getDefaultMessage();
+        String msg = e.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .findFirst()
+                .map(DefaultMessageSourceResolvable::getDefaultMessage)
+                .orElse(ResultCode.INVALID_PARAMS.getMessage());
         log.error("MethodArgumentNotValidException {}", msg);
-        return CommonResponse.fail(ResultCode.FAIL, msg);
+        return CommonResponse.fail(ResultCode.INVALID_PARAMS, msg);
     }
 
     /**
@@ -27,8 +34,13 @@ public class PakGlobalExceptionHandler {
      */
     @ExceptionHandler(ConstraintViolationException.class)
     public CommonResponse<Void> handleParamValid(ConstraintViolationException e) {
-        log.error("ConstraintViolationException {}", e.getMessage());
-        return CommonResponse.fail(ResultCode.FAIL, e.getMessage());
+        String msg = e.getConstraintViolations()
+                .stream()
+                .findFirst()
+                .map(ConstraintViolation::getMessage)
+                .orElse(ResultCode.INVALID_PARAMS.getMessage());
+        log.error("ConstraintViolationException {}", msg);
+        return CommonResponse.fail(ResultCode.INVALID_PARAMS, msg);
     }
 
     /**

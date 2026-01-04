@@ -8,5 +8,5 @@ import jakarta.validation.Valid;
 public interface PayOutOrderService {
     CommonResponse createPayOutOrder(@Valid PayOutOrderRequest payOutOrderRequest) throws PakGoPayException;
 
-    CommonResponse queryOrderInfo(String userId, String merchantOrderNo);
+    CommonResponse queryOrderInfo(String userId, String transactionNo) throws PakGoPayException;
 }

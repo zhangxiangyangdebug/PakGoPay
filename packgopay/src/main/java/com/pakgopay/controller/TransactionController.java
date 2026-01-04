@@ -6,15 +6,18 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.common.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.common.response.CommonResponse;
+import com.pakgopay.service.balance.BalanceService;
 import com.pakgopay.service.order.CollectionOrderService;
 import com.pakgopay.service.order.PayOutOrderService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.WebAsyncTask;
 
+@Slf4j
 @RestController
 @RequestMapping("/pakGoPay/server/v1")
 public class TransactionController {
@@ -25,23 +28,34 @@ public class TransactionController {
     @Autowired
     private PayOutOrderService payOutOrderService;
 
+    @Autowired
+    private BalanceService balanceService;
+
 
     @PostMapping(value = "/createCollectionOrder")
     public WebAsyncTask<CommonResponse> createCollectionOrder(
             HttpServletRequest request, @Valid @RequestBody CollectionOrderRequest collectionOrderRequest) {
+        log.info("createCollectionOrder start");
         WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L,
                 () -> {
                     try {
                         return collectionOrderService.createCollectionOrder(collectionOrderRequest);
                     } catch (PakGoPayException e) {
-                        return CommonResponse.fail(e.getCode(), "createPayOutOrder async timeout");
+                        log.error("createCollectionOrder error, code: {} message: {}",e.getErrorCode(), e.getMessage());
+                        return CommonResponse.fail(e.getCode(), e.getMessage());
                     }
                 });
 
         // task time out
-        task.onTimeout(() -> CommonResponse.fail(ResultCode.REQUEST_TIME_OUT, "createCollectionOrder async timeout"));
+        task.onTimeout(() -> {
+            log.error("createCollectionOrder async timeout");
+            return CommonResponse.fail(ResultCode.REQUEST_TIME_OUT, "createCollectionOrder async timeout");
+        });
         // task error
-        task.onError(() -> CommonResponse.fail(ResultCode.FAIL, "createCollectionOrder async error"));
+        task.onError(() -> {
+            log.error("createCollectionOrder async error");
+            return CommonResponse.fail(ResultCode.FAIL, "createCollectionOrder async error");
+        });
 
         return task;
     }
@@ -49,18 +63,26 @@ public class TransactionController {
     @PostMapping(value = "/createPayOutOrder")
     public WebAsyncTask<CommonResponse> createPayOutOrder(
             HttpServletRequest request, @Valid @RequestBody PayOutOrderRequest payOutOrderRequest) {
+        log.info("createPayOutOrder start");
         WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L,
                 () -> {
                     try {
                         return payOutOrderService.createPayOutOrder(payOutOrderRequest);
                     } catch (PakGoPayException e) {
-                        return CommonResponse.fail(e.getCode(), "createPayOutOrder async timeout");
+                        log.error("createPayOutOrder error, code {} message {}",e.getErrorCode(), e.getMessage());
+                        return CommonResponse.fail(e.getCode(), e.getMessage());
                     }
                 });
         // task time out
-        task.onTimeout(() -> CommonResponse.fail(ResultCode.REQUEST_TIME_OUT, "createPayOutOrder async timeout"));
+        task.onTimeout(() -> {
+            log.error("createPayOutOrder async timeout");
+            return CommonResponse.fail(ResultCode.REQUEST_TIME_OUT, "createPayOutOrder async timeout");
+        });
         // task error
-        task.onError(() -> CommonResponse.fail(ResultCode.FAIL, "createPayOutOrder async error"));
+        task.onError(() -> {
+            log.error("createPayOutOrder async error");
+            return CommonResponse.fail(ResultCode.FAIL, "createPayOutOrder async error");
+        });
 
         return task;
     }
@@ -68,25 +90,44 @@ public class TransactionController {
     @GetMapping(value = "/queryOrder")
     public CommonResponse queryOrder(
             HttpServletRequest request, @RequestParam(value = "userId") String userId,
-            @RequestParam(value = "merchantOrderNo") String merchantOrderNo) {
-
-        if (!StringUtils.hasText(merchantOrderNo)) {
-            return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "merchantOrderNo is empty");
+            @RequestParam(value = "transactionNo") String transactionNo) {
+        log.info("queryOrder start");
+        if (!StringUtils.hasText(transactionNo)) {
+            log.info("transactionNo is empty");
+            return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "transactionNo is empty");
         }
 
         try {
-            if (merchantOrderNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
-                return collectionOrderService.queryOrderInfo(userId, merchantOrderNo);
+            if (transactionNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
+                return collectionOrderService.queryOrderInfo(userId, transactionNo);
             }
 
-            if (merchantOrderNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
-                return payOutOrderService.queryOrderInfo(userId, merchantOrderNo);
+            if (transactionNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
+                return payOutOrderService.queryOrderInfo(userId, transactionNo);
             }
         } catch (PakGoPayException e) {
-            return CommonResponse.fail(e.getCode(), "createPayOutOrder async timeout");
+            log.error("queryOrder failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryOrder failed, " + e.getMessage());
         }
 
+        log.info("transactionNo is invalid, transactionNo {}", transactionNo);
+        return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "transactionNo is invalid");
+    }
 
-        return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "merchantOrderNo is invalid");
+    @GetMapping(value = "/balance")
+    public CommonResponse queryBalance(
+            HttpServletRequest request, @RequestParam(value = "userId") String userId) {
+        log.info("queryBalance start");
+        if (!StringUtils.hasText(userId)) {
+            log.info("userId is empty");
+            return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "userId is empty");
+        }
+
+        try {
+            return balanceService.queryMerchantAvailableBalance(userId);
+        } catch (PakGoPayException e) {
+            log.info("queryMerchantAvailableBalance failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryBalance failed: " + e.getMessage());
+        }
     }
 }
