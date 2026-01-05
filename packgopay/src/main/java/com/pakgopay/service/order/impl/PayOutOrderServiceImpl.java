@@ -66,13 +66,13 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
 
         // 5. calculate transaction fee
         // xiaoyou TODO 计算渠道和通道费率和成本
-        // 计算多级代理商分成（判断是否有代理 is_agent）
-        // 计算平台利润 = 商户抽成 - 渠道成本（渠道和通道） - 代理商分成
-        channelPaymentService.calculateTransactionFee(transactionInfo, OrderType.PAY_OUT_ORDER);
+        // 计算多级代理商分成（判断是否有代理 parent_id）
+        // 计算平台利润 = 代付金额 - 商户抽成 - 代理商分成
+        BigDecimal transactionFee = channelPaymentService.calculateTransactionFee(transactionInfo, OrderType.PAY_OUT_ORDER);
 
-        // 验证商户可用余额
-        // 冻结资金
-        // 设置付款账户信息
+        // 验证商户可用余额（针对制定货币）
+        // 冻结资金（代付金额 + 商户抽成）
+        // 设置付款账户信息（接口传入）
 
         return null;
     }

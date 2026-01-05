@@ -9,13 +9,22 @@ import java.util.List;
 @Mapper
 public interface AgentInfoMapper {
 
-    /**
-     * xiaoyou 通过 userId 查询代理（商户）全部信息
-     */
+
+    /** Query agent info by login userId */
     AgentInfoDto findByUserId(@Param("userId") String userId);
+
+    /** Insert agent info */
+    int insert(AgentInfoDto dto);
 
     /**
      * xiaoyou 查询所有代理信息
      */
     List<AgentInfoDto> getAllAgentInfo();
+
+    /**
+     * Update status by userId
+     * @return affected rows
+     */
+    int updateStatus(@Param("userId") String userId,
+                     @Param("status") Integer status);
 }

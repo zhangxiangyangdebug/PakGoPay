@@ -39,18 +39,18 @@
 
         <!-- Agent level 1 -->
         <result column="agent1_rate" property="agent1Rate" javaType="java.math.BigDecimal"/>
-        <result column="agent1_fixed_fee" property="agent1FixedFee" javaType="java.lang.String"/>
-        <result column="agent1_fee" property="agent1Fee" javaType="java.lang.String"/>
+        <result column="agent1_fixed_fee" property="agent1FixedFee" javaType="java.math.BigDecimal"/>
+        <result column="agent1_fee" property="agent1Fee" javaType="java.math.BigDecimal"/>
 
         <!-- Agent level 2 -->
-        <result column="agent2_rate" property="agent2Rate" javaType="java.lang.String"/>
-        <result column="agent2_fixed_fee" property="agent2FixedFee" javaType="java.lang.String"/>
-        <result column="agent2_fee" property="agent2Fee" javaType="java.lang.String"/>
+        <result column="agent2_rate" property="agent2Rate" javaType="java.math.BigDecimal"/>
+        <result column="agent2_fixed_fee" property="agent2FixedFee" javaType="java.math.BigDecimal"/>
+        <result column="agent2_fee" property="agent2Fee" javaType="java.math.BigDecimal"/>
 
         <!-- Agent level 3 -->
-        <result column="agent3_rate" property="agent3Rate" javaType="java.lang.String"/>
-        <result column="agent3_fixed_fee" property="agent3FixedFee" javaType="java.lang.String"/>
-        <result column="agent3_fee" property="agent3Fee" javaType="java.lang.String"/>
+        <result column="agent3_rate" property="agent3Rate" javaType="java.math.BigDecimal"/>
+        <result column="agent3_fixed_fee" property="agent3FixedFee" javaType="java.math.BigDecimal"/>
+        <result column="agent3_fee" property="agent3Fee" javaType="java.math.BigDecimal"/>
 
         <!-- Request info -->
         <result column="request_ip" property="requestIp" javaType="java.lang.String"/>

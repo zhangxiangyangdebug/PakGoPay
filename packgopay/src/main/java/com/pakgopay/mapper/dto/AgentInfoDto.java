@@ -11,90 +11,75 @@ public class AgentInfoDto implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /** xiaoyou 用户id */
+    /** Agent login user ID */
     private String userId;
 
-    /** xiaoyou 所属代理userId */
+    /** Agent number */
+    private String agentNo;
+
+    /** Agent name */
+    private String agentName;
+
+    /** Parent agent ID */
     private String parentId;
 
-    /** xiaoyou 商户昵称 */
-    private String merchantName;
-
-    /** xiaoyou 是否支持代收 */
-    private Integer collectionEnabled;
-
-    /** xiaoyou 是否支持代付 */
-    private Integer payEnabled;
-
-    /** xiaoyou 代收日限额 */
-    private BigDecimal dailyCollectionLimit;
-
-    /** xiaoyou 代付日限额 */
-    private BigDecimal dailyPayLimit;
-
-    /** xiaoyou 代收月限额 */
-    private BigDecimal monthlyCollectionLimit;
-
-    /** xiaoyou 代付月限额 */
-    private BigDecimal monthlyPayLimit;
-
-    /** xiaoyou 启用状态0-停用，1-启用 */
+    /** Status: 0-disabled, 1-enabled */
     private Integer status;
 
-    /** xiaoyou 风险等级 */
-    private Integer riskLevel;
+    /** Contact name */
+    private String contactName;
 
-    /** xiaoyou 是否开启通知 */
-    private Integer notificationEnable;
+    /** Contact email */
+    private String contactEmail;
 
-    /** xiaoyou 创建时间 */
-    private LocalDateTime createTime;
+    /** Contact phone */
+    private String contactPhone;
 
-    /** xiaoyou 创建人 */
-    private String createBy;
+    /** Balance record ID */
+    private Long balanceId;
 
-    /** xiaoyou 更新时间 */
-    private LocalDateTime updateTime;
+    /** Agent level */
+    private Integer level;
 
-    /** xiaoyou 更新人 */
-    private String updateBy;
-
-    /** xiaoyou 代收费率 */
+    /** Collection rate */
     private BigDecimal collectionRate;
 
-    /** xiaoyou 代收固定费用 */
+    /** Collection fixed fee */
     private BigDecimal collectionFixedFee;
 
-    /** xiaoyou 代收最高费用 */
+    /** Collection max fee */
     private BigDecimal collectionMaxFee;
 
-    /** xiaoyou 代收最低费用 */
+    /** Collection min fee */
     private BigDecimal collectionMinFee;
 
-    /** xiaoyou 代付费率 */
+    /** Payout rate */
     private BigDecimal payRate;
 
-    /** xiaoyou 代付固定费用 */
+    /** Payout fixed fee */
     private BigDecimal payFixedFee;
 
-    /** xiaoyou 代付最高费用 */
+    /** Payout max fee */
     private BigDecimal payMaxFee;
 
-    /** xiaoyou 代付最低费用 */
+    /** Payout min fee */
     private BigDecimal payMinFee;
 
-    /** xiaoyou 版本号 */
+    /** Create time */
+    private LocalDateTime createTime;
+
+    /** Created by */
+    private String createBy;
+
+    /** Update time */
+    private LocalDateTime updateTime;
+
+    /** Updated by (DB column: upeate_by) */
+    private String updateBy;
+
+    /** Version */
     private Integer version;
 
-    /** xiaoyou 是否有代理0：没有、1：有 */
-    private Integer isAgent;
-
-    /** xiaoyou 是否开启金额浮动0：关闭、1：开启 */
-    private Integer isFloat;
-
-    /** xiaoyou 代收ip白名单 */
-    private String colWhiteIps;
-
-    /** xiaoyou 代付ip白名单 */
-    private String payWhiteIps;
+    /** Remark */
+    private String remark;
 }

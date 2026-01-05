@@ -26,4 +26,13 @@ public class CommonConstant {
 
     // payout order no prefix
     public static final String PAYOUT_PREFIX = "PAY";
+
+    // First level agent
+    public static final Integer AGENT_LEVEL_FIRST = 1;
+
+    // Second level agent
+    public static final Integer AGENT_LEVEL_SECOND = 2;
+
+    // Third level agent
+    public static final Integer AGENT_LEVEL_THIRD = 3;
 }

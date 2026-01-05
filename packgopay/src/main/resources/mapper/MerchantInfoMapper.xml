@@ -36,7 +36,6 @@
         <result column="pay_min_fee" property="payMinFee" javaType="java.math.BigDecimal"/>
 
         <result column="version" property="version" javaType="java.lang.Integer"/>
-        <result column="is_agent" property="isAgent" javaType="java.lang.Integer"/>
         <result column="is_float" property="isFloat" javaType="java.lang.Integer"/>
 
         <result column="col_white_ips" property="colWhiteIps" javaType="java.lang.String"/>
@@ -51,7 +50,7 @@
         create_time, create_by, update_time, update_by,
         collection_rate, collection_fixed_fee, collection_max_fee, collection_min_fee,
         pay_rate, pay_fixed_fee, pay_max_fee, pay_min_fee,
-        version, is_agent, is_float,
+        version, is_float,
         col_white_ips, pay_white_ips, channel_ids
     </sql>
 
@@ -73,7 +72,7 @@
         #{createTime}, #{createBy}, #{updateTime}, #{updateBy},
         #{collectionRate}, #{collectionFixedFee}, #{collectionMaxFee}, #{collectionMinFee},
         #{payRate}, #{payFixedFee}, #{payMaxFee}, #{payMinFee},
-        #{version}, #{isAgent}, #{isFloat},
+        #{version} #{isFloat},
         #{colWhiteIps}, #{payWhiteIps}, #{channelIds}
         )
     </insert>

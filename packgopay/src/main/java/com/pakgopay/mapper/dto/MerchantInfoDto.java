@@ -74,9 +74,6 @@ public class MerchantInfoDto implements Serializable {
     /** xiaoyou 版本号（乐观锁） */
     private Integer version;
 
-    /** xiaoyou 是否代理（0-否 1-是） */
-    private Integer isAgent;
-
     /** xiaoyou 是否浮动（0-否 1-是） */
     private Integer isFloat;
 

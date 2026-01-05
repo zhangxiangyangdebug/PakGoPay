@@ -21,7 +21,7 @@ public class TransactionInfo {
     /**
      * Merchant Id
      */
-    private String merchant_id;
+    private String merchantId;
 
     /**
      * Merchant order number (must be unique)
@@ -32,6 +32,49 @@ public class TransactionInfo {
      * Merchant detail info
      */
     private MerchantInfoDto merchantInfo;
+
+    /**
+     * Merchant Fee
+     */
+    private BigDecimal merchantFee;
+
+    /**
+     * Merchant Rate
+     */
+    private BigDecimal merchantRate;
+
+    /**
+     * Merchant Fixed Fee
+     */
+    private BigDecimal merchantFixedFee;
+
+    // ------------------------ merchant info ---------------------------------
+    /** Level 1 agent rate */
+    private BigDecimal agent1Rate;
+
+    /** Level 1 agent fixed fee */
+    private BigDecimal agent1FixedFee;
+
+    /** Level 1 agent commission */
+    private BigDecimal agent1Fee;
+
+    /** Level 2 agent rate */
+    private BigDecimal agent2Rate;
+
+    /** Level 2 agent fixed fee */
+    private BigDecimal agent2FixedFee;
+
+    /** Level 2 agent commission */
+    private BigDecimal agent2Fee;
+
+    /** Level 3 agent rate */
+    private BigDecimal agent3Rate;
+
+    /** Level 3 agent fixed fee */
+    private BigDecimal agent3FixedFee;
+
+    /** Level 3 agent commission */
+    private BigDecimal agent3Fee;
 
     // ------------------------ channel info ---------------------------------
 

@@ -7,14 +7,8 @@ import com.pakgopay.common.entity.TransactionInfo;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.mapper.ChannelsMapper;
-import com.pakgopay.mapper.CollectionOrderMapper;
-import com.pakgopay.mapper.PayOrderMapper;
-import com.pakgopay.mapper.PaymentsMapper;
-import com.pakgopay.mapper.dto.ChannelDto;
-import com.pakgopay.mapper.dto.CollectionOrderDto;
-import com.pakgopay.mapper.dto.PayOrderDto;
-import com.pakgopay.mapper.dto.PaymentDto;
+import com.pakgopay.mapper.*;
+import com.pakgopay.mapper.dto.*;
 import com.pakgopay.util.CommontUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,10 +37,14 @@ public class ChannelPaymentService {
     @Autowired
     private PayOrderMapper payOrderMapper;
 
+    @Autowired
+    private AgentInfoMapper agentInfoMapper;
+
     /**
      * get available payment ids
-     * @param channelIds channel ids
-     * @param supportType orderType (Collection / Payout)
+     *
+     * @param channelIds      channel ids
+     * @param supportType     orderType (Collection / Payout)
      * @param transactionInfo transaction info
      * @return payment ids
      * @throws PakGoPayException Business Exception
@@ -85,10 +83,11 @@ public class ChannelPaymentService {
 
     /**
      * get payment infos by merchant's channel and payment no
-     * @param paymentNo payment no
-     * @param channelIds merchant's channel
+     *
+     * @param paymentNo   payment no
+     * @param channelIds  merchant's channel
      * @param supportType orderType (Collection / Payout)
-     * @param paymentMap payment map channel (key: payment id value: channel info)
+     * @param paymentMap  payment map channel (key: payment id value: channel info)
      * @return paymentInfo
      * @throws PakGoPayException business Exception
      */
@@ -122,8 +121,9 @@ public class ChannelPaymentService {
 
     /**
      * filter payment that not support this order currency
+     *
      * @param availablePayments available payments
-     * @param currency currency type (example:VND,PKR,USD)
+     * @param currency          currency type (example:VND,PKR,USD)
      * @return filtered payments
      * @throws PakGoPayException business Exception
      */
@@ -142,9 +142,10 @@ public class ChannelPaymentService {
 
     /**
      * filter payment that over limit daily/montly amount sum
-     * @param amount order amount
+     *
+     * @param amount         order amount
      * @param paymentDtoList payment infos
-     * @param supportType orderType (Collection / Payout)
+     * @param supportType    orderType (Collection / Payout)
      * @return filtered payments
      * @throws PakGoPayException business Exception
      */
@@ -281,8 +282,9 @@ public class ChannelPaymentService {
 
     /**
      * get merchant's payment ids by channel isd
+     *
      * @param channelIdList channel ids
-     * @param paymentMap payment map channel (key: payment id value: channel info)
+     * @param paymentMap    payment map channel (key: payment id value: channel info)
      * @return payment ids
      * @throws PakGoPayException business Exception
      */
@@ -312,8 +314,142 @@ public class ChannelPaymentService {
         return paymentIdList;
     }
 
-    public void calculateTransactionFee(TransactionInfo transactionInfo, OrderType orderType) {
+    public BigDecimal calculateTransactionFee(TransactionInfo transactionInfo, OrderType orderType) {
+        BigDecimal amount = transactionInfo.getAmount();
+        // merchant fee
+        BigDecimal fixedFee = null;
+        BigDecimal rate = null;
+        // get fixedFee and rate
+        if (orderType.equals(OrderType.PAY_OUT_ORDER)) {
+            fixedFee = transactionInfo.getMerchantInfo().getPayFixedFee();
+            rate = transactionInfo.getMerchantInfo().getPayRate();
+        } else {
+            fixedFee = transactionInfo.getMerchantInfo().getCollectionFixedFee();
+            rate = transactionInfo.getMerchantInfo().getCollectionRate();
+        }
 
-        // TODO
+        BigDecimal transactionFee = BigDecimal.ZERO;
+        // fixed fee
+        if (fixedFee != null && !fixedFee.equals(BigDecimal.ZERO)) {
+            transactionFee = CommontUtil.safeAdd(transactionFee, fixedFee);
+        }
+
+        // percentage rate
+        if (rate != null && !rate.equals(BigDecimal.ZERO)) {
+            transactionFee = CommontUtil.safeAdd(transactionFee, CommontUtil.calculate(amount, rate, 6));
+        }
+
+        calculateAgentFee(transactionInfo, orderType);
+
+        transactionInfo.setMerchantFee(transactionFee);
+        transactionInfo.setMerchantRate(rate);
+        transactionInfo.setMerchantFixedFee(fixedFee);
+        return transactionFee;
     }
+
+    private void calculateAgentFee(TransactionInfo transactionInfo, OrderType orderType) {
+        log.info("calculateAgentFee start");
+        String agentId = transactionInfo.getMerchantInfo().getParentId();
+        if (agentId == null) {
+            log.info("merchant has not agent");
+            return;
+        }
+
+        List<AgentInfoDto> chains = new ArrayList<>();
+        Set<String> visited = new HashSet<>(); // 防环
+
+        // 1) 先查当前用户，拿到起始 level
+        AgentInfoDto current = getAgentInfoByAgentId(agentId);
+        if (current == null) {
+            log.error("agent info is not exists, agentId {}", agentId);
+            return;
+        }
+
+        Integer startLevel = current.getLevel();
+        while (startLevel >= CommonConstant.AGENT_LEVEL_FIRST) {
+            // preventing the formation of circular links
+            if (current == null || visited.contains(current.getUserId())) {
+                log.warn("userId is duplicate");
+                break;
+            } else {
+                visited.add(current.getUserId());
+            }
+            // check agent enable status
+            if (CommonConstant.ENABLE_STATUS_ENABLE.equals(current.getStatus())) {
+                chains.add(current);
+            } else {
+                log.info("agent is not enable");
+                break;
+            }
+            // check agent parent id
+            if (!StringUtils.hasText(current.getParentId())) {
+                log.info("agent has not parent agent");
+                break;
+            }
+            // check agent level
+            if (current.getLevel() != null && current.getLevel() <= 1) {
+                log.info("agent level is {}", current.getLevel());
+                break;
+            }
+
+            current = getAgentInfoByAgentId(current.getParentId());
+            startLevel--;
+        }
+
+        setAgentInfoForTransaction(transactionInfo, orderType, chains);
+        log.info("calculateAgentFee end");
+    }
+
+    /**
+     * save agent's fee info
+     * @param transactionInfo transaction info
+     * @param orderType order type
+     * @param chains agent info list
+     */
+    private void setAgentInfoForTransaction(TransactionInfo transactionInfo, OrderType orderType, List<AgentInfoDto> chains) {
+        BigDecimal amount = transactionInfo.getAmount();
+        chains.forEach(info -> {
+
+            BigDecimal rate = OrderType.PAY_OUT_ORDER.equals(
+                    orderType) ? info.getPayRate() : info.getCollectionRate();
+            BigDecimal fixedFee = OrderType.PAY_OUT_ORDER.equals(
+                    orderType) ? info.getPayFixedFee() : info.getCollectionFixedFee();
+            BigDecimal agentFee = CommontUtil.calculate(
+                    amount, OrderType.PAY_OUT_ORDER.equals(
+                            orderType) ? info.getPayRate() : info.getCollectionRate(), 6);
+            // First level agent
+            if (CommonConstant.AGENT_LEVEL_FIRST.equals(info.getLevel())) {
+                transactionInfo.setAgent1Rate(rate);
+                transactionInfo.setAgent1FixedFee(fixedFee);
+                transactionInfo.setAgent1Fee(agentFee);
+            }
+            // Second level agent
+            if (CommonConstant.AGENT_LEVEL_SECOND.equals(info.getLevel())) {
+                transactionInfo.setAgent2Rate(rate);
+                transactionInfo.setAgent2FixedFee(fixedFee);
+                transactionInfo.setAgent2Fee(agentFee);
+            }
+            // Third level agent
+            if (CommonConstant.AGENT_LEVEL_THIRD.equals(info.getLevel())) {
+                transactionInfo.setAgent3Rate(rate);
+                transactionInfo.setAgent3FixedFee(fixedFee);
+                transactionInfo.setAgent3Fee(agentFee);
+            }
+        });
+    }
+
+    /**
+     * get agent info by agent id
+     * @param agentId agent id
+     * @return agent info
+     */
+    private AgentInfoDto getAgentInfoByAgentId(String agentId) {
+        try {
+            return agentInfoMapper.findByUserId(agentId);
+        } catch (Exception e) {
+            log.error("agentInfoMapper findByUserId failed, agentId: {} message: {}", agentId, e.getMessage());
+        }
+        return null;
+    }
+
 }

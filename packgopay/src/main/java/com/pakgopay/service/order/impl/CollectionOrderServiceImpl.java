@@ -56,6 +56,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         transactionInfo.setCurrency(colOrderRequest.getCurrency());
         transactionInfo.setAmount(colOrderRequest.getAmount());
         transactionInfo.setPaymentNo(colOrderRequest.getPaymentNo());
+        // TODO merchantInfoDto.getChannelIds()为空，取所属代理名下渠道
         Long paymentId = channelPaymentService.getPaymentId(
                 merchantInfoDto.getChannelIds(), CommonConstant.SUPPORT_TYPE_COLLECTION, transactionInfo);
 

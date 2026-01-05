@@ -5,66 +5,59 @@
 
 <mapper namespace="com.pakgopay.mapper.AgentInfoMapper">
 
+    <!-- Result map (explicit javaType) -->
     <resultMap id="AgentInfoResultMap" type="com.pakgopay.mapper.dto.AgentInfoDto">
 
-        <id     column="user_id"                   property="userId"                 javaType="java.lang.String"/>
-        <result column="parent_id"                 property="parentId"               javaType="java.lang.String"/>
+        <id column="user_id" property="userId" javaType="java.lang.String"/>
 
-        <result column="merchant_name"             property="merchantName"           javaType="java.lang.String"/>
+        <result column="agent_no" property="agentNo" javaType="java.lang.String"/>
+        <result column="agent_name" property="agentName" javaType="java.lang.String"/>
 
-        <result column="collection_enabled"        property="collectionEnabled"      javaType="java.lang.Integer"/>
-        <result column="pay_enabled"               property="payEnabled"             javaType="java.lang.Integer"/>
+        <result column="parent_id" property="parentId" javaType="java.lang.String"/>
+        <result column="status" property="status" javaType="java.lang.Integer"/>
 
-        <result column="daily_collection_limit"    property="dailyCollectionLimit"   javaType="java.math.BigDecimal"/>
-        <result column="daily_pay_limit"           property="dailyPayLimit"          javaType="java.math.BigDecimal"/>
-        <result column="monthly_collection_limit"  property="monthlyCollectionLimit" javaType="java.math.BigDecimal"/>
-        <result column="monthly_pay_limit"         property="monthlyPayLimit"        javaType="java.math.BigDecimal"/>
+        <result column="contact_name" property="contactName" javaType="java.lang.String"/>
+        <result column="contact_email" property="contactEmail" javaType="java.lang.String"/>
+        <result column="contact_phone" property="contactPhone" javaType="java.lang.String"/>
 
-        <result column="status"                    property="status"                 javaType="java.lang.Integer"/>
-        <result column="risk_level"                property="riskLevel"              javaType="java.lang.Integer"/>
-        <result column="notification_enable"       property="notificationEnable"     javaType="java.lang.Integer"/>
+        <result column="balance_id" property="balanceId" javaType="java.lang.Long"/>
+        <result column="level" property="level" javaType="java.lang.Integer"/>
 
-        <result column="create_time"               property="createTime"             javaType="java.time.LocalDateTime"/>
-        <result column="create_by"                 property="createBy"               javaType="java.lang.String"/>
-        <result column="update_time"               property="updateTime"             javaType="java.time.LocalDateTime"/>
-        <result column="update_by"                 property="updateBy"               javaType="java.lang.String"/>
+        <result column="collection_rate" property="collectionRate" javaType="java.math.BigDecimal"/>
+        <result column="collection_fixed_fee" property="collectionFixedFee" javaType="java.math.BigDecimal"/>
+        <result column="collection_max_fee" property="collectionMaxFee" javaType="java.math.BigDecimal"/>
+        <result column="collection_min_fee" property="collectionMinFee" javaType="java.math.BigDecimal"/>
 
-        <result column="collection_rate"           property="collectionRate"         javaType="java.math.BigDecimal"/>
-        <result column="collection_fixed_fee"      property="collectionFixedFee"     javaType="java.math.BigDecimal"/>
-        <result column="collection_max_fee"        property="collectionMaxFee"       javaType="java.math.BigDecimal"/>
-        <result column="collection_min_fee"        property="collectionMinFee"       javaType="java.math.BigDecimal"/>
+        <result column="pay_rate" property="payRate" javaType="java.math.BigDecimal"/>
+        <result column="pay_fixed_fee" property="payFixedFee" javaType="java.math.BigDecimal"/>
+        <result column="pay_max_fee" property="payMaxFee" javaType="java.math.BigDecimal"/>
+        <result column="pay_min_fee" property="payMinFee" javaType="java.math.BigDecimal"/>
 
-        <result column="pay_rate"                  property="payRate"                javaType="java.math.BigDecimal"/>
-        <result column="pay_fixed_fee"             property="payFixedFee"            javaType="java.math.BigDecimal"/>
-        <result column="pay_max_fee"               property="payMaxFee"              javaType="java.math.BigDecimal"/>
-        <result column="pay_min_fee"               property="payMinFee"              javaType="java.math.BigDecimal"/>
+        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
+        <result column="create_by" property="createBy" javaType="java.lang.String"/>
 
-        <result column="version"                   property="version"                javaType="java.lang.Integer"/>
-        <result column="is_agent"                  property="isAgent"                javaType="java.lang.Integer"/>
-        <result column="is_float"                   property="isFloat"                javaType="java.lang.Integer"/>
+        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
 
-        <result column="col_white_ips"             property="colWhiteIps"            javaType="java.lang.String"/>
-        <result column="pay_white_ips"             property="payWhiteIps"            javaType="java.lang.String"/>
+        <!-- Note: DB column name is upeate_by -->
+        <result column="upeate_by" property="updateBy" javaType="java.lang.String"/>
+
+        <result column="version" property="version" javaType="java.lang.Integer"/>
+        <result column="remark" property="remark" javaType="java.lang.String"/>
+
     </resultMap>
 
-    <!-- BaseColumns -->
+    <!-- Base columns -->
     <sql id="BaseColumns">
         user_id,
+        agent_no,
+        agent_name,
         parent_id,
-        merchant_name,
-        collection_enabled,
-        pay_enabled,
-        daily_collection_limit,
-        daily_pay_limit,
-        monthly_collection_limit,
-        monthly_pay_limit,
         status,
-        risk_level,
-        notification_enable,
-        create_time,
-        create_by,
-        update_time,
-        update_by,
+        contact_name,
+        contact_email,
+        contact_phone,
+        balance_id,
+        level,
         collection_rate,
         collection_fixed_fee,
         collection_max_fee,
@@ -73,12 +66,26 @@
         pay_fixed_fee,
         pay_max_fee,
         pay_min_fee,
+        create_time,
+        create_by,
+        update_time,
+        upeate_by,
         version,
-        is_agent,
-        is_float,
-        col_white_ips,
-        pay_white_ips
+        remark
     </sql>
+
+
+    <!-- Insert -->
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.AgentInfoDto">
+        INSERT INTO agent_info (
+        <include refid="BaseColumns"/>
+        ) VALUES (
+        #{userId},#{agentNo},#{agentName},#{parentId},#{status},#{contactName},#{contactEmail},
+        #{contactPhone},#{balanceId},#{level},#{collectionRate},#{collectionFixedFee},#{collectionMaxFee},#{collectionMinFee},#{payRate},
+        #{payFixedFee},#{payMaxFee},#{payMinFee},#{createTime},#{createBy},#{updateTime},#{updateBy},
+        #{version},#{remark}
+        )
+    </insert>
 
     <select id="findByUserId" resultMap="AgentInfoResultMap">
         select
@@ -93,5 +100,13 @@
         <include refid="BaseColumns"/>
         from agent_info
     </select>
+
+
+    <!-- Update status -->
+    <update id="updateStatus">
+        UPDATE agent_info
+        SET status = #{status}
+        WHERE user_id = #{userId}
+    </update>
 
 </mapper>

@@ -57,28 +57,28 @@ public class CollectionOrderDto implements Serializable {
     private BigDecimal agent1Rate;
 
     /** Level 1 agent fixed fee */
-    private String agent1FixedFee;
+    private BigDecimal agent1FixedFee;
 
     /** Level 1 agent commission */
-    private String agent1Fee;
+    private BigDecimal agent1Fee;
 
     /** Level 2 agent rate */
-    private String agent2Rate;
+    private BigDecimal agent2Rate;
 
     /** Level 2 agent fixed fee */
-    private String agent2FixedFee;
+    private BigDecimal agent2FixedFee;
 
     /** Level 2 agent commission */
-    private String agent2Fee;
+    private BigDecimal agent2Fee;
 
     /** Level 3 agent rate */
-    private String agent3Rate;
+    private BigDecimal agent3Rate;
 
     /** Level 3 agent fixed fee */
-    private String agent3FixedFee;
+    private BigDecimal agent3FixedFee;
 
     /** Level 3 agent commission */
-    private String agent3Fee;
+    private BigDecimal agent3Fee;
 
     /** Request IP */
     private String requestIp;
