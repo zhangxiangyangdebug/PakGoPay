@@ -9,8 +9,8 @@
         <result column="menu_id" property="menuId" javaType="java.lang.String"/>
         <result column="role_name" property="roleName" javaType="java.lang.String"/>
         <result column="remark" property="remark" javaType="java.lang.String"/>
-        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
-        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
         <result column="update_by" property="updator" javaType="java.lang.String"/>
         <result column="create_by" property="creator" javaType="java.lang.String"/>
     </resultMap>

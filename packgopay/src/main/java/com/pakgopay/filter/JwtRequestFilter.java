@@ -1,6 +1,6 @@
 package com.pakgopay.filter;
 
-import com.pakgopay.common.enums.ResultCode;
+import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.service.common.AuthorizationService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -45,10 +45,18 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         try {
             if (token == null && request.getRequestURI().contains("/pakGoPay/server/notify")) {
                 filterChain.doFilter(request, response);
-            }else if (token != null && AuthorizationService.verifyToken(token) != null) {
+            } else if (token != null && AuthorizationService.verifyToken(token) != null) {
+                String userInfo = AuthorizationService.verifyToken(token);
+                if (userInfo != null) {
+                    String userId = userInfo.split("&")[0];
+                    request.setAttribute(CommonConstant.ATTR_USER_ID, userId);
+                }
                 // 设置用户认证状态
                 filterChain.doFilter(request, response);
-            } else if (request.getRequestURI().contains("login") || request.getRequestURI().contains("getCode") || request.getRequestURI().equals("/pakGoPay/server/heart") || request.getRequestURI().equals("/pakGoPay/server/Login/refreshToken")) {
+            } else if (request.getRequestURI().contains("login")
+                    || request.getRequestURI().contains("getCode")
+                    || request.getRequestURI().equals("/pakGoPay/server/heart")
+                    || request.getRequestURI().equals("/pakGoPay/server/Login/refreshToken")) {
                 filterChain.doFilter(request, response);
             } else {
                 // 处理无效token 重定向到登陆页

@@ -26,10 +26,10 @@
 
         <result column="monthly_pay_limit" property="monthlyPayLimit" javaType="java.math.BigDecimal"/>
 
-        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
         <result column="update_by" property="updateBy" javaType="java.lang.String"/>
 
-        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
         <result column="create_by" property="createBy" javaType="java.lang.String"/>
 
         <result column="status" property="status" javaType="java.lang.Integer"/>

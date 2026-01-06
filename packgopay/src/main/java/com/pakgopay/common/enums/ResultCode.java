@@ -37,7 +37,8 @@ public enum ResultCode {
     MERCHANT_NOT_SUPPORT_COLLECTION(100209, "merchant is not support collection"),
     MERCHANT_NOT_SUPPORT_PAYOUT(100210, "merchant is not support payout"),
     MERCHANT_ORDER_NO_NOT_EXISTS(100211, "merchantOrderNo is not exits"),
-    MERCHANT_HAS_NO_BALANCE_DATA(100212, "user has no balance data");
+    MERCHANT_HAS_NO_BALANCE_DATA(100212, "user has no balance data"),
+    MERCHANT_BALANCE_NOT_ENOUGH(100213, "merchants with insufficient available balance");
 
     private final Integer code;
     private final String message;

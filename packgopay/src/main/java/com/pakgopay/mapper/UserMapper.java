@@ -4,7 +4,6 @@ import com.pakgopay.mapper.dto.UserDTO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import java.sql.Timestamp;
 import java.util.List;
 
 @Mapper
@@ -22,7 +21,7 @@ public interface UserMapper {
 
      int bingSecretKey(@Param(value = "secretKey")  String secretKey,@Param(value = "userName") String userName);
 
-     int setLastLoginTime(@Param(value = "lastLoginTime") Timestamp lastLoginTime, @Param(value = "userId") String userId);
+     int setLastLoginTime(@Param(value = "lastLoginTime") Long lastLoginTime, @Param(value = "userId") String userId);
 
      UserDTO findRoleId(@Param(value = "userName") String userName);
 

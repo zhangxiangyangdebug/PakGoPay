@@ -9,12 +9,13 @@
     <resultMap id="BalanceResultMap" type="com.pakgopay.mapper.dto.BalanceDto">
         <id column="user_id" property="userId" javaType="java.lang.String"/>
 
+        <id column="currency" property="currency" javaType="java.lang.String"/>
         <result column="available_balance" property="availableBalance" javaType="java.math.BigDecimal"/>
         <result column="frozen_balance" property="frozenBalance" javaType="java.math.BigDecimal"/>
         <result column="total_balance" property="totalBalance" javaType="java.math.BigDecimal"/>
 
-        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
-        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
 
         <result column="remark" property="remark" javaType="java.lang.String"/>
     </resultMap>
@@ -22,6 +23,7 @@
     <!-- Base columns -->
     <sql id="BaseColumns">
         user_id,
+        currency,
         available_balance,
         frozen_balance,
         total_balance,
@@ -36,6 +38,15 @@
         <include refid="BaseColumns"/>
         FROM balance
         WHERE user_id = #{userId}
+    </select>
+
+    <!-- Query by userId and currency -->
+    <select id="findByUserIdAndCurrency" resultMap="BalanceResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM balance
+        WHERE user_id = #{userId}
+            AND currency = #{currency}
         LIMIT 1
     </select>
 
@@ -45,6 +56,7 @@
         <include refid="BaseColumns"/>
         ) VALUES (
         #{userId},
+        #{currency},
         #{availableBalance},
         #{frozenBalance},
         #{totalBalance},
@@ -58,6 +70,7 @@
     <update id="updateByUserId" parameterType="com.pakgopay.mapper.dto.BalanceDto">
         UPDATE balance
         <set>
+            <if test="currency != null">currency = #{currency},</if>
             <if test="availableBalance != null">available_balance = #{availableBalance},</if>
             <if test="frozenBalance != null">frozen_balance = #{frozenBalance},</if>
             <if test="totalBalance != null">total_balance = #{totalBalance},</if>

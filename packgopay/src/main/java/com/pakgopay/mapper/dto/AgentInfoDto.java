@@ -4,7 +4,6 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Data
 public class AgentInfoDto implements Serializable {
@@ -66,13 +65,13 @@ public class AgentInfoDto implements Serializable {
     private BigDecimal payMinFee;
 
     /** Create time */
-    private LocalDateTime createTime;
+    private Long createTime;
 
     /** Created by */
     private String createBy;
 
     /** Update time */
-    private LocalDateTime updateTime;
+    private Long updateTime;
 
     /** Updated by (DB column: upeate_by) */
     private String updateBy;

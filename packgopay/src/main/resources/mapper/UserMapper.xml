@@ -16,12 +16,12 @@
         <result column="login_secret" property="loginSecret" javaType="java.lang.String"/>
         <result column="login_secret_expire"
                 property="loginSecretExpire"
-                javaType="java.time.LocalDateTime"/>
+                javaType="java.lang.Long"/>
 
         <result column="api_secret" property="apiSecret" javaType="java.lang.String"/>
         <result column="api_secret_expire"
                 property="apiSecretExpire"
-                javaType="java.time.LocalDateTime"/>
+                javaType="java.lang.Long"/>
 
         <result column="password" property="password" javaType="java.lang.String"/>
 
@@ -29,17 +29,17 @@
         <result column="last_login_ip" property="lastLoginIP" javaType="java.lang.String"/>
         <result column="last_login_time"
                 property="lastLoginTime"
-                javaType="java.time.LocalDateTime"/>
+                javaType="java.lang.Long"/>
 
         <!-- 审计字段 -->
         <result column="create_time"
                 property="createTime"
-                javaType="java.time.LocalDateTime"/>
+                javaType="java.lang.Long"/>
         <result column="created_by" property="createdBy" javaType="java.lang.String"/>
 
         <result column="updated_time"
                 property="updatedTime"
-                javaType="java.time.LocalDateTime"/>
+                javaType="java.lang.Long"/>
         <result column="updated_by" property="updatedBy" javaType="java.lang.String"/>
 
         <!-- 其他 -->

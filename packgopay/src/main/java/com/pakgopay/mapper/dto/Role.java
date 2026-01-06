@@ -1,15 +1,12 @@
 package com.pakgopay.mapper.dto;
 
-import jakarta.persistence.Id;
 import lombok.Data;
-
-import java.time.LocalDateTime;
 
 @Data
 public class Role {
     private Integer roleId;
     private String roleName;
     private String remark;
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private Long createTime;
+    private Long updateTime;
 }

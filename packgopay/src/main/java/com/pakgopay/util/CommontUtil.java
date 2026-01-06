@@ -20,6 +20,16 @@ public class CommontUtil {
         return result;
     }
 
+    public static BigDecimal safeSubtract(BigDecimal a, BigDecimal b) {
+        if (a == null) {
+            a = BigDecimal.ZERO;
+        }
+        if (b == null) {
+            b = BigDecimal.ZERO;
+        }
+        return a.subtract(b);
+    }
+
     public static BigDecimal calculate(
             BigDecimal amount,
             BigDecimal rate,

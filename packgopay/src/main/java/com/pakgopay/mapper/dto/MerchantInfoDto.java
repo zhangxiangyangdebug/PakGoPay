@@ -4,7 +4,6 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Data
 public class MerchantInfoDto implements Serializable {
@@ -36,13 +35,13 @@ public class MerchantInfoDto implements Serializable {
     private Integer notificationEnable;
 
     /** xiaoyou 创建时间 */
-    private LocalDateTime createTime;
+    private Long createTime;
 
     /** xiaoyou 创建人 */
     private String createBy;
 
     /** xiaoyou 更新时间 */
-    private LocalDateTime updateTime;
+    private Long updateTime;
 
     /** xiaoyou 更新人 */
     private String updateBy;

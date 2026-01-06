@@ -4,7 +4,6 @@ import com.pakgopay.mapper.dto.PayOrderDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,11 +23,11 @@ public interface PayOrderMapper {
 
     /** Increase callback retry times (atomic) */
     int increaseCallbackTimes(@Param("transactionNo") String transactionNo,
-                              @Param("lastCallbackTime") LocalDateTime lastCallbackTime);
+                              @Param("lastCallbackTime") Long lastCallbackTime);
 
     /** Query by payment IDs and time range */
     List<PayOrderDto> getPayOrderInfosByPaymentIds(@Param("paymentIds") List<Long> paymentIds,
-                                                   @Param("startTime") LocalDateTime startTime,
-                                                   @Param("endTime") LocalDateTime endTime);
+                                                   @Param("startTime") Long startTime,
+                                                   @Param("endTime") Long endTime);
 }
 

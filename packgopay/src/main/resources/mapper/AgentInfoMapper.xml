@@ -33,10 +33,10 @@
         <result column="pay_max_fee" property="payMaxFee" javaType="java.math.BigDecimal"/>
         <result column="pay_min_fee" property="payMinFee" javaType="java.math.BigDecimal"/>
 
-        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
         <result column="create_by" property="createBy" javaType="java.lang.String"/>
 
-        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
 
         <!-- Note: DB column name is upeate_by -->
         <result column="upeate_by" property="updateBy" javaType="java.lang.String"/>

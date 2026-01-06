@@ -2,8 +2,6 @@ package com.pakgopay.mapper.dto;
 
 import lombok.Data;
 
-import java.time.LocalDateTime;
-
 @Data
 public class RoleMenuDTO {
     private Integer roleId;
@@ -12,9 +10,9 @@ public class RoleMenuDTO {
 
     private String menuId;
 
-    private LocalDateTime createTime;
+    private Long createTime;
 
-    private LocalDateTime updateTime;
+    private Long updateTime;
 
     private String creator;
 

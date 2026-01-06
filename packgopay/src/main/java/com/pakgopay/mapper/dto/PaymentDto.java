@@ -4,7 +4,6 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Data
 public class PaymentDto implements Serializable {
@@ -78,16 +77,16 @@ public class PaymentDto implements Serializable {
     private String currencyType;
 
     /** xiaoyou 创建时间 */
-    private LocalDateTime createTime;
+    private Long createTime;
 
     /** xiaoyou 创建人 */
     private String createBy;
 
     /** xiaoyou 更新时间 */
-    private LocalDateTime updateTime;
+    private Long updateTime;
 
-    /** xiaoyou 更新人（表结构里是 datetime，但注释写更新人；按数据库类型映射 LocalDateTime） */
-    private LocalDateTime updateBy;
+    /** xiaoyou 更新人（表结构里是 datetime，但注释写更新人；按数据库类型映射 unixTime） */
+    private Long updateBy;
 
     /** xiaoyou 备注 */
     private String remark;

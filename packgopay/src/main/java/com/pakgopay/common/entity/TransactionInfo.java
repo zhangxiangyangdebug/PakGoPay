@@ -122,4 +122,11 @@ public class TransactionInfo {
      */
     private String notificationUrl;
 
+    // ------------------------ common info ---------------------------------
+
+    /**
+     * request ip
+     */
+    private String requestIp;
+
 }

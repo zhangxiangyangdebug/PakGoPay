@@ -18,8 +18,8 @@
         <result column="callback_times" property="callbackTimes" javaType="java.lang.Integer"/>
 
         <!-- Note: DB column name is last_callbak_time -->
-        <result column="last_callbak_time" property="lastCallbackTime" javaType="java.time.LocalDateTime"/>
-        <result column="success_callback_time" property="successCallbackTime" javaType="java.time.LocalDateTime"/>
+        <result column="last_callbak_time" property="lastCallbackTime" javaType="java.lang.Long"/>
+        <result column="success_callback_time" property="successCallbackTime" javaType="java.lang.Long"/>
         <result column="callback_status" property="callbackStatus" javaType="java.lang.Integer"/>
 
         <result column="user_id" property="userId" javaType="java.lang.String"/>
@@ -43,9 +43,9 @@
 
         <result column="request_ip" property="requestIp" javaType="java.lang.String"/>
 
-        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
-        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
-        <result column="request_time" property="requestTime" javaType="java.time.LocalDateTime"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
+        <result column="request_time" property="requestTime" javaType="java.lang.Long"/>
 
         <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
         <result column="payment_mode" property="paymentMode" javaType="java.lang.Integer"/>

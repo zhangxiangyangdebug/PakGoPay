@@ -8,8 +8,8 @@
         <result column="role_id" property="roleId" javaType="java.lang.Integer"/>
         <result column="role_name" property="roleName" javaType="java.lang.String"/>
         <result column="remark" property="remark" javaType="java.lang.String"/>
-        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
-        <result column="update_time" property="createTime" javaType="java.time.LocalDateTime"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="update_time" property="createTime" javaType="java.lang.Long"/>
     </resultMap>
 
     <select id="queryRoleInfoByUserId" resultType="java.lang.Integer">

@@ -21,12 +21,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.RequestBody;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 @Service
@@ -60,8 +58,8 @@ public class SystemConfigServiceImpl implements SystemConfigService {
             RoleInfoResponse roleInfoResponse = new RoleInfoResponse();
             roleInfoResponse.setRoleId(role.getRoleId());
             roleInfoResponse.setRoleName(role.getRoleName());
-            roleInfoResponse.setCreateTime(sdf.format(role.getCreateTime()));
-            roleInfoResponse.setUpdateTime(role.getUpdateTime()==null? null:sdf.format(role.getUpdateTime()));
+            roleInfoResponse.setCreateTime(role.getCreateTime().toString());
+            roleInfoResponse.setUpdateTime(role.getUpdateTime()==null? null:role.getUpdateTime().toString());
             roleInfoResponses.add(roleInfoResponse);
         });
         return CommonResponse.success(roleInfoResponses);
@@ -133,7 +131,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
             String operatorName = userInfo.split("&")[1];
             Role role = new Role();
             role.setRoleName(addRoleRequest.getRoleName());
-            role.setCreateTime(LocalDateTime.now());
+            role.setCreateTime(Instant.now().getEpochSecond());
             role.setRemark(addRoleRequest.getRemark());
             // insert role info add get role id
             Integer result = roleMapper.addNewRole(role);
@@ -148,7 +146,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
                     roleMenuDTO.setRoleId(roleId);
                     roleMenuDTO.setMenuId(addMenuId);
                     roleMenuDTO.setCreator(operatorName);
-                    roleMenuDTO.setCreateTime(LocalDateTime.now());
+                    roleMenuDTO.setCreateTime(Instant.now().getEpochSecond());
                     roleMenus.add(roleMenuDTO);
                 });
                 roleMenuMapper.addRoleMenu(roleMenus);
@@ -200,7 +198,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
                 roleMenuDTO.setRoleId(modifyRoleRequest.getRoleId());
                 roleMenuDTO.setRoleName(modifyRoleRequest.getRoleName());
                 roleMenuDTO.setCreator(operatorName);
-                roleMenuDTO.setCreateTime(LocalDateTime.now());
+                roleMenuDTO.setCreateTime(Instant.now().getEpochSecond());
                 roleMenuDTO.setRemark(modifyRoleRequest.getRemark());
                 roleMenuDTO.setMenuId(addMenuId);
                 roleMenuDTOS.add(roleMenuDTO);

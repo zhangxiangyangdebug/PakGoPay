@@ -30,7 +30,7 @@
         <result column="callback_token" property="callbackToken" javaType="java.lang.String"/>
         <result column="callback_url" property="callbackUrl" javaType="java.lang.String"/>
         <result column="callback_times" property="callbackTimes" javaType="java.lang.Integer"/>
-        <result column="last_callback_time" property="lastCallbackTime" javaType="java.time.LocalDateTime"/>
+        <result column="last_callback_time" property="lastCallbackTime" javaType="java.lang.Long"/>
 
         <!-- Merchant fees -->
         <result column="merchant_fixed_fee" property="merchantFixedFee" javaType="java.math.BigDecimal"/>
@@ -58,8 +58,8 @@
         <result column="remark" property="remark" javaType="java.lang.String"/>
 
         <!-- Time -->
-        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
-        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
 
         <!-- Payment -->
         <result column="collection_mode" property="collectionMode" javaType="java.lang.Integer"/>
@@ -72,8 +72,8 @@
         <result column="order_status" property="orderStatus" javaType="java.lang.Integer"/>
 
         <!-- Callback times -->
-        <result column="request_time" property="requestTime" javaType="java.time.LocalDateTime"/>
-        <result column="success_callback_time" property="successCallbackTime" javaType="java.time.LocalDateTime"/>
+        <result column="request_time" property="requestTime" javaType="java.lang.Long"/>
+        <result column="success_callback_time" property="successCallbackTime" javaType="java.lang.Long"/>
 
         <!-- Channel -->
         <result column="channel_id" property="channelId" javaType="java.lang.Long"/>

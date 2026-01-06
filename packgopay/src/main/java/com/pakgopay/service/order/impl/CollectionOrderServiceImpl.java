@@ -19,7 +19,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -111,7 +110,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         }
 
         if (OrderStatus.SUCCESS.getCode().equals(collectionOrderDto.getOrderStatus())) {
-            LocalDateTime successCallBackTime = collectionOrderDto.getSuccessCallbackTime();
+            Long successCallBackTime = collectionOrderDto.getSuccessCallbackTime();
             if (successCallBackTime != null) {
                 result.put("successCallBackTime", successCallBackTime.toString());
             } else {

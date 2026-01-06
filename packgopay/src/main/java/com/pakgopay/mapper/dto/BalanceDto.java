@@ -4,7 +4,6 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Data
 public class BalanceDto implements Serializable {
@@ -13,6 +12,9 @@ public class BalanceDto implements Serializable {
 
     /** Merchant user ID */
     private String userId;
+
+    /** Currency */
+    private String currency;
 
     /** Available balance */
     private BigDecimal availableBalance;
@@ -24,10 +26,10 @@ public class BalanceDto implements Serializable {
     private BigDecimal totalBalance;
 
     /** Create time */
-    private LocalDateTime createTime;
+    private Long createTime;
 
     /** Update time */
-    private LocalDateTime updateTime;
+    private Long updateTime;
 
     /** Remark */
     private String remark;

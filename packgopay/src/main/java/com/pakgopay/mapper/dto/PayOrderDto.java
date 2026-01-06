@@ -4,7 +4,6 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Data
 public class PayOrderDto implements Serializable {
@@ -33,10 +32,10 @@ public class PayOrderDto implements Serializable {
     private Integer callbackTimes;
 
     /** Last callback time (DB column: last_callbak_time) */
-    private LocalDateTime lastCallbackTime;
+    private Long lastCallbackTime;
 
     /** Callback success time */
-    private LocalDateTime successCallbackTime;
+    private Long successCallbackTime;
 
     /** Callback status: 1-success, 2-failed, 3-pending */
     private Integer callbackStatus;
@@ -84,13 +83,13 @@ public class PayOrderDto implements Serializable {
     private String requestIp;
 
     /** Create time */
-    private LocalDateTime createTime;
+    private Long createTime;
 
     /** Update time */
-    private LocalDateTime updateTime;
+    private Long updateTime;
 
     /** Request time */
-    private LocalDateTime requestTime;
+    private Long requestTime;
 
     /** Order type: 1-system, 2-manual */
     private Integer orderType;

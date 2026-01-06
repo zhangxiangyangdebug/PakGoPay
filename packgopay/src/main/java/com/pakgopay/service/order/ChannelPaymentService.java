@@ -17,7 +17,7 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -210,9 +210,16 @@ public class ChannelPaymentService {
             List<Long> enAblePaymentIds, Integer supportType, Map<Long, BigDecimal> currentDayAmountSum,
             Map<Long, BigDecimal> currentMonthAmountSum) throws PakGoPayException {
         log.info("getCurrentAmountSumByType start");
-        LocalDate today = LocalDate.now();
-        LocalDateTime startTime = today.withDayOfMonth(1).atStartOfDay();
-        LocalDateTime endTime = startTime.plusMonths(1);
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        Long startTime = today
+                .withDayOfMonth(1)
+                .atStartOfDay(ZoneOffset.UTC)
+                .toEpochSecond();
+        Long endTime = today
+                .withDayOfMonth(1)
+                .plusMonths(1)
+                .atStartOfDay(ZoneOffset.UTC)
+                .toEpochSecond();
         if (CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)) {
             // order type Collection
             List<CollectionOrderDto> collectionOrderDetailDtoList;
@@ -314,7 +321,7 @@ public class ChannelPaymentService {
         return paymentIdList;
     }
 
-    public BigDecimal calculateTransactionFee(TransactionInfo transactionInfo, OrderType orderType) {
+    public void calculateTransactionFee(TransactionInfo transactionInfo, OrderType orderType) {
         BigDecimal amount = transactionInfo.getAmount();
         // merchant fee
         BigDecimal fixedFee = null;
@@ -344,7 +351,6 @@ public class ChannelPaymentService {
         transactionInfo.setMerchantFee(transactionFee);
         transactionInfo.setMerchantRate(rate);
         transactionInfo.setMerchantFixedFee(fixedFee);
-        return transactionFee;
     }
 
     private void calculateAgentFee(TransactionInfo transactionInfo, OrderType orderType) {

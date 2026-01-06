@@ -40,10 +40,10 @@
 
         <result column="currency_type" property="currencyType" javaType="java.lang.String"/>
 
-        <result column="create_time" property="createTime" javaType="java.time.LocalDateTime"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
         <result column="create_by" property="createBy" javaType="java.lang.String"/>
-        <result column="update_time" property="updateTime" javaType="java.time.LocalDateTime"/>
-        <result column="update_by" property="updateBy" javaType="java.time.LocalDateTime"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
+        <result column="update_by" property="updateBy" javaType="java.lang.Long"/>
 
         <result column="remark" property="remark" javaType="java.lang.String"/>
 

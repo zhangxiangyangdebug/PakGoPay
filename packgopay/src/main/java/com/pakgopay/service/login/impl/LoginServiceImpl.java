@@ -18,9 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.Date;
+import java.time.Instant;
 
 @Service
 public class LoginServiceImpl implements LoginService {
@@ -70,10 +68,9 @@ public class LoginServiceImpl implements LoginService {
             // 缓存当前登陆用户 refreshToken 创建的起始时间， 用于刷新token时判断是否需要重新生成refreshToken
             redisUtil.setWithSecondExpire(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX + userId, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
             // 更新用户最近登陆时间
-            LocalDateTime now = LocalDateTime.now();
-            user.setLastLoginTime(now);
+            Long now = Instant.now().getEpochSecond();
             try {
-                userMapper.setLastLoginTime(Timestamp.valueOf(now), userId);
+                userMapper.setLastLoginTime(now, userId);
             } catch (Exception e) {
                 // 更新数据库失败
                 return CommonResponse.fail(ResultCode.INTERNAL_SERVER_ERROR);

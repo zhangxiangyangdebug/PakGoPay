@@ -1,6 +1,11 @@
 package com.pakgopay.common.constant;
 
 public class CommonConstant {
+    // attr client ip
+    public static final String ATTR_IP = "CTX_CLIENT_IP";
+
+    // attr user id
+    public static final String ATTR_USER_ID = "CTX_USER_ID";
 
     // xiayou 启用状态-禁用
     public static Integer ENABLE_STATUS_DISABLE = 0;

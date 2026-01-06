@@ -3,7 +3,6 @@ package com.pakgopay.mapper.dto;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Data
 public class CurrencyTypeDTO {
@@ -12,8 +11,8 @@ public class CurrencyTypeDTO {
     private BigDecimal currencyAccuracy;
     private String name;
     private String icon;
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
+    private Long createTime;
+    private Long updateTime;
     private String createBy;
     private String updateBy;
     private BigDecimal exchangeRate;

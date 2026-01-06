@@ -11,16 +11,17 @@ import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
+import com.pakgopay.service.balance.BalanceService;
 import com.pakgopay.service.order.ChannelPaymentService;
 import com.pakgopay.service.order.MerchantCheckService;
 import com.pakgopay.service.order.PayOutOrderService;
+import com.pakgopay.util.CommontUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,6 +35,10 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
     @Autowired
     private ChannelPaymentService channelPaymentService;
 
+    @Autowired
+    private BalanceService balanceService;
+
+    @Autowired
     private PayOrderMapper payOrderMapper;
 
     @Override
@@ -51,6 +56,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
 
         // 2. check request validate
         validatePayOutRequest(payOrderRequest, merchantInfoDto);
+        transactionInfo.setRequestIp(payOrderRequest.getClientIp());
 
         // 3. get available payment id
         transactionInfo.setCurrency(payOrderRequest.getCurrency());
@@ -68,10 +74,11 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         // xiaoyou TODO 计算渠道和通道费率和成本
         // 计算多级代理商分成（判断是否有代理 parent_id）
         // 计算平台利润 = 代付金额 - 商户抽成 - 代理商分成
-        BigDecimal transactionFee = channelPaymentService.calculateTransactionFee(transactionInfo, OrderType.PAY_OUT_ORDER);
+        channelPaymentService.calculateTransactionFee(transactionInfo, OrderType.PAY_OUT_ORDER);
 
-        // 验证商户可用余额（针对制定货币）
         // 冻结资金（代付金额 + 商户抽成）
+        balanceService.freezeBalance(CommontUtil.safeAdd(transactionInfo.getMerchantFee(),
+                payOrderRequest.getAmount()), payOrderRequest.getUserId(), payOrderRequest.getCurrency());
         // 设置付款账户信息（接口传入）
 
         return null;
@@ -110,12 +117,12 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         result.put("updateTime", payOrderDto.getUpdateTime().toString());
 
         // TODO If the transaction fails, return the reason for the failure.
-        if (OrderStatus.FAILED.getCode().equals(payOrderDto.getOrderStatus())) {
+        if (OrderStatus.FAILED.getCode().toString().equals(payOrderDto.getOrderStatus())) {
             result.put("failureReason", "");
         }
 
-        if (OrderStatus.SUCCESS.getCode().equals(payOrderDto.getOrderStatus())) {
-            LocalDateTime successCallBackTime = payOrderDto.getSuccessCallbackTime();
+        if (OrderStatus.SUCCESS.getCode().toString().equals(payOrderDto.getOrderStatus())) {
+            Long successCallBackTime = payOrderDto.getSuccessCallbackTime();
             if (successCallBackTime != null) {
                 result.put("successCallBackTime", successCallBackTime.toString());
             } else {
