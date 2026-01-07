@@ -109,7 +109,7 @@
             </if>
 
             <if test="endTime != null">
-                AND record_date &lt; #{endTime}
+                AND record_date &lt;= #{endTime}
             </if>
         </where>
     </sql>
