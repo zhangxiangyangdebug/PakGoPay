@@ -1,9 +1,9 @@
-package com.pakgopay.service.order;
+package com.pakgopay.service.transaction;
 
 
 import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
-import com.pakgopay.common.entity.TransactionInfo;
+import com.pakgopay.entity.TransactionInfo;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;

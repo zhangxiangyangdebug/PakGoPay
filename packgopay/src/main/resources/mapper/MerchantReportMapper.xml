@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.MerchantReportMapper">
+
+    <!-- ResultMap with explicit javaType -->
+    <resultMap id="MerchantReportResultMap" type="com.pakgopay.mapper.dto.MerchantReportDto">
+
+        <id column="user_id" property="userId" javaType="java.lang.String"/>
+
+        <result column="merchant_name" property="merchantName" javaType="java.lang.String"/>
+        <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
+        <result column="currency_type" property="currencyType" javaType="java.lang.String"/>
+
+        <result column="order_quantity" property="orderQuantity" javaType="java.lang.Integer"/>
+        <result column="success_quantity" property="successQuantity" javaType="java.lang.Integer"/>
+
+        <result column="merchant_fee" property="merchantFee" javaType="java.math.BigDecimal"/>
+        <result column="agent1_fee" property="agent1Fee" javaType="java.math.BigDecimal"/>
+        <result column="agent2_fee" property="agent2Fee" javaType="java.math.BigDecimal"/>
+        <result column="agent3_fee" property="agent3Fee" javaType="java.math.BigDecimal"/>
+        <result column="order_profit" property="orderProfit" javaType="java.math.BigDecimal"/>
+
+        <result column="record_date" property="recordDate" javaType="java.lang.Long"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
+
+    </resultMap>
+
+    <!-- Base columns -->
+    <sql id="BaseColumns">
+        user_id,
+        merchant_name,
+        order_type,
+        currency_type,
+        order_quantity,
+        success_quantity,
+        merchant_fee,
+        agent1_fee,
+        agent2_fee,
+        agent3_fee,
+        order_profit,
+        record_date,
+        create_time,
+        update_time
+    </sql>
+
+    <!-- Insert -->
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.MerchantReportDto">
+        INSERT INTO merchant_report (
+        <include refid="BaseColumns"/>
+        ) VALUES (
+        #{userId},
+        #{merchantName},
+        #{orderType},
+        #{currencyType},
+        #{orderQuantity},
+        #{successQuantity},
+        #{merchantFee},
+        #{agent1Fee},
+        #{agent2Fee},
+        #{agent3Fee},
+        #{orderProfit},
+        #{recordDate},
+        #{createTime},
+        #{updateTime}
+        )
+    </insert>
+
+    <!-- Update by unique key -->
+    <update id="update" parameterType="com.pakgopay.mapper.dto.MerchantReportDto">
+        UPDATE merchant_report
+        <set>
+            <if test="merchantName != null">merchant_name = #{merchantName},</if>
+
+            <if test="orderQuantity != null">order_quantity = #{orderQuantity},</if>
+            <if test="successQuantity != null">success_quantity = #{successQuantity},</if>
+
+            <if test="merchantFee != null">merchant_fee = #{merchantFee},</if>
+            <if test="agent1Fee != null">agent1_fee = #{agent1Fee},</if>
+            <if test="agent2Fee != null">agent2_fee = #{agent2Fee},</if>
+            <if test="agent3Fee != null">agent3_fee = #{agent3Fee},</if>
+            <if test="orderProfit != null">order_profit = #{orderProfit},</if>
+
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        WHERE user_id = #{userId}
+        AND record_date = #{recordDate}
+        AND order_type = #{orderType}
+        AND currency_type = #{currencyType}
+    </update>
+
+    <!-- Common WHERE conditions -->
+    <sql id="MerchantReportWhere">
+        <where>
+            order_type = #{orderType}
+            <if test="userId != null and userId != ''">
+                AND user_id = #{userId}
+            </if>
+
+            <if test="merchantName != null and merchantName != ''">
+                AND merchant_name LIKE CONCAT('%', #{merchantName}, '%')
+            </if>
+
+            <if test="startTime != null">
+                AND record_date &gt;= #{startTime}
+            </if>
+
+            <if test="endTime != null">
+                AND record_date &lt; #{endTime}
+            </if>
+        </where>
+    </sql>
+
+    <select id="countByQuery" resultType="long" parameterType="com.pakgopay.entity.MerchantReportEntity">
+        SELECT COUNT(1)
+        FROM merchant_report
+        <include refid="MerchantReportWhere"/>
+    </select>
+
+    <select id="pageByQuery" resultMap="MerchantReportResultMap" parameterType="com.pakgopay.entity.MerchantReportEntity">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM merchant_report
+        <include refid="MerchantReportWhere"/>
+        ORDER BY record_date DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+</mapper>

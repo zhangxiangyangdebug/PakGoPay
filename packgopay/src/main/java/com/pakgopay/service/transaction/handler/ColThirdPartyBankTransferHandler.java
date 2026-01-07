@@ -1,7 +1,7 @@
-package com.pakgopay.service.order.handler;
+package com.pakgopay.service.transaction.handler;
 
 import com.pakgopay.common.context.RouteContext;
-import com.pakgopay.service.order.OrderHandler;
+import com.pakgopay.service.transaction.OrderHandler;
 import org.springframework.stereotype.Component;
 
 @Component

@@ -14,13 +14,14 @@
         <result column="agent_name" property="agentName" javaType="java.lang.String"/>
 
         <result column="parent_id" property="parentId" javaType="java.lang.String"/>
+        <result column="top_agent_id" property="topAgentId" javaType="java.lang.String"/>
+        <result column="channel_ids" property="channelIds" javaType="java.lang.String"/>
         <result column="status" property="status" javaType="java.lang.Integer"/>
 
         <result column="contact_name" property="contactName" javaType="java.lang.String"/>
         <result column="contact_email" property="contactEmail" javaType="java.lang.String"/>
         <result column="contact_phone" property="contactPhone" javaType="java.lang.String"/>
 
-        <result column="balance_id" property="balanceId" javaType="java.lang.Long"/>
         <result column="level" property="level" javaType="java.lang.Integer"/>
 
         <result column="collection_rate" property="collectionRate" javaType="java.math.BigDecimal"/>
@@ -52,11 +53,12 @@
         agent_no,
         agent_name,
         parent_id,
+        top_agent_id,
+        channel_ids,
         status,
         contact_name,
         contact_email,
         contact_phone,
-        balance_id,
         level,
         collection_rate,
         collection_fixed_fee,
@@ -80,8 +82,8 @@
         INSERT INTO agent_info (
         <include refid="BaseColumns"/>
         ) VALUES (
-        #{userId},#{agentNo},#{agentName},#{parentId},#{status},#{contactName},#{contactEmail},
-        #{contactPhone},#{balanceId},#{level},#{collectionRate},#{collectionFixedFee},#{collectionMaxFee},#{collectionMinFee},#{payRate},
+        #{userId},#{agentNo},#{agentName},#{parentId},#{topAgentId},#{channelIds},#{status},#{contactName},#{contactEmail},
+        #{contactPhone},#{level},#{collectionRate},#{collectionFixedFee},#{collectionMaxFee},#{collectionMinFee},#{payRate},
         #{payFixedFee},#{payMaxFee},#{payMinFee},#{createTime},#{createBy},#{updateTime},#{updateBy},
         #{version},#{remark}
         )

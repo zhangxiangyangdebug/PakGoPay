@@ -1,7 +1,7 @@
-package com.pakgopay.service.order.impl;
+package com.pakgopay.service.transaction.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
-import com.pakgopay.common.entity.TransactionInfo;
+import com.pakgopay.entity.TransactionInfo;
 import com.pakgopay.common.enums.OrderStatus;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
@@ -12,9 +12,9 @@ import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.service.balance.BalanceService;
-import com.pakgopay.service.order.ChannelPaymentService;
-import com.pakgopay.service.order.MerchantCheckService;
-import com.pakgopay.service.order.PayOutOrderService;
+import com.pakgopay.service.transaction.ChannelPaymentService;
+import com.pakgopay.service.transaction.MerchantCheckService;
+import com.pakgopay.service.transaction.PayOutOrderService;
 import com.pakgopay.util.CommontUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import lombok.extern.slf4j.Slf4j;

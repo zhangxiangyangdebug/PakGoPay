@@ -1,4 +1,4 @@
-package com.pakgopay.common.entity;
+package com.pakgopay.entity;
 
 import com.pakgopay.mapper.dto.ChannelDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;

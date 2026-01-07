@@ -22,6 +22,12 @@ public class AgentInfoDto implements Serializable {
     /** Parent agent ID */
     private String parentId;
 
+    /** First level agent ID */
+    private String topAgentId;
+
+    /** Agent's channel ids */
+    private String channelIds;
+
     /** Status: 0-disabled, 1-enabled */
     private Integer status;
 
@@ -33,9 +39,6 @@ public class AgentInfoDto implements Serializable {
 
     /** Contact phone */
     private String contactPhone;
-
-    /** Balance record ID */
-    private Long balanceId;
 
     /** Agent level */
     private Integer level;

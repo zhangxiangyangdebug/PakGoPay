@@ -1,5 +1,8 @@
 package com.pakgopay.common.constant;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class CommonConstant {
     // attr client ip
     public static final String ATTR_IP = "CTX_CLIENT_IP";
@@ -40,4 +43,29 @@ public class CommonConstant {
 
     // Third level agent
     public static final Integer AGENT_LEVEL_THIRD = 3;
+
+    // Role unKnown
+    public static final int ROLE_UNKNOWN = 0;
+
+    // Role admin
+    public static final int ROLE_ADMIN = 1;
+
+    // Role merchant
+    public static final int ROLE_MERCHANT = 2;
+
+    // Role finance
+    public static final int ROLE_FINANCE = 3;
+
+    // Role agent
+    public static final int ROLE_AGENT = 4;
+
+    // merchant report view permissions
+    public static final List<Integer> MERCHANT_REPORT_SUPPORT_ROLE = new ArrayList<>() {
+        {
+            add(ROLE_ADMIN);
+            add(ROLE_AGENT);
+            add(ROLE_FINANCE);
+            add(ROLE_MERCHANT);
+        }
+    };
 }

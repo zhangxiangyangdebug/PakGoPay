@@ -1,4 +1,4 @@
-package com.pakgopay.service.order;
+package com.pakgopay.service.transaction;
 
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.transaction.PayOutOrderRequest;

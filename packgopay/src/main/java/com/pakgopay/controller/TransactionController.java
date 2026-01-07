@@ -7,8 +7,8 @@ import com.pakgopay.common.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.common.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.service.balance.BalanceService;
-import com.pakgopay.service.order.CollectionOrderService;
-import com.pakgopay.service.order.PayOutOrderService;
+import com.pakgopay.service.transaction.CollectionOrderService;
+import com.pakgopay.service.transaction.PayOutOrderService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -93,7 +93,7 @@ public class TransactionController {
             @RequestParam(value = "transactionNo") String transactionNo) {
         log.info("queryOrder start");
         if (!StringUtils.hasText(transactionNo)) {
-            log.info("transactionNo is empty");
+            log.error("transactionNo is empty");
             return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "transactionNo is empty");
         }
 
@@ -119,14 +119,14 @@ public class TransactionController {
             HttpServletRequest request, @RequestParam(value = "userId") String userId) {
         log.info("queryBalance start");
         if (!StringUtils.hasText(userId)) {
-            log.info("userId is empty");
+            log.error("userId is empty");
             return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "userId is empty");
         }
 
         try {
             return balanceService.queryMerchantAvailableBalance(userId);
         } catch (PakGoPayException e) {
-            log.info("queryMerchantAvailableBalance failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            log.error("queryMerchantAvailableBalance failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryBalance failed: " + e.getMessage());
         }
     }
