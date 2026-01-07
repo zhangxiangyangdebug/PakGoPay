@@ -5,7 +5,7 @@ import lombok.Getter;
 @Getter
 public enum OrderType {
     COLLECTION_ORDER(0, "COLLECTION_ORDER"),
-    PAY_OUT_ORDER(0, "PAY_OUT_ORDER");
+    PAY_OUT_ORDER(1, "PAY_OUT_ORDER");
 
     private final Integer code;
     private final String message;

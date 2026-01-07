@@ -28,7 +28,7 @@ public class BalanceServiceImpl implements BalanceService {
 
     @Override
     public CommonResponse queryMerchantAvailableBalance(String userId) throws PakGoPayException {
-
+        log.info("queryMerchantAvailableBalance start");
         List<BalanceDto> balanceDtoList;
         try {
             balanceDtoList = balanceMapper.findByUserId(userId);
@@ -50,13 +50,14 @@ public class BalanceServiceImpl implements BalanceService {
             balanceInfo.put("total", info.getTotalBalance());
             allBalanceInfo.put(info.getCurrency(), balanceInfo);
         });
-
+        log.info("queryMerchantAvailableBalance end");
         return CommonResponse.success(allBalanceInfo);
     }
 
     @Transactional
     @Override
     public void freezeBalance(BigDecimal freezeFee, String userId, String currency) throws PakGoPayException {
+        log.info("freezeBalance start");
         BalanceDto balanceDto;
         try {
             balanceDto = balanceMapper.findByUserIdAndCurrency(userId, currency);
@@ -82,6 +83,40 @@ public class BalanceServiceImpl implements BalanceService {
             log.error("balance updateByUserId failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
+        log.info("freezeBalance end");
+    }
 
+    public Map<String, Map<String, BigDecimal>> getBalanceInfos(String userId) throws PakGoPayException {
+        log.info("getBalanceInfos start");
+        Map<String, Map<String, BigDecimal>> result = new HashMap<>();
+        List<BalanceDto> balanceDtoList;
+        try {
+            balanceDtoList = balanceMapper.listByUserId(userId);
+        } catch (Exception e) {
+            log.error("balance listByUserId failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        if (balanceDtoList == null || balanceDtoList.isEmpty()) {
+            log.error("getBalanceInfos record is not exists, userId {}", userId);
+            throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_BALANCE_DATA);
+        }
+
+        for (BalanceDto info : balanceDtoList) {
+            String currency = info.getCurrency();
+
+            Map<String, BigDecimal> currencyMap =
+                    result.computeIfAbsent(currency, k -> new HashMap<>());
+
+            currencyMap.merge("total", amountDefaultValue(info.getTotalBalance()), BigDecimal::add);
+            currencyMap.merge("withdraw", amountDefaultValue(info.getWithdrawAmount()), BigDecimal::add);
+            currencyMap.merge("frozen", amountDefaultValue(info.getFrozenBalance()), BigDecimal::add);
+        }
+        log.info("getBalanceInfos end");
+        return result;
+    }
+
+    private static BigDecimal amountDefaultValue(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

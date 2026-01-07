@@ -2,21 +2,24 @@ package com.pakgopay.service.report.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
-import com.pakgopay.entity.MerchantReportEntity;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.common.reqeust.report.MerchantReportRequest;
+import com.pakgopay.common.reqeust.report.*;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.common.response.report.MerchantReportResponse;
+import com.pakgopay.entity.MerchantReportEntity;
 import com.pakgopay.mapper.MerchantReportMapper;
 import com.pakgopay.mapper.dto.MerchantReportDto;
+import com.pakgopay.service.balance.BalanceService;
 import com.pakgopay.service.common.CommonService;
 import com.pakgopay.service.report.ReportService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -27,6 +30,9 @@ public class ReportServiceImpl implements ReportService {
 
     @Autowired
     private MerchantReportMapper merchantReportMapper;
+
+    @Autowired
+    private BalanceService balanceService;
 
     @Override
     public CommonResponse queryMerchantReport(MerchantReportRequest merchantReportRequest) throws PakGoPayException {
@@ -50,11 +56,11 @@ public class ReportServiceImpl implements ReportService {
         switch (roleId) {
             case CommonConstant.ROLE_MERCHANT:
                 entity.setUserId(userId);
-                response = queryMerchantReportData(entity);
+                response = queryMerchantReportData(entity, merchantReportRequest.getIsNeedCardData());
                 break;
             case CommonConstant.ROLE_ADMIN:
             case CommonConstant.ROLE_FINANCE:
-                response = queryMerchantReportData(entity);
+                response = queryMerchantReportData(entity, merchantReportRequest.getIsNeedCardData());
                 break;
             default:
                 log.error("user not support view merchant report");
@@ -65,7 +71,39 @@ public class ReportServiceImpl implements ReportService {
         return CommonResponse.success(response);
     }
 
-    private MerchantReportResponse queryMerchantReportData(MerchantReportEntity entity) throws PakGoPayException {
+    @Override
+    public CommonResponse queryChannelReport(ChannelReportRequest channelReportRequest) throws PakGoPayException {
+        log.info("queryChannelReport start");
+
+        log.info("queryChannelReport end");
+        return null;
+    }
+
+    @Override
+    public CommonResponse queryAgentReport(AgentReportRequest agentReportRequest) throws PakGoPayException {
+        log.info("queryAgentReport start");
+
+        log.info("queryAgentReport end");
+        return null;
+    }
+
+    @Override
+    public CommonResponse queryCurrencyReport(CurrencyReportRequest currencyReportRequest) throws PakGoPayException {
+        log.info("queryCurrencyReport start");
+
+        log.info("queryCurrencyReport end");
+        return null;
+    }
+
+    @Override
+    public CommonResponse queryPaymentReport(PaymentReportRequest paymentReportRequest) throws PakGoPayException {
+        log.info("queryPaymentReport start");
+
+        log.info("queryPaymentReport end");
+        return null;
+    }
+
+    private MerchantReportResponse queryMerchantReportData(MerchantReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
         log.info("queryMerchantReportData start");
         MerchantReportResponse response = new MerchantReportResponse();
         try {
@@ -80,6 +118,12 @@ public class ReportServiceImpl implements ReportService {
             log.error("merchantReportMapper queryMerchantReportData failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
+
+        if (isNeedCardData) {
+            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(entity.getUserId());
+            response.setCardInfo(cardInfo);
+        }
+
         log.info("queryMerchantReportData end");
         return response;
     }

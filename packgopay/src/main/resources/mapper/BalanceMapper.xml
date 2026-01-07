@@ -12,6 +12,7 @@
         <id column="currency" property="currency" javaType="java.lang.String"/>
         <result column="available_balance" property="availableBalance" javaType="java.math.BigDecimal"/>
         <result column="frozen_balance" property="frozenBalance" javaType="java.math.BigDecimal"/>
+        <result column="withdraw_amount" property="withdrawAmount" javaType="java.math.BigDecimal"/>
         <result column="total_balance" property="totalBalance" javaType="java.math.BigDecimal"/>
 
         <result column="create_time" property="createTime" javaType="java.lang.Long"/>
@@ -26,6 +27,7 @@
         currency,
         available_balance,
         frozen_balance,
+        withdraw_amount,
         total_balance,
         create_time,
         update_time,
@@ -59,6 +61,7 @@
         #{currency},
         #{availableBalance},
         #{frozenBalance},
+        #{withdrawAmount}.
         #{totalBalance},
         #{createTime},
         #{updateTime},
@@ -73,6 +76,7 @@
             <if test="currency != null">currency = #{currency},</if>
             <if test="availableBalance != null">available_balance = #{availableBalance},</if>
             <if test="frozenBalance != null">frozen_balance = #{frozenBalance},</if>
+            <if test="withdrawAmount != null">withdraw_amount = #{withdrawAmount},</if>
             <if test="totalBalance != null">total_balance = #{totalBalance},</if>
 
             <if test="updateTime != null">update_time = #{updateTime},</if>
@@ -99,5 +103,16 @@
             update_time = #{updateTime}
         WHERE user_id = #{userId}
     </update>
+
+    <select id="listByUserId" resultMap="BalanceResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM balance
+        <where>
+            <if test="userId != null and userId != ''">
+                AND user_id = #{userId}
+            </if>
+        </where>
+    </select>
 
 </mapper>

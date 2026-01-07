@@ -6,25 +6,9 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class MerchantReportResponse {
+public class MerchantReportResponse extends BaseReportResponse {
     /**
      * merchant report info list
      */
     private List<MerchantReportDto> merchantReportDtoList;
-
-    /**
-     * page no
-     */
-    private Integer pageNo;
-
-    /**
-     * page size
-     */
-    private Integer pageSize;
-
-
-    /**
-     * total number
-     */
-    private Long totalNumber;
 }

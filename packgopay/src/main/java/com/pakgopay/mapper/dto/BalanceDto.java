@@ -25,6 +25,9 @@ public class BalanceDto implements Serializable {
     /** Total balance */
     private BigDecimal totalBalance;
 
+    /** withdraw amount */
+    private BigDecimal withdrawAmount;
+
     /** Create time */
     private Long createTime;
 
