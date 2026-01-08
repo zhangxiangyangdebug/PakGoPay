@@ -1,6 +1,5 @@
-package com.pakgopay.entity;
+package com.pakgopay.entity.report;
 
-import com.pakgopay.common.entity.BaseReportEntity;
 import lombok.Data;
 
 @Data

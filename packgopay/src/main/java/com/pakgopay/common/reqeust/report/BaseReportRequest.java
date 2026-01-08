@@ -10,6 +10,13 @@ public class BaseReportRequest extends BaseRequest {
      * is need page card data
      */
     private Boolean isNeedCardData = false;
+
+    /**
+     * is need page card data
+     */
+    @NotBlank(message = "currency is empty")
+    private String currency;
+
     /**
      * search start time
      */

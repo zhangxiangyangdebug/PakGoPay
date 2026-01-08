@@ -1,9 +1,12 @@
-package com.pakgopay.common.entity;
+package com.pakgopay.entity.report;
 
 import lombok.Data;
 
 @Data
 public class BaseReportEntity {
+    /** currency */
+    private String currency;
+
     /** Optional: record_date >= startTime (unix seconds) */
     private Long startTime;
 

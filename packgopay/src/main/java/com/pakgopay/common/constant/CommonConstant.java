@@ -68,4 +68,12 @@ public class CommonConstant {
             add(ROLE_MERCHANT);
         }
     };
+
+    // channel report view permissions
+    public static final List<Integer> CHANNEL_REPORT_SUPPORT_ROLE = new ArrayList<>() {
+        {
+            add(ROLE_ADMIN);
+            add(ROLE_FINANCE);
+        }
+    };
 }

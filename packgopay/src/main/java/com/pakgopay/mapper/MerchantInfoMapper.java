@@ -31,4 +31,10 @@ public interface MerchantInfoMapper {
      * 5、getEnableStatus 通过指定 userId 获取 status
      */
     Integer getEnableStatus(@Param("userId") String userId);
+
+
+    /**
+     * find userId by merchant name
+     */
+    String findByMerchantName(@Param("merchantName") String merchantName);
 }

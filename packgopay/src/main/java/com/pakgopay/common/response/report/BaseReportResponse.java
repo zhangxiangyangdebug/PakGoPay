@@ -27,5 +27,5 @@ public class BaseReportResponse {
     /**
      * total number
      */
-    private Long totalNumber;
+    private Integer totalNumber;
 }

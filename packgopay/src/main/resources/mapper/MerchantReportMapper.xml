@@ -12,7 +12,7 @@
 
         <result column="merchant_name" property="merchantName" javaType="java.lang.String"/>
         <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
-        <result column="currency_type" property="currencyType" javaType="java.lang.String"/>
+        <result column="currency" property="currency" javaType="java.lang.String"/>
 
         <result column="order_quantity" property="orderQuantity" javaType="java.lang.Integer"/>
         <result column="success_quantity" property="successQuantity" javaType="java.lang.Integer"/>
@@ -34,7 +34,7 @@
         user_id,
         merchant_name,
         order_type,
-        currency_type,
+        currency,
         order_quantity,
         success_quantity,
         merchant_fee,
@@ -55,7 +55,7 @@
         #{userId},
         #{merchantName},
         #{orderType},
-        #{currencyType},
+        #{currency},
         #{orderQuantity},
         #{successQuantity},
         #{merchantFee},
@@ -89,7 +89,7 @@
         WHERE user_id = #{userId}
         AND record_date = #{recordDate}
         AND order_type = #{orderType}
-        AND currency_type = #{currencyType}
+        AND currency = #{currency}
     </update>
 
     <!-- Common WHERE conditions -->
@@ -111,16 +111,20 @@
             <if test="endTime != null">
                 AND record_date &lt;= #{endTime}
             </if>
+
+            <if test="currency != null">
+                AND currency = #{currency}
+            </if>
         </where>
     </sql>
 
-    <select id="countByQuery" resultType="long" parameterType="com.pakgopay.entity.MerchantReportEntity">
+    <select id="countByQuery" resultType="java.lang.Integer" parameterType="com.pakgopay.entity.report.MerchantReportEntity">
         SELECT COUNT(1)
         FROM merchant_report
         <include refid="MerchantReportWhere"/>
     </select>
 
-    <select id="pageByQuery" resultMap="MerchantReportResultMap" parameterType="com.pakgopay.entity.MerchantReportEntity">
+    <select id="pageByQuery" resultMap="MerchantReportResultMap" parameterType="com.pakgopay.entity.report.MerchantReportEntity">
         SELECT
         <include refid="BaseColumns"/>
         FROM merchant_report

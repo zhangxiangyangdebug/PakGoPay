@@ -19,8 +19,8 @@ public class MerchantReportDto implements Serializable {
     /** Order type: collection / payout */
     private Integer orderType;
 
-    /** Currency type */
-    private String currencyType;
+    /** Currency */
+    private String currency;
 
     /** Total order quantity */
     private Integer orderQuantity;

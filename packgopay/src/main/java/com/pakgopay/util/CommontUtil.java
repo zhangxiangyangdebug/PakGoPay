@@ -2,6 +2,7 @@ package com.pakgopay.util;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 
 public class CommontUtil {
 
@@ -28,6 +29,21 @@ public class CommontUtil {
             b = BigDecimal.ZERO;
         }
         return a.subtract(b);
+    }
+
+    public static BigDecimal sum(List<BigDecimal> list) {
+        BigDecimal total = BigDecimal.ZERO;
+
+        if (list == null || list.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        for (BigDecimal v : list) {
+            if (v != null) {
+                total = total.add(v);
+            }
+        }
+        return total;
     }
 
     public static BigDecimal calculate(

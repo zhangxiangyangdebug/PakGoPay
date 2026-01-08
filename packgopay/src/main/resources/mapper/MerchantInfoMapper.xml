@@ -101,4 +101,12 @@
             limit 1
     </select>
 
+    <!-- 6.findByMerchantName -->
+    <select id="findByMerchantName" resultType="java.lang.String">
+        select user_id
+        from merchant_info
+        where merchant_name = #{merchantName}
+        limit 1
+    </select>
+
 </mapper>

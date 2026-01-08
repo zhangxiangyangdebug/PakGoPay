@@ -1,9 +1,10 @@
-package com.pakgopay.common.reqeust.report;
+package com.pakgopay.entity.report;
 
 import lombok.Data;
 
 @Data
-public class ChannelReportRequest extends BaseReportRequest{
+public class ChannelReportEntity extends BaseReportEntity {
+
     /** Optional: channel Id (fuzzy match) */
     private String channelId;
 
