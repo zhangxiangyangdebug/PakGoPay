@@ -14,7 +14,7 @@ public interface ReportService {
 
     CommonResponse queryAgentReport(@Valid AgentReportRequest agentReportRequest) throws PakGoPayException;
 
-    CommonResponse queryCurrencyReport(@Valid CurrencyReportRequest currencyReportRequest) throws PakGoPayException;
+    CommonResponse queryCurrencyReport(@Valid BaseReportRequest currencyReportRequest) throws PakGoPayException;
 
     CommonResponse queryPaymentReport(@Valid PaymentReportRequest paymentReportRequest) throws PakGoPayException;
 }

@@ -76,4 +76,21 @@ public class CommonConstant {
             add(ROLE_FINANCE);
         }
     };
+
+    // agent report view permissions
+    public static final List<Integer> AGENT_REPORT_SUPPORT_ROLE = new ArrayList<>() {
+        {
+            add(ROLE_AGENT);
+            add(ROLE_ADMIN);
+            add(ROLE_FINANCE);
+        }
+    };
+
+    // currency report view permissions
+    public static final List<Integer> CURRENCY_REPORT_SUPPORT_ROLE = new ArrayList<>() {
+        {
+            add(ROLE_ADMIN);
+            add(ROLE_FINANCE);
+        }
+    };
 }

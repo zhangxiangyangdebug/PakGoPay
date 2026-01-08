@@ -4,4 +4,7 @@ import lombok.Data;
 
 @Data
 public class AgentReportRequest extends BaseReportRequest{
+
+    /** agent user id */
+    private String agentId;
 }

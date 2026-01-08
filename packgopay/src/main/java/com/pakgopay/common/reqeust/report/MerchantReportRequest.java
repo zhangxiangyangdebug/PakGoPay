@@ -1,6 +1,5 @@
 package com.pakgopay.common.reqeust.report;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -14,10 +13,4 @@ public class MerchantReportRequest extends BaseReportRequest implements Serializ
      * merchant name
      */
     private String merchantName;
-
-    /**
-     * order type
-     */
-    @NotNull(message = "orderType is null")
-    private Integer orderType;
 }

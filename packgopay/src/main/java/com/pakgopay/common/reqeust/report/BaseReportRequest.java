@@ -2,10 +2,16 @@ package com.pakgopay.common.reqeust.report;
 
 import com.pakgopay.common.reqeust.BaseRequest;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
 public class BaseReportRequest extends BaseRequest {
+
+    /** Optional: order type */
+    @NotNull(message = "orderType is null")
+    private Integer orderType;
+
     /**
      * is need page card data
      */

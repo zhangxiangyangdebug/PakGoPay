@@ -6,7 +6,4 @@ import lombok.Data;
 public class ChannelReportRequest extends BaseReportRequest{
     /** Optional: channel Id (fuzzy match) */
     private String channelId;
-
-    /** Optional: order type */
-    private Integer orderType;
 }

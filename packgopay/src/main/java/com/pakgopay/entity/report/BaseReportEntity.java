@@ -4,6 +4,10 @@ import lombok.Data;
 
 @Data
 public class BaseReportEntity {
+
+    /** Optional: order type: collection(0) / payout(1) */
+    private Integer orderType;
+
     /** currency */
     private String currency;
 

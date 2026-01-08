@@ -7,7 +7,4 @@ public class ChannelReportEntity extends BaseReportEntity {
 
     /** Optional: channel Id (fuzzy match) */
     private String channelId;
-
-    /** Optional: order type */
-    private Integer orderType;
 }

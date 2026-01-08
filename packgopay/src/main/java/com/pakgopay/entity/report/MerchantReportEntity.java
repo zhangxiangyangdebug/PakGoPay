@@ -10,7 +10,4 @@ public class MerchantReportEntity extends BaseReportEntity {
 
     /** Optional: merchant name (fuzzy match) */
     private String merchantName;
-
-    /** Optional: order type */
-    private Integer orderType;
 }

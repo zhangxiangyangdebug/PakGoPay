@@ -7,10 +7,7 @@ import com.pakgopay.service.report.ReportService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
@@ -21,7 +18,7 @@ public class ReportController {
     @Autowired
     ReportService reportService;
 
-    @GetMapping(value = "queryMerchantReport")
+    @PostMapping(value = "queryMerchantReport")
     public CommonResponse queryMerchantReport(@RequestBody @Valid MerchantReportRequest merchantReportRequest) {
         log.info("queryMerchantReport start");
         try {
@@ -32,7 +29,7 @@ public class ReportController {
         }
     }
 
-    @GetMapping(value = "queryChannelReport")
+    @PostMapping(value = "queryChannelReport")
     public CommonResponse queryChannelReport(@RequestBody @Valid ChannelReportRequest channelReportRequest) {
         log.info("queryChannelReport start");
         try {
@@ -43,7 +40,7 @@ public class ReportController {
         }
     }
 
-    @GetMapping(value = "queryAgentReport")
+    @PostMapping(value = "queryAgentReport")
     public CommonResponse queryAgentReport(@RequestBody @Valid AgentReportRequest agentReportRequest) {
         log.info("queryAgentReport start");
         try {
@@ -54,8 +51,8 @@ public class ReportController {
         }
     }
 
-    @GetMapping(value = "queryCurrencyReport")
-    public CommonResponse queryCurrencyReport(@RequestBody @Valid CurrencyReportRequest currencyReportRequest) {
+    @PostMapping(value = "queryCurrencyReport")
+    public CommonResponse queryCurrencyReport(@RequestBody @Valid BaseReportRequest currencyReportRequest) {
         log.info("queryCurrencyReport start");
         try {
             return reportService.queryCurrencyReport(currencyReportRequest);
@@ -65,7 +62,7 @@ public class ReportController {
         }
     }
 
-    @GetMapping(value = "queryPaymentReport")
+    @PostMapping(value = "queryPaymentReport")
     public CommonResponse queryPaymentReport(@RequestBody @Valid PaymentReportRequest paymentReportRequest) {
         log.info("queryPaymentReport start");
         try {

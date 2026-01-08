@@ -6,14 +6,18 @@ import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.report.*;
 import com.pakgopay.common.response.CommonResponse;
+import com.pakgopay.common.response.report.AgentReportResponse;
 import com.pakgopay.common.response.report.ChannelReportResponse;
+import com.pakgopay.common.response.report.CurrencyReportResponse;
 import com.pakgopay.common.response.report.MerchantReportResponse;
+import com.pakgopay.entity.report.AgentReportEntity;
+import com.pakgopay.entity.report.BaseReportEntity;
 import com.pakgopay.entity.report.ChannelReportEntity;
 import com.pakgopay.entity.report.MerchantReportEntity;
-import com.pakgopay.mapper.ChannelReportMapper;
-import com.pakgopay.mapper.MerchantInfoMapper;
-import com.pakgopay.mapper.MerchantReportMapper;
+import com.pakgopay.mapper.*;
+import com.pakgopay.mapper.dto.AgentReportDto;
 import com.pakgopay.mapper.dto.ChannelReportDto;
+import com.pakgopay.mapper.dto.CurrencyReportDto;
 import com.pakgopay.mapper.dto.MerchantReportDto;
 import com.pakgopay.service.balance.BalanceService;
 import com.pakgopay.service.common.CommonService;
@@ -42,6 +46,12 @@ public class ReportServiceImpl implements ReportService {
     private ChannelReportMapper channelReportMapper;
 
     @Autowired
+    private AgentReportMapper agentReportMapper;
+
+    @Autowired
+    private CurrencyReportMapper currencyReportMapper;
+
+    @Autowired
     private MerchantInfoMapper merchantInfoMapper;
 
     @Autowired
@@ -62,7 +72,7 @@ public class ReportServiceImpl implements ReportService {
         entity.setEndTime(Long.valueOf(merchantReportRequest.getEndTime()));
         entity.setPageNo(merchantReportRequest.getPageNo());
         entity.setPageSize(merchantReportRequest.getPageSize());
-        log.info("query condition is {}", JSON.toJSONString(entity));
+        log.info("queryMerchantReport condition is {}", JSON.toJSONString(entity));
 
         MerchantReportResponse response;
         switch (roleId) {
@@ -97,7 +107,7 @@ public class ReportServiceImpl implements ReportService {
         entity.setEndTime(Long.valueOf(channelReportRequest.getEndTime()));
         entity.setPageNo(channelReportRequest.getPageNo());
         entity.setPageSize(channelReportRequest.getPageSize());
-        log.info("query condition is {}", JSON.toJSONString(entity));
+        log.info("queryChannelReport condition is {}", JSON.toJSONString(entity));
 
         ChannelReportResponse response = queryChannelReportData(entity, channelReportRequest.getIsNeedCardData());
 
@@ -108,17 +118,43 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public CommonResponse queryAgentReport(AgentReportRequest agentReportRequest) throws PakGoPayException {
         log.info("queryAgentReport start");
+        checkUserRolePermission(
+                agentReportRequest.getUserId(), CommonConstant.AGENT_REPORT_SUPPORT_ROLE);
+
+        AgentReportEntity entity = new AgentReportEntity();
+        entity.setUserId(agentReportRequest.getUserId());
+        entity.setOrderType(agentReportRequest.getOrderType());
+        entity.setCurrency(agentReportRequest.getCurrency());
+        entity.setStartTime(Long.valueOf(agentReportRequest.getStartTime()));
+        entity.setEndTime(Long.valueOf(agentReportRequest.getEndTime()));
+        entity.setPageNo(agentReportRequest.getPageNo());
+        entity.setPageSize(agentReportRequest.getPageSize());
+        log.info("queryAgentReport condition is {}", JSON.toJSONString(entity));
+
+        AgentReportResponse response = queryAgentReportData(entity, agentReportRequest.getIsNeedCardData());
 
         log.info("queryAgentReport end");
-        return null;
+        return CommonResponse.success(response);
     }
 
     @Override
-    public CommonResponse queryCurrencyReport(CurrencyReportRequest currencyReportRequest) throws PakGoPayException {
+    public CommonResponse queryCurrencyReport(BaseReportRequest currencyReportRequest) throws PakGoPayException {
         log.info("queryCurrencyReport start");
+        checkUserRolePermission(
+                currencyReportRequest.getUserId(), CommonConstant.CURRENCY_REPORT_SUPPORT_ROLE);
 
+        BaseReportEntity entity = new BaseReportEntity();
+        entity.setOrderType(currencyReportRequest.getOrderType());
+        entity.setCurrency(currencyReportRequest.getCurrency());
+        entity.setStartTime(Long.valueOf(currencyReportRequest.getStartTime()));
+        entity.setEndTime(Long.valueOf(currencyReportRequest.getEndTime()));
+        entity.setPageNo(currencyReportRequest.getPageNo());
+        entity.setPageSize(currencyReportRequest.getPageSize());
+        log.info("queryCurrencyReport condition is {}", JSON.toJSONString(entity));
+
+        CurrencyReportResponse response = queryCurrencyReportData(entity, currencyReportRequest.getIsNeedCardData());
         log.info("queryCurrencyReport end");
-        return null;
+        return CommonResponse.success(response);
     }
 
     @Override
@@ -194,6 +230,73 @@ public class ReportServiceImpl implements ReportService {
         }
 
         log.info("queryChannelReportData end");
+        return response;
+    }
+
+
+    private AgentReportResponse queryAgentReportData(AgentReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
+        log.info("queryAgentReportData start");
+        AgentReportResponse response = new AgentReportResponse();
+        try {
+            List<BigDecimal> balanceInfos = agentReportMapper.commissionInfosByQuery(entity);
+            if (balanceInfos == null || balanceInfos.isEmpty()) {
+                response.setTotalNumber(0);
+            } else {
+                response.setTotalNumber(balanceInfos.size());
+            }
+
+            List<AgentReportDto> agentReportDtoList = agentReportMapper.pageByQuery(entity);
+            response.setAgentReportDtoList(agentReportDtoList);
+            response.setPageNo(entity.getPageNo());
+            response.setPageSize(entity.getPageSize());
+
+            if (isNeedCardData) {
+                Map<String, Map<String, BigDecimal>> cardInfo = new HashMap<>();
+                Map<String, BigDecimal> currencyMap =
+                        cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
+
+                currencyMap.put("total", CommontUtil.sum(balanceInfos));
+                response.setCardInfo(cardInfo);
+            }
+        } catch (Exception e) {
+            log.error("agentReportMapper queryAgentReportData failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("queryAgentReportData end");
+        return response;
+    }
+
+    private CurrencyReportResponse queryCurrencyReportData(BaseReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
+        log.info("queryCurrencyReportData start");
+        CurrencyReportResponse response = new CurrencyReportResponse();
+        try {
+            List<BigDecimal> balanceInfos = currencyReportMapper.balanceInfosByQuery(entity);
+            if (balanceInfos == null || balanceInfos.isEmpty()) {
+                response.setTotalNumber(0);
+            } else {
+                response.setTotalNumber(balanceInfos.size());
+            }
+
+            List<CurrencyReportDto> agentReportDtoList = currencyReportMapper.pageByQuery(entity);
+            response.setCurrencyReportDtoList(agentReportDtoList);
+            response.setPageNo(entity.getPageNo());
+            response.setPageSize(entity.getPageSize());
+
+            if (isNeedCardData) {
+                Map<String, Map<String, BigDecimal>> cardInfo = new HashMap<>();
+                Map<String, BigDecimal> currencyMap =
+                        cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
+
+                currencyMap.put("total", CommontUtil.sum(balanceInfos));
+                response.setCardInfo(cardInfo);
+            }
+        } catch (Exception e) {
+            log.error("currencyReportMapper queryCurrencyReportData failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("queryCurrencyReportData end");
         return response;
     }
 

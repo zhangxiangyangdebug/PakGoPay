@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.AgentReportMapper">
+
+    <!-- ResultMap (explicit javaType) -->
+    <resultMap id="AgentReportResultMap" type="com.pakgopay.mapper.dto.AgentReportDto">
+
+        <id column="user_id" property="userId" javaType="java.lang.String"/>
+
+        <result column="agent_name" property="agentName" javaType="java.lang.String"/>
+        <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
+
+        <result column="order_quantity" property="orderQuantity" javaType="java.lang.Long"/>
+        <result column="success_quantity" property="successQuantity" javaType="java.lang.Long"/>
+
+        <result column="currency" property="currency" javaType="java.lang.String"/>
+        <result column="commission" property="commission" javaType="java.math.BigDecimal"/>
+
+        <result column="record_date" property="recordDate" javaType="java.lang.Long"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
+
+        <result column="remark" property="remark" javaType="java.lang.String"/>
+
+    </resultMap>
+
+    <!-- Base columns -->
+    <sql id="BaseColumns">
+        user_id,
+        agent_name,
+        order_type,
+        order_quantity,
+        success_quantity,
+        currency,
+        commission,
+        record_date,
+        create_time,
+        update_time,
+        remark
+    </sql>
+
+    <!-- Insert -->
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.AgentReportDto">
+        INSERT INTO agent_report (
+        <include refid="BaseColumns"/>
+        ) VALUES (
+        #{userId},
+        #{agentName},
+        #{orderType},
+        #{orderQuantity},
+        #{successQuantity},
+        #{currency},
+        #{commission},
+        #{recordDate},
+        #{createTime},
+        #{updateTime},
+        #{remark}
+        )
+    </insert>
+
+    <!-- Update by unique key -->
+    <update id="update" parameterType="com.pakgopay.mapper.dto.AgentReportDto">
+        UPDATE agent_report
+        <set>
+            <if test="agentName != null">agent_name = #{agentName},</if>
+
+            <if test="orderQuantity != null">order_quantity = #{orderQuantity},</if>
+            <if test="successQuantity != null">success_quantity = #{successQuantity},</if>
+
+            <if test="commission != null">commission = #{commission},</if>
+            <if test="remark != null">remark = #{remark},</if>
+
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        WHERE user_id = #{userId}
+        AND record_date = #{recordDate}
+        AND order_type = #{orderType}
+        AND currency = #{currency}
+    </update>
+
+    <!-- Common WHERE conditions for AgentReportQuery -->
+    <sql id="AgentReportWhere">
+        <where>
+            <if test="userId != null and userId != ''">
+                AND user_id = #{userId}
+            </if>
+
+            <if test="currency != null and currency != ''">
+                AND currency = #{currency}
+            </if>
+
+            <if test="orderType != null">
+                AND order_type = #{orderType}
+            </if>
+
+            <if test="startTime != null">
+                AND record_date &gt;= #{startTime}
+            </if>
+
+            <if test="endTime != null">
+                AND record_date &lt;= #{endTime}
+            </if>
+        </where>
+    </sql>
+
+    <!-- Count -->
+    <select id="commissionInfosByQuery"
+            parameterType="com.pakgopay.entity.report.AgentReportEntity"
+            resultType="java.math.BigDecimal">
+        SELECT
+        commission
+        FROM agent_report
+        <include refid="AgentReportWhere"/>
+    </select>
+
+    <!-- Page query -->
+    <select id="pageByQuery"
+            parameterType="com.pakgopay.entity.report.AgentReportEntity"
+            resultMap="AgentReportResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM agent_report
+        <include refid="AgentReportWhere"/>
+        ORDER BY record_date DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+
+</mapper>
