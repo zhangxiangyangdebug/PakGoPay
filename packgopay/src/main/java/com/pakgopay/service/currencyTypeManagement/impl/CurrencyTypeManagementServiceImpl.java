@@ -11,6 +11,7 @@ import com.pakgopay.service.common.AuthorizationService;
 import com.pakgopay.service.currencyTypeManagement.CurrencyTypeManagementService;
 import com.pakgopay.thirdUtil.GoogleUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@Slf4j
 public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagementService {
 
     @Autowired
@@ -30,10 +32,12 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
     @Override
     public CommonResponse getAllCurrencyType() {
        try {
+           log.info("start getAllCurrencyType");
            List<CurrencyTypeDTO> allCurrencyType = currencyTypeMapper.getAllCurrencyType();
-           System.out.println(allCurrencyType.toString());
+           log.info("end getAllCurrencyType");
            return CommonResponse.success(allCurrencyType);
        } catch (Exception e) {
+           log.error(e.toString());
            return CommonResponse.fail(ResultCode.FAIL,"get currency type failed");
        }
     }
@@ -49,7 +53,7 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
             }
             return CommonResponse.success(allCurrencyType);
         } catch (Exception e) {
-            return CommonResponse.fail(ResultCode.FAIL,"get currency type failed");
+            return CommonResponse.fail(ResultCode.FAIL,"get currency type failed"+e.getMessage());
         }
 
 

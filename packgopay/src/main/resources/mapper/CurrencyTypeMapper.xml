@@ -12,20 +12,30 @@
         <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
         <result column="create_by" property="createBy" javaType="String"/>
         <result column="update_by" property="updateBy" javaType="String"/>
-        <result column="exchange_rate" property="exchangeRate" javaType="java.math.BigDecimal"/>
         <result column="remark" property="remark" javaType="String" />
-        <result column="isRate" property="isRate" javaType="Integer"/>
-        <result column="currency_accuracy" property="currencyAccuracy" javaType="java.math.BigDecimal"/>
+        <result column="currency_scale" property="currencyAccuracy" javaType="java.math.BigDecimal"/>
     </resultMap>
+    <sql id="allColumn">
+        id, currency_type, name, icon, create_time, create_by, update_time, update_by, remark, currency_scale
+    </sql>
+    <sql id="insertColumn">
+        currency_type, name, icon, create_time, create_by, update_time, update_by, remark, currency_scale
+    </sql>
     <select id="getAllCurrencyType" resultMap="currencyTypeMap">
-        SELECT id, currency_type, name, icon, create_time, create_by, update_time, update_by, exchange_rate, remark, isRate, currency_accuracy  FROM currency
+        SELECT
+        <include refid="allColumn"/>
+        FROM currency
     </select>
 
     <insert id="addNewCurrency">
-        INSERT INTO currency (currency_type, name, icon, create_time, create_by, update_time, update_by, exchange_rate, remark, isRate, currency_accuracy) values (#{currencyType},#{name},#{icon},#{createTime},#{createBy},#{updateTime},#{updateBy},#{exchangeRate},#{remark},#{isRate}, #{currencyAccuracy})
+        INSERT INTO currency (
+                              <include refid="insertColumn"/>
+        ) values (#{currencyType},#{name},#{icon},#{createTime},#{createBy},#{updateTime},#{updateBy},#{exchangeRate},#{remark},#{isRate}, #{currencyAccuracy})
     </insert>
 
     <select id="getCurrencyById" resultMap="currencyTypeMap">
-        SELECT id, currency_type, name, icon, create_time, create_by, update_time, update_by, exchange_rate, remark, isRate, currency_accuracy  FROM currency WHERE id = #{id}
+        SELECT
+          <include refid="allColumn"/>
+            FROM currency WHERE id = #{id}
     </select>
 </mapper>

@@ -15,7 +15,5 @@ public class CurrencyTypeDTO {
     private Long updateTime;
     private String createBy;
     private String updateBy;
-    private BigDecimal exchangeRate;
     private String remark;
-    private Integer isRate;
 }
