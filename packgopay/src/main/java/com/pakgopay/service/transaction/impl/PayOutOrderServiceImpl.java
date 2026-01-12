@@ -12,7 +12,7 @@ import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.service.balance.BalanceService;
-import com.pakgopay.service.transaction.ChannelPaymentService;
+import com.pakgopay.service.channel.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.MerchantCheckService;
 import com.pakgopay.service.transaction.PayOutOrderService;
 import com.pakgopay.util.CommontUtil;
@@ -33,7 +33,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
     private MerchantCheckService merchantCheckService;
 
     @Autowired
-    private ChannelPaymentService channelPaymentService;
+    private ChannelPaymentServiceImpl channelPaymentService;
 
     @Autowired
     private BalanceService balanceService;

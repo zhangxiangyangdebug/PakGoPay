@@ -1,6 +1,7 @@
 package com.pakgopay.mapper;
 
 
+import com.pakgopay.entity.channel.PaymentEntity;
 import com.pakgopay.mapper.dto.PaymentDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -9,7 +10,7 @@ import java.util.List;
 import java.util.Set;
 
 @Mapper
-public interface PaymentsMapper {
+public interface PaymentMapper {
 
     List<PaymentDto> findEByPaymentNo(@Param("paymentNo") Integer paymentNo);
 
@@ -32,4 +33,10 @@ public interface PaymentsMapper {
     List<PaymentDto> findEnableInfoByPaymentNos(
             @Param("supportType") Integer supportType,
             @Param("paymentNo") Integer paymentNo, @Param("paymentIdList") Set<Long> paymentIdList);
+
+    /** Count by query */
+    Integer countByQuery(PaymentEntity entity);
+
+    /** Page query */
+    List<PaymentDto> pageByQuery(PaymentEntity entity);
 }

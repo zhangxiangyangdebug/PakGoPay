@@ -1,15 +1,24 @@
-package com.pakgopay.service.transaction;
+package com.pakgopay.service.channel.impl;
 
 
 import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
-import com.pakgopay.entity.TransactionInfo;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.common.reqeust.channel.ChannelRequest;
+import com.pakgopay.common.reqeust.channel.PaymentRequest;
+import com.pakgopay.common.response.CommonResponse;
+import com.pakgopay.common.response.channel.ChannelResponse;
+import com.pakgopay.common.response.channel.PaymentResponse;
+import com.pakgopay.entity.TransactionInfo;
+import com.pakgopay.entity.channel.ChannelEntity;
+import com.pakgopay.entity.channel.PaymentEntity;
 import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
+import com.pakgopay.service.channel.ChannelPaymentService;
 import com.pakgopay.util.CommontUtil;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,13 +32,13 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-public class ChannelPaymentService {
+public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
     @Autowired
-    private PaymentsMapper paymentsMapper;
+    private PaymentMapper paymentMapper;
 
     @Autowired
-    private ChannelsMapper channelsMapper;
+    private ChannelMapper channelMapper;
 
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;
@@ -111,7 +120,7 @@ public class ChannelPaymentService {
         Set<Long> paymentIdList = getAssociatePaymentIdByChannel(channelIdList, paymentMap);
 
         // 3. obtain merchant's available payment infos by channel ids
-        List<PaymentDto> paymentDtoList = paymentsMapper.
+        List<PaymentDto> paymentDtoList = paymentMapper.
                 findEnableInfoByPaymentNos(supportType, paymentNo, paymentIdList);
         if (paymentDtoList == null || paymentDtoList.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "Merchants have no available matching payments");
@@ -296,7 +305,7 @@ public class ChannelPaymentService {
      * @throws PakGoPayException business Exception
      */
     private Set<Long> getAssociatePaymentIdByChannel(Set<Long> channelIdList, Map<Long, ChannelDto> paymentMap) throws PakGoPayException {
-        List<ChannelDto> channelInfos = channelsMapper.
+        List<ChannelDto> channelInfos = channelMapper.
                 getPaymentIdsByChannelIds(channelIdList.stream().toList(), CommonConstant.ENABLE_STATUS_ENABLE);
         if (channelInfos.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not payment");
@@ -458,4 +467,63 @@ public class ChannelPaymentService {
         return null;
     }
 
+    public CommonResponse queryChannel(@Valid ChannelRequest channelRequest) throws PakGoPayException {
+        log.info("queryChannel start");
+
+        ChannelEntity entity = new ChannelEntity();
+        entity.setChannelId(channelRequest.getChannelId());
+        entity.setChannelName(channelRequest.getChannelName());
+        entity.setStatus(channelRequest.getStatus());
+        entity.setPageNo(channelRequest.getPageNo());
+        entity.setPageSize(channelRequest.getPageSize());
+
+        ChannelResponse response = new ChannelResponse();
+        try {
+            Integer totalNumber = channelMapper.countByQuery(entity);
+            List<ChannelDto> channelDtoList = channelMapper.pageByQuery(entity);
+
+            response.setChannelDtoList(channelDtoList);
+            response.setTotalNumber(totalNumber);
+        } catch (Exception e) {
+            log.error("channelsMapper channelsMapperData failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        response.setPageNo(entity.getPageNo());
+        response.setPageSize(entity.getPageSize());
+
+        log.info("queryChannel end");
+        return CommonResponse.success(response);
+    }
+
+    public CommonResponse queryPayment(@Valid PaymentRequest paymentRequest) throws PakGoPayException {
+        log.info("queryChannel start");
+
+        PaymentEntity entity = new PaymentEntity();
+        entity.setPaymentId(paymentRequest.getPaymentId());
+        entity.setPaymentName(paymentRequest.getPaymentName());
+        entity.setStatus(paymentRequest.getStatus());
+        entity.setPageNo(paymentRequest.getPageNo());
+        entity.setPageSize(paymentRequest.getPageSize());
+
+        PaymentResponse response = new PaymentResponse();
+        try {
+            Integer totalNumber = paymentMapper.countByQuery(entity);
+            List<PaymentDto> paymentDtoList = paymentMapper.pageByQuery(entity);
+
+            response.setPaymentDtoList(paymentDtoList);
+            response.setTotalNumber(totalNumber);
+        } catch (Exception e) {
+            log.error("channelsMapper channelsMapperData failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        response.setPageNo(entity.getPageNo());
+        response.setPageSize(entity.getPageSize());
+
+        log.info("queryChannel end");
+        return CommonResponse.success(response);
+
+
+    }
 }

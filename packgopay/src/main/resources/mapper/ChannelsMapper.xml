@@ -3,9 +3,9 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.pakgopay.mapper.ChannelsMapper">
+<mapper namespace="com.pakgopay.mapper.ChannelMapper">
 
-    <resultMap id="ChannelsResultMap" type="com.pakgopay.mapper.dto.ChannelDto">
+    <resultMap id="ChannelResultMap" type="com.pakgopay.mapper.dto.ChannelDto">
 
         <id     column="channel_id" property="channelId" javaType="java.lang.Long"/>
 
@@ -80,7 +80,7 @@
     </sql>
 
     <!-- findByChannelId -->
-    <select id="findByChannelId" resultMap="ChannelsResultMap">
+    <select id="findByChannelId" resultMap="ChannelResultMap">
         select <include refid="BaseColumns"/>
         from channel
         where channel_id = #{channelId}
@@ -88,7 +88,7 @@
     </select>
 
     <!-- getAllChannels -->
-    <select id="getAllChannels" resultMap="ChannelsResultMap">
+    <select id="getAllChannels" resultMap="ChannelResultMap">
         select <include refid="BaseColumns"/>
         from channel
         order by create_time desc
@@ -167,7 +167,7 @@
     </delete>
 
     <!-- getPaymentNosByChannelIds -->
-    <select id="getPaymentIdsByChannelIds" resultMap="ChannelsResultMap">
+    <select id="getPaymentIdsByChannelIds" resultMap="ChannelResultMap">
         select
         channel_id,
         payment_ids
@@ -185,5 +185,43 @@
             and status = #{status}
         </if>
     </select>
+
+    <sql id="ChannelQueryWhere">
+        <where>
+
+            <if test="channelId != null">
+                AND channel_id = #{channelId}
+            </if>
+
+            <if test="channelName != null and channelName != ''">
+                AND channel_name LIKE CONCAT('%', #{channelName}, '%')
+            </if>
+
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+
+        </where>
+    </sql>
+
+    <select id="countByQuery"
+            parameterType="com.pakgopay.entity.channel.ChannelEntity"
+            resultType="int">
+        SELECT COUNT(1)
+        FROM channel
+        <include refid="ChannelQueryWhere"/>
+    </select>
+
+    <select id="pageByQuery"
+            parameterType="com.pakgopay.entity.channel.ChannelEntity"
+            resultMap="ChannelResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM channel
+        <include refid="ChannelQueryWhere"/>
+        ORDER BY channel_id DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
 
 </mapper>

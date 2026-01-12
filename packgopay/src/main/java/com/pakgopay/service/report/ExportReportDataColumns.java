@@ -87,7 +87,11 @@ public final class ExportReportDataColumns {
         CURRENCY_ALLOWED.put("failedQuantity", new ColumnDef<>("failedQuantity", r -> safeToString(r.getOrderQuantity() - r.getSuccessQuantity())));
         CURRENCY_ALLOWED.put("successQuantity", new ColumnDef<>("successQuantity", r -> safeToString(r.getSuccessQuantity())));
 
+        CURRENCY_ALLOWED.put("merchantFee", new ColumnDef<>("merchantFee", r -> safeToString(r.getMerchantFee())));
+        CURRENCY_ALLOWED.put("orderProfit", new ColumnDef<>("orderProfit", r -> safeToString(r.getOrderProfit())));
         CURRENCY_ALLOWED.put("orderBalance", new ColumnDef<>("orderBalance", r -> safeToString(r.getOrderBalance())));
+
+        CURRENCY_ALLOWED.put("timeDate", new ColumnDef<>("timeDate", r -> safeToString(r.getRecordDate())));
 
         //--------------------------------------------------------------------------------------------------------------
 

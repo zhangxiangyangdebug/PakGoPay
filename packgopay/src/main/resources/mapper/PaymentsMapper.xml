@@ -3,9 +3,9 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.pakgopay.mapper.PaymentsMapper">
+<mapper namespace="com.pakgopay.mapper.PaymentMapper">
 
-    <resultMap id="PaymentsResultMap" type="com.pakgopay.mapper.dto.PaymentDto">
+    <resultMap id="PaymentResultMap" type="com.pakgopay.mapper.dto.PaymentDto">
 
         <id     column="payment_id" property="paymentId" javaType="java.lang.Long"/>
 
@@ -96,7 +96,7 @@
     </sql>
 
     <!-- findEByPaymentNo -->
-    <select id="findEByPaymentNo" resultMap="PaymentsResultMap">
+    <select id="findEByPaymentNo" resultMap="PaymentResultMap">
         select
         <include refid="BaseColumns"/>
         from payment
@@ -104,7 +104,7 @@
     </select>
 
     <!-- findByPaymentId -->
-    <select id="findByPaymentId" resultMap="PaymentsResultMap">
+    <select id="findByPaymentId" resultMap="PaymentResultMap">
         select <include refid="BaseColumns"/>
         from payment
         where payment_id = #{paymentId}
@@ -112,7 +112,7 @@
     </select>
 
     <!-- getAllPayments -->
-    <select id="getAllPayments" resultMap="PaymentsResultMap">
+    <select id="getAllPayments" resultMap="PaymentResultMap">
         select <include refid="BaseColumns"/>
         from payment
         order by create_time desc
@@ -205,7 +205,7 @@
         where payment_id = #{paymentId}
     </delete>
 
-    <select id="findEnableInfoByPaymentNos" resultMap="PaymentsResultMap">
+    <select id="findEnableInfoByPaymentNos" resultMap="PaymentResultMap">
         select
         <include refid="BaseColumns"/>
         from payment
@@ -220,5 +220,41 @@
         and support_type IN (2, #{supportType})
     </select>
 
+    <sql id="PaymentQueryWhere">
+        <where>
+
+            <if test="paymentId != null">
+                AND payment_id = #{paymentId}
+            </if>
+
+            <if test="paymentName != null and paymentName != ''">
+                AND payment_name LIKE CONCAT('%', #{paymentName}, '%')
+            </if>
+
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+
+        </where>
+    </sql>
+
+    <select id="countByQuery"
+            parameterType="com.pakgopay.entity.channel.PaymentEntity"
+            resultType="int">
+        SELECT COUNT(1)
+        FROM channel
+        <include refid="PaymentQueryWhere"/>
+    </select>
+
+    <select id="pageByQuery"
+            parameterType="com.pakgopay.entity.channel.PaymentEntity"
+            resultMap="PaymentResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM channel
+        <include refid="PaymentQueryWhere"/>
+        ORDER BY channel_id DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
 
 </mapper>

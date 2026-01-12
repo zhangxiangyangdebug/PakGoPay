@@ -10,7 +10,7 @@ import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
-import com.pakgopay.service.transaction.ChannelPaymentService;
+import com.pakgopay.service.channel.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.MerchantCheckService;
 import com.pakgopay.util.SnowflakeIdGenerator;
@@ -30,7 +30,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
     MerchantCheckService merchantCheckService;
 
     @Autowired
-    ChannelPaymentService channelPaymentService;
+    ChannelPaymentServiceImpl channelPaymentService;
 
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;

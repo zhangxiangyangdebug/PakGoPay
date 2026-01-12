@@ -1,6 +1,7 @@
 package com.pakgopay.service.report.impl;
 
 import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.ExcelWriter;
 import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
@@ -373,21 +374,18 @@ public class ReportServiceImpl implements ReportService {
         ColumnParseResult<MerchantReportDto> colRes =
                 parseColumns(merchantReportRequest, ExportReportDataColumns.MERCHANT_ALLOWED);
 
-        // 2) Set Excel download response headers
-        setExcelDownloadHeaders(response, CommonConstant.MERCHANT_EXPORT_FILE_NAME);
-
-        // 3) Init paging params
+        // 2) Init paging params
         merchantReportRequest.setPageSize(CommonConstant.EXPORT_PAGE_SIZE);
         merchantReportRequest.setPageNo(1);
 
-        // 4) Export by paging and multi-sheet writing
+        // 3) Export by paging and multi-sheet writing
         exportByPagingAndSheets(
                 response,
                 colRes.getHead(),
                 merchantReportRequest,
                 (req) -> getMerchantReportResponse(req).getMerchantReportDtoList(),
-                colRes.getDefs()
-        );
+                colRes.getDefs(),
+                CommonConstant.MERCHANT_EXPORT_FILE_NAME);
 
         log.info("exportMerchantReport end");
     }
@@ -402,21 +400,18 @@ public class ReportServiceImpl implements ReportService {
         ColumnParseResult<ChannelReportDto> colRes =
                 parseColumns(channelReportRequest, ExportReportDataColumns.CHANNEL_ALLOWED);
 
-        // 2) Set Excel download response headers
-        setExcelDownloadHeaders(response, CommonConstant.CHANNEL_EXPORT_FILE_NAME);
-
-        // 3) Init paging params
+        // 2) Init paging params
         channelReportRequest.setPageSize(CommonConstant.EXPORT_PAGE_SIZE);
         channelReportRequest.setPageNo(1);
 
-        // 4) Export by paging and multi-sheet writing
+        // 3) Export by paging and multi-sheet writing
         exportByPagingAndSheets(
                 response,
                 colRes.getHead(),
                 channelReportRequest,
                 (req) -> getChannelReportResponse(req).getChannelReportDtoList(),
-                colRes.getDefs()
-        );
+                colRes.getDefs(),
+                CommonConstant.CHANNEL_EXPORT_FILE_NAME);
 
         log.info("exportChannelReport end");
 
@@ -432,21 +427,18 @@ public class ReportServiceImpl implements ReportService {
         ColumnParseResult<AgentReportDto> colRes =
                 parseColumns(agentReportRequest, ExportReportDataColumns.AGENT_ALLOWED);
 
-        // 2) Set Excel download response headers
-        setExcelDownloadHeaders(response, CommonConstant.AGENT_EXPORT_FILE_NAME);
-
-        // 3) Init paging params
+        // 2) Init paging params
         agentReportRequest.setPageSize(CommonConstant.EXPORT_PAGE_SIZE);
         agentReportRequest.setPageNo(1);
 
-        // 4) Export by paging and multi-sheet writing
+        // 3) Export by paging and multi-sheet writing
         exportByPagingAndSheets(
                 response,
                 colRes.getHead(),
                 agentReportRequest,
                 (req) -> getAgentReportResponse(req).getAgentReportDtoList(),
-                colRes.getDefs()
-        );
+                colRes.getDefs(),
+                CommonConstant.AGENT_EXPORT_FILE_NAME);
 
         log.info("exportAgentReport end");
     }
@@ -461,21 +453,18 @@ public class ReportServiceImpl implements ReportService {
         ColumnParseResult<CurrencyReportDto> colRes =
                 parseColumns(currencyReportRequest, ExportReportDataColumns.CURRENCY_ALLOWED);
 
-        // 2) Set Excel download response headers
-        setExcelDownloadHeaders(response, CommonConstant.CURRENCY_EXPORT_FILE_NAME);
-
-        // 3) Init paging params
+        // 2) Init paging params
         currencyReportRequest.setPageSize(CommonConstant.EXPORT_PAGE_SIZE);
         currencyReportRequest.setPageNo(1);
 
-        // 4) Export by paging and multi-sheet writing
+        // 3) Export by paging and multi-sheet writing
         exportByPagingAndSheets(
                 response,
                 colRes.getHead(),
                 currencyReportRequest,
                 (req) -> getCurrencyReportResponse(req).getCurrencyReportDtoList(),
-                colRes.getDefs()
-        );
+                colRes.getDefs(),
+                CommonConstant.CURRENCY_EXPORT_FILE_NAME);
 
         log.info("exportCurrencyReport end");
     }
@@ -490,20 +479,18 @@ public class ReportServiceImpl implements ReportService {
         ColumnParseResult<PaymentReportDto> colRes =
                 parseColumns(paymentReportRequest, ExportReportDataColumns.PAYMENT_ALLOWED);
 
-        // 2) Set Excel download response headers
-        setExcelDownloadHeaders(response, CommonConstant.PAYMENT_EXPORT_FILE_NAME);
-
-        // 3) Init paging params
+        // 2) Init paging params
         paymentReportRequest.setPageSize(CommonConstant.EXPORT_PAGE_SIZE);
         paymentReportRequest.setPageNo(1);
 
-        // 4) Export by paging and multi-sheet writing
+        // 3) Export by paging and multi-sheet writing
         exportByPagingAndSheets(
                 response,
                 colRes.getHead(),
                 paymentReportRequest,
                 (req) -> getPaymentReportResponse(req).getPaymentReportDtoList(),
-                colRes.getDefs()
+                colRes.getDefs(),
+                CommonConstant.PAYMENT_EXPORT_FILE_NAME
         );
 
         log.info("exportPaymentReport end");
@@ -517,18 +504,15 @@ public class ReportServiceImpl implements ReportService {
             List<List<String>> head,
             REQ request,
             ThrowingFunction<REQ, List<ROW>, PakGoPayException> pageFetcher,
-            List<ExportReportDataColumns.ColumnDef<ROW>> defs)
+            List<ExportReportDataColumns.ColumnDef<ROW>> defs, String fileName)
             throws IOException, PakGoPayException {
 
         int sheetNo = 1;           // Current sheet index (start from 1)
         int sheetRowCount = 0;     // Current written row count in current sheet
         boolean wroteAny = false;  // Whether any data has been written
 
-        try (var os = response.getOutputStream();
-             var writer = EasyExcel.write(os)
-                     .head(head)
-                     .autoCloseStream(false)
-                     .build()) {
+        ExcelWriter writer = null;
+        try {
 
             while (true) {
                 // 1) Fetch one page data
@@ -538,31 +522,44 @@ public class ReportServiceImpl implements ReportService {
                 if (pageData == null || pageData.isEmpty()) {
                     break;
                 }
+                // 3) Set Excel download response headers
+                setExcelDownloadHeaders(response, fileName);
+
                 wroteAny = true;
 
-                // 3) Convert DTO list to EasyExcel dynamic rows
+                // 4) Convert DTO list to EasyExcel dynamic rows
                 List<List<String>> excelRows = toDynamicRows(pageData, defs);
 
-                // 4) Switch to next sheet if current sheet capacity is not enough
+                // 5) Switch to next sheet if current sheet capacity is not enough
                 if (sheetRowCount + excelRows.size() > CommonConstant.EXPORT_SHEET_ROW_LIMIT) {
                     sheetNo++;
                     sheetRowCount = 0;
                 }
 
-                // 5) Write to current sheet
+                // 6) Write to current sheet
+                if (writer == null) {
+                    var os = response.getOutputStream();
+                    writer = EasyExcel.write(os)
+                            .head(head)
+                            .autoCloseStream(false)
+                            .build();
+                }
                 writer.write(excelRows, EasyExcel.writerSheet(sheetNo, "report-" + sheetNo).build());
 
-                // 6) Update current sheet row count
+                // 7) Update current sheet row count
                 sheetRowCount += excelRows.size();
 
-                // 7) If current page size is less than page size, it means this is the last page
+                // 8) If current page size is less than page size, it means this is the last page
                 if (excelRows.size() < CommonConstant.EXPORT_PAGE_SIZE) {
                     break;
                 }
 
-                // 8) Move to next page
+                // 9) Move to next page
                 request.setPageNo(request.getPageNo() + 1);
             }
+        } catch (Exception e) {
+            log.warn("writer excel failed");
+            throw new PakGoPayException(ResultCode.FAIL, "writer excel failed");
         }
 
         // 9) If no data has been written, treat as empty result
@@ -576,6 +573,11 @@ public class ReportServiceImpl implements ReportService {
      * Set Excel download headers
      */
     private void setExcelDownloadHeaders(HttpServletResponse response, String fileName) throws IOException {
+        if (response.isCommitted()) {
+            log.warn("response is commit");
+            return;
+        }
+        log.warn("setExcelDownloadHeaders start");
         String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setCharacterEncoding("utf-8");
