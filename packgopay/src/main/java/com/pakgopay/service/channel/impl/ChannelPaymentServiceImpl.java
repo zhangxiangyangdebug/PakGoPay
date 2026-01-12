@@ -138,9 +138,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      */
     private List<PaymentDto> filterSupportCurrencyPayments(List<PaymentDto> availablePayments, String currency) throws PakGoPayException {
         log.info("filterSupportCurrencyPayments start");
-        availablePayments = availablePayments.stream().filter(payment -> {
-            return payment.getCurrencyType().equals(currency);
-        }).toList();
+        availablePayments = availablePayments.stream()
+                .filter(payment -> payment.getCurrency().equals(currency)).toList();
         if (availablePayments.isEmpty()) {
             log.error("availablePayments is empty");
             throw new PakGoPayException(ResultCode.PAYMENT_NOT_SUPPORT_CURRENCY, "channel is not support this currency: " + currency);

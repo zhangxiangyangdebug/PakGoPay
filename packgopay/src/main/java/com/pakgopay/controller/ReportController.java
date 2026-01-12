@@ -171,6 +171,10 @@ public class ReportController {
 
     private void writeJsonError(HttpServletResponse response, ResultCode code, String msg) {
         try {
+            if (response.isCommitted()) {
+                log.warn("Cannot write JSON error because response is already committed. msg={}", msg);
+                return;
+            }
             response.reset();
             response.setContentType("application/json;charset=UTF-8");
             response.setCharacterEncoding("UTF-8");

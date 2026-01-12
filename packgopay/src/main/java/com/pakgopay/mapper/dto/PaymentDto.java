@@ -74,7 +74,7 @@ public class PaymentDto implements Serializable {
     private String payCallbackAddr;
 
     /** xiaoyou 币种 */
-    private String currencyType;
+    private String currency;
 
     /** xiaoyou 创建时间 */
     private Long createTime;

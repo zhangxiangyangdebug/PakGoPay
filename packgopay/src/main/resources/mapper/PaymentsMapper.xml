@@ -38,7 +38,7 @@
         <result column="collection_callback_addr" property="collectionCallbackAddr" javaType="java.lang.String"/>
         <result column="pay_callback_addr" property="payCallbackAddr" javaType="java.lang.String"/>
 
-        <result column="currency_type" property="currencyType" javaType="java.lang.String"/>
+        <result column="currency" property="currency" javaType="java.lang.String"/>
 
         <result column="create_time" property="createTime" javaType="java.lang.Long"/>
         <result column="create_by" property="createBy" javaType="java.lang.String"/>
@@ -80,7 +80,7 @@
         pay_interface_param,
         collection_callback_addr,
         pay_callback_addr,
-        currency_id,
+        currency,
         create_time,
         create_by,
         update_time,
@@ -145,7 +145,7 @@
         #{payInterfaceParam},
         #{collectionCallbackAddr},
         #{payCallbackAddr},
-        #{currencyType},
+        #{currency},
         #{createTime},
         #{createBy},
         #{updateTime},
@@ -185,7 +185,7 @@
             pay_interface_param = #{payInterfaceParam},
             collection_callback_addr = #{collectionCallbackAddr},
             pay_callback_addr = #{payCallbackAddr},
-            currency_type = #{currencyType},
+            currency = #{currency},
             update_time = #{updateTime},
             update_by = #{updateBy},
             remark = #{remark},
@@ -242,7 +242,7 @@
             parameterType="com.pakgopay.entity.channel.PaymentEntity"
             resultType="int">
         SELECT COUNT(1)
-        FROM channel
+        FROM payment
         <include refid="PaymentQueryWhere"/>
     </select>
 
@@ -251,7 +251,7 @@
             resultMap="PaymentResultMap">
         SELECT
         <include refid="BaseColumns"/>
-        FROM channel
+        FROM payment
         <include refid="PaymentQueryWhere"/>
         ORDER BY channel_id DESC
         LIMIT #{pageSize} OFFSET #{offset}
