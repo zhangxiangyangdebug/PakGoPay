@@ -95,7 +95,9 @@
     <!-- Common WHERE conditions -->
     <sql id="MerchantReportWhere">
         <where>
-            order_type = #{orderType}
+            <if test="orderType != null and orderType != ''">
+                AND order_type = #{orderType}
+            </if>
             <if test="userId != null and userId != ''">
                 AND user_id = #{userId}
             </if>
