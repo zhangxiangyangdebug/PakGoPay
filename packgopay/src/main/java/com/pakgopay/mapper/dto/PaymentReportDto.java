@@ -6,20 +6,20 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 
 @Data
-public class AgentReportDto implements Serializable {
+public class PaymentReportDto implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /** Agent user ID */
-    private String userId;
+    /** Payment ID */
+    private Long paymentId;
 
-    /** Agent name */
-    private String agentName;
+    /** Payment name */
+    private String paymentName;
 
     /** Order type: collection(0) / payout(1) */
     private Integer orderType;
 
-    /** Order quantity */
+    /** Total order quantity */
     private Integer orderQuantity;
 
     /** Success order quantity */
@@ -28,10 +28,16 @@ public class AgentReportDto implements Serializable {
     /** Currency */
     private String currency;
 
-    /** Commission */
-    private BigDecimal commission;
+    /** Merchant fee */
+    private BigDecimal merchantFee;
 
-    /** Record date (unix timestamp seconds, usually 00:00:00 of the day) */
+    /** Order amount (sum) */
+    private BigDecimal orderBalance;
+
+    /** Platform profit */
+    private BigDecimal orderProfit;
+
+    /** Record time (unix timestamp seconds) */
     private Long recordDate;
 
     /** Create time (unix timestamp seconds) */
@@ -39,8 +45,5 @@ public class AgentReportDto implements Serializable {
 
     /** Update time (unix timestamp seconds) */
     private Long updateTime;
-
-    /** Remark */
-    private String remark;
 }
 

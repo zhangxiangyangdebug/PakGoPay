@@ -58,7 +58,7 @@ public class PakGlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public CommonResponse<Void> handleException(Exception e) {
         log.error("Exception {}", e.getMessage());
-        return CommonResponse.fail(ResultCode.FAIL, ResultCode.FAIL.getMessage());
+        return CommonResponse.fail(ResultCode.FAIL, e.getMessage());
     }
 
 }

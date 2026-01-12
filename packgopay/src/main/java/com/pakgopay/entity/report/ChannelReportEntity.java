@@ -6,5 +6,5 @@ import lombok.Data;
 public class ChannelReportEntity extends BaseReportEntity {
 
     /** Optional: channel Id (fuzzy match) */
-    private String channelId;
+    private Long channelId;
 }

@@ -3,23 +3,39 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.pakgopay.mapper.ChannelReportMapper">
+<mapper namespace="com.pakgopay.mapper.PaymentReportMapper">
+
+    <!-- Base columns -->
+    <sql id="BaseColumns">
+        payment_id,
+        payment_name,
+        order_type,
+        order_quantity,
+        success_quantity,
+        currency,
+        merchant_fee,
+        order_balance,
+        order_profit,
+        record_date,
+        create_time,
+        update_time
+    </sql>
 
     <!-- ResultMap (explicit javaType) -->
-    <resultMap id="ChannelReportResultMap" type="com.pakgopay.mapper.dto.ChannelReportDto">
+    <resultMap id="PaymentReportResultMap" type="com.pakgopay.mapper.dto.PaymentReportDto">
 
-        <id column="channel_id" property="channelId" javaType="java.lang.Long"/>
+        <id column="payment_id" property="paymentId" javaType="java.lang.Long"/>
 
-        <result column="channel_name" property="channelName" javaType="java.lang.String"/>
+        <result column="payment_name" property="paymentName" javaType="java.lang.String"/>
         <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
-        <result column="remark" property="remark" javaType="java.lang.String"/>
 
-        <result column="currency" property="currency" javaType="java.lang.String"/>
         <result column="order_quantity" property="orderQuantity" javaType="java.lang.Integer"/>
         <result column="success_quantity" property="successQuantity" javaType="java.lang.Integer"/>
 
-        <result column="order_balance" property="orderBalance" javaType="java.math.BigDecimal"/>
+        <result column="currency" property="currency" javaType="java.lang.String"/>
+
         <result column="merchant_fee" property="merchantFee" javaType="java.math.BigDecimal"/>
+        <result column="order_balance" property="orderBalance" javaType="java.math.BigDecimal"/>
         <result column="order_profit" property="orderProfit" javaType="java.math.BigDecimal"/>
 
         <result column="record_date" property="recordDate" javaType="java.lang.Long"/>
@@ -28,38 +44,19 @@
 
     </resultMap>
 
-    <!-- Base columns -->
-    <sql id="BaseColumns">
-        channel_id,
-        channel_name,
-        order_type,
-        remark,
-        currency,
-        order_quantity,
-        success_quantity,
-        order_balance,
-        merchant_fee,
-        order_profit,
-        record_date,
-        create_time,
-        update_time
-    </sql>
-
-
     <!-- Insert -->
-    <insert id="insert" parameterType="com.pakgopay.mapper.dto.ChannelReportDto">
-        INSERT INTO channel_report (
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.PaymentReportDto">
+        INSERT INTO payment_report (
         <include refid="BaseColumns"/>
         ) VALUES (
-        #{channelId},
-        #{channelName},
+        #{paymentId},
+        #{paymentName},
         #{orderType},
-        #{remark},
-        #{currency},
         #{orderQuantity},
         #{successQuantity},
-        #{orderBalance},
+        #{currency},
         #{merchantFee},
+        #{orderBalance},
         #{orderProfit},
         #{recordDate},
         #{createTime},
@@ -68,32 +65,36 @@
     </insert>
 
     <!-- Update by unique key -->
-    <update id="update" parameterType="com.pakgopay.mapper.dto.ChannelReportDto">
-        UPDATE channel_report
+    <update id="update" parameterType="com.pakgopay.mapper.dto.PaymentReportDto">
+        UPDATE payment_report
         <set>
-            <if test="channelName != null">channel_name = #{channelName},</if>
-            <if test="remark != null">remark = #{remark},</if>
+            <if test="paymentName != null">payment_name = #{paymentName},</if>
 
-            <if test="currency != null">currency = #{currency},</if>
             <if test="orderQuantity != null">order_quantity = #{orderQuantity},</if>
             <if test="successQuantity != null">success_quantity = #{successQuantity},</if>
 
-            <if test="orderBalance != null">order_balance = #{orderBalance},</if>
             <if test="merchantFee != null">merchant_fee = #{merchantFee},</if>
+            <if test="orderBalance != null">order_balance = #{orderBalance},</if>
             <if test="orderProfit != null">order_profit = #{orderProfit},</if>
 
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </set>
-        WHERE channel_id = #{channelId}
+        WHERE payment_id = #{paymentId}
         AND record_date = #{recordDate}
         AND order_type = #{orderType}
+        AND currency = #{currency}
     </update>
 
-    <!-- Common WHERE conditions for ChannelReportEntity -->
-    <sql id="ChannelReportWhere">
+    <!-- Common WHERE conditions for PaymentReportEntity -->
+    <sql id="PaymentReportWhere">
         <where>
-            <if test="channelId != null">
-                AND channel_id = #{channelId}
+
+            <if test="paymentId != null">
+                AND payment_id = #{paymentId}
+            </if>
+
+            <if test="currency != null and currency != ''">
+                AND currency = #{currency}
             </if>
 
             <if test="orderType != null">
@@ -108,32 +109,28 @@
                 AND record_date &lt;= #{endTime}
             </if>
 
-            <if test="currency != null">
-                AND currency = #{currency}
-            </if>
         </where>
     </sql>
 
-    <!-- 1) Return order_balance list (BigDecimal) -->
     <select id="balanceInfosByQuery"
-            parameterType="com.pakgopay.entity.report.ChannelReportEntity"
+            parameterType="com.pakgopay.entity.report.PaymentReportEntity"
             resultType="java.math.BigDecimal">
         SELECT
         order_balance
-        FROM channel_report
-        <include refid="ChannelReportWhere"/>
+        FROM payment_report
+        <include refid="PaymentReportWhere"/>
     </select>
 
-    <!-- 2) Page query -->
     <select id="pageByQuery"
-            parameterType="com.pakgopay.entity.report.ChannelReportEntity"
-            resultMap="ChannelReportResultMap">
+            parameterType="com.pakgopay.entity.report.PaymentReportEntity"
+            resultMap="PaymentReportResultMap">
         SELECT
         <include refid="BaseColumns"/>
-        FROM channel_report
-        <include refid="ChannelReportWhere"/>
+        FROM payment_report
+        <include refid="PaymentReportWhere"/>
         ORDER BY record_date DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
+
 
 </mapper>

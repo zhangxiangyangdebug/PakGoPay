@@ -26,10 +26,10 @@ public class ChannelReportDto implements Serializable {
     private String currency;
 
     /** Total orders (failed orders count per your comment) */
-    private Long orderQuantity;
+    private Integer orderQuantity;
 
     /** Success orders count */
-    private Long successQuantity;
+    private Integer successQuantity;
 
     /** Order amount (sum) */
     private BigDecimal orderBalance;

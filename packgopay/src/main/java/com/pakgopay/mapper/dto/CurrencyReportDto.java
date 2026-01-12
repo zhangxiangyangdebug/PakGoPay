@@ -20,10 +20,10 @@ public class CurrencyReportDto implements Serializable {
     private BigDecimal orderBalance;
 
     /** Total order quantity */
-    private Long orderQuantity;
+    private Integer orderQuantity;
 
     /** Success order quantity */
-    private Long successQuantity;
+    private Integer successQuantity;
 
     /** Create time (unix timestamp seconds) */
     private Long createTime;

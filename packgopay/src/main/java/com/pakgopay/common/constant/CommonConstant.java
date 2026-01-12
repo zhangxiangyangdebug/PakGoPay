@@ -93,4 +93,18 @@ public class CommonConstant {
             add(ROLE_FINANCE);
         }
     };
+
+    // payment report view permissions
+    public static final List<Integer> PAYMENT_REPORT_SUPPORT_ROLE = new ArrayList<>() {
+        {
+            add(ROLE_ADMIN);
+            add(ROLE_FINANCE);
+        }
+    };
+
+    // Exporting 10,000 rows at a time
+    public static final Integer EXPORT_PAGE_SIZE = 10000;
+
+    // Each sheet can have a maximum of 50,000 rows.
+    public static final Integer EXPORT_SHEET_ROW_LIMIT = 50000;
 }

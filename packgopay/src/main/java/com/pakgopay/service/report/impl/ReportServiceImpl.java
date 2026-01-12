@@ -1,36 +1,32 @@
 package com.pakgopay.service.report.impl;
 
+import com.alibaba.excel.EasyExcel;
 import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.report.*;
 import com.pakgopay.common.response.CommonResponse;
-import com.pakgopay.common.response.report.AgentReportResponse;
-import com.pakgopay.common.response.report.ChannelReportResponse;
-import com.pakgopay.common.response.report.CurrencyReportResponse;
-import com.pakgopay.common.response.report.MerchantReportResponse;
-import com.pakgopay.entity.report.AgentReportEntity;
-import com.pakgopay.entity.report.BaseReportEntity;
-import com.pakgopay.entity.report.ChannelReportEntity;
-import com.pakgopay.entity.report.MerchantReportEntity;
+import com.pakgopay.common.response.report.*;
+import com.pakgopay.entity.report.*;
 import com.pakgopay.mapper.*;
-import com.pakgopay.mapper.dto.AgentReportDto;
-import com.pakgopay.mapper.dto.ChannelReportDto;
-import com.pakgopay.mapper.dto.CurrencyReportDto;
-import com.pakgopay.mapper.dto.MerchantReportDto;
+import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.balance.BalanceService;
 import com.pakgopay.service.common.CommonService;
+import com.pakgopay.service.report.ExportReportDataColumns;
 import com.pakgopay.service.report.ReportService;
+import com.pakgopay.service.report.ThrowingFunction;
 import com.pakgopay.util.CommontUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -52,6 +48,9 @@ public class ReportServiceImpl implements ReportService {
     private CurrencyReportMapper currencyReportMapper;
 
     @Autowired
+    private PaymentReportMapper paymentReportMapper;
+
+    @Autowired
     private MerchantInfoMapper merchantInfoMapper;
 
     @Autowired
@@ -60,6 +59,13 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public CommonResponse queryMerchantReport(MerchantReportRequest merchantReportRequest) throws PakGoPayException {
         log.info("queryMerchantReport start");
+        MerchantReportResponse response = getMerchantReportResponse(merchantReportRequest);
+        log.info("queryMerchantReport end");
+        return CommonResponse.success(response);
+    }
+
+    private MerchantReportResponse getMerchantReportResponse(
+            MerchantReportRequest merchantReportRequest) throws PakGoPayException {
         String userId = merchantReportRequest.getUserId();
         Integer roleId = checkUserRolePermission(
                 merchantReportRequest.getUserId(), CommonConstant.MERCHANT_REPORT_SUPPORT_ROLE);
@@ -86,11 +92,9 @@ public class ReportServiceImpl implements ReportService {
                 break;
             default:
                 log.error("user not support view merchant report");
-                return CommonResponse.fail(ResultCode.FAIL, "user not support view merchant report");
+                throw new PakGoPayException(ResultCode.FAIL, "user not support view merchant report");
         }
-
-        log.info("queryMerchantReport end");
-        return CommonResponse.success(response);
+        return response;
     }
 
     @Override
@@ -100,7 +104,7 @@ public class ReportServiceImpl implements ReportService {
                 channelReportRequest.getUserId(), CommonConstant.CHANNEL_REPORT_SUPPORT_ROLE);
 
         ChannelReportEntity entity = new ChannelReportEntity();
-        entity.setChannelId(channelReportRequest.getChannelId());
+        entity.setChannelId(Long.valueOf(channelReportRequest.getChannelId()));
         entity.setOrderType(channelReportRequest.getOrderType());
         entity.setCurrency(channelReportRequest.getCurrency());
         entity.setStartTime(Long.valueOf(channelReportRequest.getStartTime()));
@@ -160,9 +164,22 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public CommonResponse queryPaymentReport(PaymentReportRequest paymentReportRequest) throws PakGoPayException {
         log.info("queryPaymentReport start");
+        checkUserRolePermission(
+                paymentReportRequest.getUserId(), CommonConstant.PAYMENT_REPORT_SUPPORT_ROLE);
 
+        PaymentReportEntity entity = new PaymentReportEntity();
+        entity.setPaymentId(Long.valueOf(paymentReportRequest.getPaymentId()));
+        entity.setOrderType(paymentReportRequest.getOrderType());
+        entity.setCurrency(paymentReportRequest.getCurrency());
+        entity.setStartTime(Long.valueOf(paymentReportRequest.getStartTime()));
+        entity.setEndTime(Long.valueOf(paymentReportRequest.getEndTime()));
+        entity.setPageNo(paymentReportRequest.getPageNo());
+        entity.setPageSize(paymentReportRequest.getPageSize());
+        log.info("queryPaymentReport condition is {}", JSON.toJSONString(entity));
+
+        PaymentReportResponse response = queryPaymentReportData(entity, paymentReportRequest.getIsNeedCardData());
         log.info("queryPaymentReport end");
-        return null;
+        return CommonResponse.success(response);
     }
 
     private MerchantReportResponse queryMerchantReportData(MerchantReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
@@ -300,6 +317,39 @@ public class ReportServiceImpl implements ReportService {
         return response;
     }
 
+    private PaymentReportResponse queryPaymentReportData(PaymentReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
+        log.info("queryPaymentReportData start");
+        PaymentReportResponse response = new PaymentReportResponse();
+        try {
+            List<BigDecimal> balanceInfos = paymentReportMapper.balanceInfosByQuery(entity);
+            if (balanceInfos == null || balanceInfos.isEmpty()) {
+                response.setTotalNumber(0);
+            } else {
+                response.setTotalNumber(balanceInfos.size());
+            }
+
+            List<PaymentReportDto> channelReportDtoList = paymentReportMapper.pageByQuery(entity);
+            response.setPaymentReportDtoList(channelReportDtoList);
+            response.setPageNo(entity.getPageNo());
+            response.setPageSize(entity.getPageSize());
+
+            if (isNeedCardData) {
+                Map<String, Map<String, BigDecimal>> cardInfo = new HashMap<>();
+                Map<String, BigDecimal> currencyMap =
+                        cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
+
+                currencyMap.put("total", CommontUtil.sum(balanceInfos));
+                response.setCardInfo(cardInfo);
+            }
+        } catch (Exception e) {
+            log.error("paymentReportMapper queryPaymentReportData failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("queryPaymentReportData end");
+        return response;
+    }
+
     private Integer checkUserRolePermission(String userId, List<Integer> permissionList) throws PakGoPayException {
         log.info("checkUserRolePermission start");
         Integer roleId = commonService.getRoleIdByUserId(userId);
@@ -309,5 +359,177 @@ public class ReportServiceImpl implements ReportService {
         }
         log.info("checkUserRolePermission end, roleId: {}", roleId);
         return roleId;
+    }
+
+    @Override
+    public void exportMerchantReport(
+            MerchantReportRequest merchantReportRequest, HttpServletResponse response)
+            throws PakGoPayException, IOException {
+        log.info("exportMerchantReport start");
+
+        // 1) Parse and validate export columns (must go through whitelist)
+        ColumnParseResult<MerchantReportDto> colRes = parseMerchantColumns(merchantReportRequest);
+
+        // 2) Set Excel download response headers
+        setExcelDownloadHeaders(response, "merchant_report.xlsx");
+
+        // 3) Init paging params
+        merchantReportRequest.setPageSize(CommonConstant.EXPORT_PAGE_SIZE);
+        merchantReportRequest.setPageNo(1);
+
+        // 4) Export by paging and multi-sheet writing
+        exportByPagingAndSheets(
+                response,
+                colRes.getHead(),
+                merchantReportRequest,
+                (req) -> getMerchantReportResponse(req).getMerchantReportDtoList(),
+                colRes.getDefs()
+        );
+
+        log.info("exportMerchantReport end");
+    }
+
+    /**
+     * Core export logic: paging query + multi-sheet writing
+     */
+    private <REQ extends BaseReportRequest, ROW> void exportByPagingAndSheets(
+            HttpServletResponse response,
+            List<List<String>> head,
+            REQ request,
+            ThrowingFunction<REQ, List<ROW>, PakGoPayException> pageFetcher,
+            List<ExportReportDataColumns.ColumnDef<ROW>> defs)
+            throws IOException, PakGoPayException {
+
+        int sheetNo = 1;           // Current sheet index (start from 1)
+        int sheetRowCount = 0;     // Current written row count in current sheet
+        boolean wroteAny = false;  // Whether any data has been written
+
+        try (var os = response.getOutputStream();
+             var writer = EasyExcel.write(os)
+                     .head(head)
+                     .autoCloseStream(false)
+                     .build()) {
+
+            while (true) {
+                // 1) Fetch one page data
+                List<ROW> pageData = pageFetcher.apply(request);
+
+                // 2) Stop if no more data
+                if (pageData == null || pageData.isEmpty()) {
+                    break;
+                }
+                wroteAny = true;
+
+                // 3) Convert DTO list to EasyExcel dynamic rows
+                List<List<String>> excelRows = toDynamicRows(pageData, defs);
+
+                // 4) Switch to next sheet if current sheet capacity is not enough
+                if (sheetRowCount + excelRows.size() > CommonConstant.EXPORT_SHEET_ROW_LIMIT) {
+                    sheetNo++;
+                    sheetRowCount = 0;
+                }
+
+                // 5) Write to current sheet
+                writer.write(excelRows, EasyExcel.writerSheet(sheetNo, "report-" + sheetNo).build());
+
+                // 6) Update current sheet row count
+                sheetRowCount += excelRows.size();
+
+                // 7) If current page size is less than page size, it means this is the last page
+                if (excelRows.size() < CommonConstant.EXPORT_PAGE_SIZE) {
+                    break;
+                }
+
+                // 8) Move to next page
+                request.setPageNo(request.getPageNo() + 1);
+            }
+        }
+
+        // 9) If no data has been written, treat as empty result
+        if (!wroteAny) {
+            log.warn("data is empty");
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "data is empty");
+        }
+    }
+
+    /**
+     * Set Excel download headers
+     */
+    private void setExcelDownloadHeaders(HttpServletResponse response, String fileName) throws IOException {
+        String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encoded);
+    }
+
+    /**
+     * Parse and validate merchant export columns (must use whitelist)
+     */
+    private ColumnParseResult<MerchantReportDto> parseMerchantColumns(MerchantReportRequest req)
+            throws PakGoPayException {
+
+        // 1) Validate columns
+        if (req.getColumns() == null || req.getColumns().isEmpty()) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "columns is empty");
+        }
+
+        // 2) Parse columns by frontend order
+        List<ExportReportDataColumns.ColumnDef<MerchantReportDto>> defs = new ArrayList<>();
+        List<List<String>> head = new ArrayList<>();
+
+        for (BaseReportRequest.ExportCol col : req.getColumns()) {
+            var def = ExportReportDataColumns.MERCHANT_ALLOWED.get(col.getKey());
+            if (def == null) {
+                throw new PakGoPayException(ResultCode.INVALID_PARAMS, "not support column: " + col.getKey());
+            }
+
+            defs.add(def);
+
+            // Use frontend title first, otherwise fallback to backend default title
+            String title = (col.getTitle() != null && !col.getTitle().isBlank())
+                    ? col.getTitle()
+                    : def.defaultTitle();
+
+            // EasyExcel dynamic header format: List<List<String>>
+            head.add(Collections.singletonList(title));
+        }
+
+        return new ColumnParseResult<>(defs, head);
+    }
+
+    /**
+     * Convert DTO list to EasyExcel dynamic row format (List<List<String>>)
+     */
+    private <ROW> List<List<String>> toDynamicRows(
+            List<ROW> list,
+            List<ExportReportDataColumns.ColumnDef<ROW>> defs) {
+
+        return list.stream()
+                .map(r -> defs.stream()
+                        .map(d -> d.getter().apply(r))
+                        .toList())
+                .toList();
+    }
+
+
+    /**
+     * Column parse result holder
+     */
+    private static class ColumnParseResult<T> {
+        private final List<ExportReportDataColumns.ColumnDef<T>> defs;
+        private final List<List<String>> head;
+
+        public ColumnParseResult(List<ExportReportDataColumns.ColumnDef<T>> defs, List<List<String>> head) {
+            this.defs = defs;
+            this.head = head;
+        }
+
+        public List<ExportReportDataColumns.ColumnDef<T>> getDefs() {
+            return defs;
+        }
+
+        public List<List<String>> getHead() {
+            return head;
+        }
     }
 }

@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class BaseReportRequest extends BaseRequest {
 
@@ -46,6 +48,11 @@ public class BaseReportRequest extends BaseRequest {
     private Integer pageSize;
 
     /**
+     * export table title
+     */
+    private List<ExportCol> columns;
+
+    /**
      * default page size 10
      * @return page size
      */
@@ -65,5 +72,11 @@ public class BaseReportRequest extends BaseRequest {
             return 1;
         }
         return pageNo;
+    }
+
+    @Data
+    public static class ExportCol {
+        private String key;   // server white list key
+        private String title; // Excel table title
     }
 }

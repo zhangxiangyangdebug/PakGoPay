@@ -1,22 +1,31 @@
 package com.pakgopay.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.report.*;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.service.report.ReportService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.io.IOException;
 
 @Slf4j
 @RestController
 @RequestMapping("/pakGoPay/server")
 public class ReportController {
 
-
     @Autowired
     ReportService reportService;
+
+    //-------------------------------- query data ----------------------------------------------------------------------
 
     @PostMapping(value = "queryMerchantReport")
     public CommonResponse queryMerchantReport(@RequestBody @Valid MerchantReportRequest merchantReportRequest) {
@@ -70,6 +79,39 @@ public class ReportController {
         } catch (PakGoPayException e) {
             log.error("queryPaymentReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryPaymentReport failed: " + e.getMessage());
+        }
+    }
+
+    //-------------------------------- export data ---------------------------------------------------------------------
+    @PostMapping(value = "exportMerchantReport")
+    public void exportMerchantReport(
+            @RequestBody @Valid MerchantReportRequest merchantReportRequest, HttpServletResponse response) {
+        log.info("exportMerchantReport start");
+        try {
+            reportService.exportMerchantReport(merchantReportRequest, response);
+        } catch (PakGoPayException e) {
+            log.error("exportMerchantReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            writeJsonError(response, e.getCode(), "exportMerchantReport failed: " + e.getMessage());
+        } catch (IOException e) {
+            log.error("exportMerchantReport failed, IOException message: {}", e.getMessage());
+            writeJsonError(response,
+                    ResultCode.FAIL, "exportMerchantReport failed, IOException message: " + e.getMessage());
+        }
+        log.info("exportMerchantReport end");
+    }
+
+
+    private void writeJsonError(HttpServletResponse response, ResultCode code, String msg) {
+        try {
+            response.reset();
+            response.setContentType("application/json;charset=UTF-8");
+            response.setCharacterEncoding("UTF-8");
+
+            CommonResponse<Void> fail = CommonResponse.fail(code, msg);
+            String json = new ObjectMapper().writeValueAsString(fail);
+            response.getWriter().write(json);
+        } catch (Exception ex) {
+            log.error("writeJsonError failed", ex);
         }
     }
 
