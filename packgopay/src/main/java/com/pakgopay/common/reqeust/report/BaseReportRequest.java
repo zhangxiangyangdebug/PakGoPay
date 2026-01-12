@@ -1,13 +1,11 @@
 package com.pakgopay.common.reqeust.report;
 
-import com.pakgopay.common.reqeust.BaseRequest;
+import com.pakgopay.common.reqeust.ExportBaseRequest;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-import java.util.List;
-
 @Data
-public class BaseReportRequest extends BaseRequest {
+public class BaseReportRequest extends ExportBaseRequest {
 
     /** Optional: order type */
     private Integer orderType;
@@ -34,47 +32,4 @@ public class BaseReportRequest extends BaseRequest {
      */
     @NotBlank(message = "endTime is empty")
     private String endTime;
-
-    /**
-     * Page number (start from 1)
-     */
-    private Integer pageNo;
-
-    /**
-     * Page size
-     */
-    private Integer pageSize;
-
-    /**
-     * export table title
-     */
-    private List<ExportCol> columns;
-
-    /**
-     * default page size 10
-     * @return page size
-     */
-    public Integer getPageSize() {
-        if (pageSize == null) {
-            return 10;
-        }
-        return pageSize;
-    }
-
-    /**
-     * default page no 1
-     * @return page no
-     */
-    public Integer getPageNo() {
-        if (pageNo == null) {
-            return 1;
-        }
-        return pageNo;
-    }
-
-    @Data
-    public static class ExportCol {
-        private String key;   // server white list key
-        private String title; // Excel table title
-    }
 }

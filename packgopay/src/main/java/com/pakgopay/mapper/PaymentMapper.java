@@ -16,6 +16,8 @@ public interface PaymentMapper {
 
     PaymentDto findByPaymentId(@Param("paymentId") Long paymentId);
 
+    List<PaymentDto> findByPaymentIds(@Param("paymentIdList") List<Long> paymentIdList);
+
     List<PaymentDto> getAllPayments();
 
     /**

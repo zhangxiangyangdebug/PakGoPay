@@ -101,25 +101,4 @@ public class CommonConstant {
             add(ROLE_FINANCE);
         }
     };
-
-    // Exporting 10,000 rows at a time
-    public static final Integer EXPORT_PAGE_SIZE = 10000;
-
-    // Each sheet can have a maximum of 50,000 rows.
-    public static final Integer EXPORT_SHEET_ROW_LIMIT = 50000;
-
-    // merchant export file name
-    public static final String MERCHANT_EXPORT_FILE_NAME = "merchant_report.xlsx";
-
-    // channel export file name
-    public static final String CHANNEL_EXPORT_FILE_NAME = "channel_report.xlsx";
-
-    // agent export file name
-    public static final String AGENT_EXPORT_FILE_NAME = "agent_report.xlsx";
-
-    // currency export file name
-    public static final String CURRENCY_EXPORT_FILE_NAME = "currency_report.xlsx";
-
-    // payment export file name
-    public static final String PAYMENT_EXPORT_FILE_NAME = "payment_report.xlsx";
 }

@@ -1,11 +1,11 @@
 package com.pakgopay.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.report.*;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.service.report.ReportService;
+import com.pakgopay.util.ExportFileUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -91,10 +91,10 @@ public class ReportController {
             reportService.exportMerchantReport(merchantReportRequest, response);
         } catch (PakGoPayException e) {
             log.error("exportMerchantReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            writeJsonError(response, e.getCode(), "exportMerchantReport failed: " + e.getMessage());
+            ExportFileUtils.writeJsonError(response, e.getCode(), "exportMerchantReport failed: " + e.getMessage());
         } catch (IOException e) {
             log.error("exportMerchantReport failed, IOException message: {}", e.getMessage());
-            writeJsonError(response,
+            ExportFileUtils.writeJsonError(response,
                     ResultCode.FAIL, "exportMerchantReport failed, IOException message: " + e.getMessage());
         }
         log.info("exportMerchantReport end");
@@ -108,10 +108,10 @@ public class ReportController {
             reportService.exportChannelReport(channelReportRequest, response);
         } catch (PakGoPayException e) {
             log.error("exportChannelReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            writeJsonError(response, e.getCode(), "exportChannelReport failed: " + e.getMessage());
+            ExportFileUtils.writeJsonError(response, e.getCode(), "exportChannelReport failed: " + e.getMessage());
         } catch (IOException e) {
             log.error("exportChannelReport failed, IOException message: {}", e.getMessage());
-            writeJsonError(response,
+            ExportFileUtils.writeJsonError(response,
                     ResultCode.FAIL, "exportChannelReport failed, IOException message: " + e.getMessage());
         }
         log.info("exportChannelReport end");
@@ -125,10 +125,10 @@ public class ReportController {
             reportService.exportAgentReport(agentReportRequest, response);
         } catch (PakGoPayException e) {
             log.error("exportAgentReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            writeJsonError(response, e.getCode(), "exportAgentReport failed: " + e.getMessage());
+            ExportFileUtils.writeJsonError(response, e.getCode(), "exportAgentReport failed: " + e.getMessage());
         } catch (IOException e) {
             log.error("exportAgentReport failed, IOException message: {}", e.getMessage());
-            writeJsonError(response,
+            ExportFileUtils.writeJsonError(response,
                     ResultCode.FAIL, "exportAgentReport failed, IOException message: " + e.getMessage());
         }
         log.info("exportAgentReport end");
@@ -142,10 +142,10 @@ public class ReportController {
             reportService.exportCurrencyReport(currencyReportRequest, response);
         } catch (PakGoPayException e) {
             log.error("exportCurrencyReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            writeJsonError(response, e.getCode(), "exportCurrencyReport failed: " + e.getMessage());
+            ExportFileUtils.writeJsonError(response, e.getCode(), "exportCurrencyReport failed: " + e.getMessage());
         } catch (IOException e) {
             log.error("exportCurrencyReport failed, IOException message: {}", e.getMessage());
-            writeJsonError(response,
+            ExportFileUtils.writeJsonError(response,
                     ResultCode.FAIL, "exportCurrencyReport failed, IOException message: " + e.getMessage());
         }
         log.info("exportCurrencyReport end");
@@ -159,32 +159,12 @@ public class ReportController {
             reportService.exportPaymentReport(paymentReportRequest, response);
         } catch (PakGoPayException e) {
             log.error("exportPaymentReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            writeJsonError(response, e.getCode(), "exportPaymentReport failed: " + e.getMessage());
+            ExportFileUtils.writeJsonError(response, e.getCode(), "exportPaymentReport failed: " + e.getMessage());
         } catch (IOException e) {
             log.error("exportPaymentReport failed, IOException message: {}", e.getMessage());
-            writeJsonError(response,
+            ExportFileUtils.writeJsonError(response,
                     ResultCode.FAIL, "exportPaymentReport failed, IOException message: " + e.getMessage());
         }
         log.info("exportPaymentReport end");
     }
-
-
-    private void writeJsonError(HttpServletResponse response, ResultCode code, String msg) {
-        try {
-            if (response.isCommitted()) {
-                log.warn("Cannot write JSON error because response is already committed. msg={}", msg);
-                return;
-            }
-            response.reset();
-            response.setContentType("application/json;charset=UTF-8");
-            response.setCharacterEncoding("UTF-8");
-
-            CommonResponse<Void> fail = CommonResponse.fail(code, msg);
-            String json = new ObjectMapper().writeValueAsString(fail);
-            response.getWriter().write(json);
-        } catch (Exception ex) {
-            log.error("writeJsonError failed", ex);
-        }
-    }
-
 }

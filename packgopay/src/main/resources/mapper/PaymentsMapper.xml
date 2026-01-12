@@ -257,4 +257,25 @@
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 
+    <select id="findByPaymentIds"
+            parameterType="java.util.List"
+            resultMap="PaymentsResultMap">
+
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM payments
+        <where>
+            <if test="paymentIdList != null and paymentIdList.size() > 0">
+                AND payment_id IN
+                <foreach collection="paymentIdList" item="pid" open="(" close=")" separator=",">
+                    #{pid}
+                </foreach>
+            </if>
+
+            <if test="paymentIdList == null or paymentIdList.size() == 0">
+                AND 1 = 0
+            </if>
+        </where>
+    </select>
+
 </mapper>

@@ -17,13 +17,17 @@ import com.pakgopay.entity.channel.PaymentEntity;
 import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.channel.ChannelPaymentService;
+import com.pakgopay.service.report.ExportReportDataColumns;
 import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.ExportFileUtils;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -416,9 +420,10 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
     /**
      * save agent's fee info
+     *
      * @param transactionInfo transaction info
-     * @param orderType order type
-     * @param chains agent info list
+     * @param orderType       order type
+     * @param chains          agent info list
      */
     private void setAgentInfoForTransaction(TransactionInfo transactionInfo, OrderType orderType, List<AgentInfoDto> chains) {
         BigDecimal amount = transactionInfo.getAmount();
@@ -454,6 +459,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
     /**
      * get agent info by agent id
+     *
      * @param agentId agent id
      * @return agent info
      */
@@ -468,7 +474,12 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
     public CommonResponse queryChannel(@Valid ChannelRequest channelRequest) throws PakGoPayException {
         log.info("queryChannel start");
+        ChannelResponse response = queryChannelData(channelRequest);
+        log.info("queryChannel end");
+        return CommonResponse.success(response);
+    }
 
+    private ChannelResponse queryChannelData(ChannelRequest channelRequest) throws PakGoPayException {
         ChannelEntity entity = new ChannelEntity();
         entity.setChannelId(channelRequest.getChannelId());
         entity.setChannelName(channelRequest.getChannelName());
@@ -481,6 +492,20 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             Integer totalNumber = channelMapper.countByQuery(entity);
             List<ChannelDto> channelDtoList = channelMapper.pageByQuery(entity);
 
+            Set<Long> paymentIdList = new HashSet<>();
+            channelDtoList.forEach(info -> {
+                String paymentIds = info.getPaymentIds();
+                if (paymentIds != null && !paymentIds.isEmpty()) {
+                    Set<Long> tempSet = Arrays.stream(paymentIds.split(",")).map(String::trim)
+                            .filter(s -> !s.isEmpty()).map(Long::valueOf)
+                            .collect(Collectors.toSet());
+                    paymentIdList.addAll(tempSet);
+                }
+            });
+            paymentMapper.findByPaymentIds(paymentIdList);
+
+
+
             response.setChannelDtoList(channelDtoList);
             response.setTotalNumber(totalNumber);
         } catch (Exception e) {
@@ -491,13 +516,17 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         response.setPageNo(entity.getPageNo());
         response.setPageSize(entity.getPageSize());
 
-        log.info("queryChannel end");
-        return CommonResponse.success(response);
+        return response;
     }
 
     public CommonResponse queryPayment(@Valid PaymentRequest paymentRequest) throws PakGoPayException {
-        log.info("queryChannel start");
+        log.info("queryPayment start");
+        PaymentResponse response = queryPaymentData(paymentRequest);
+        log.info("queryPayment end");
+        return CommonResponse.success(response);
+    }
 
+    private PaymentResponse queryPaymentData(PaymentRequest paymentRequest) throws PakGoPayException {
         PaymentEntity entity = new PaymentEntity();
         entity.setPaymentId(paymentRequest.getPaymentId());
         entity.setPaymentName(paymentRequest.getPaymentName());
@@ -513,16 +542,62 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             response.setPaymentDtoList(paymentDtoList);
             response.setTotalNumber(totalNumber);
         } catch (Exception e) {
-            log.error("channelsMapper channelsMapperData failed, message {}", e.getMessage());
+            log.error("paymentMapper paymentMapperData failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
         response.setPageNo(entity.getPageNo());
         response.setPageSize(entity.getPageSize());
+        return response;
+    }
 
-        log.info("queryChannel end");
-        return CommonResponse.success(response);
+    @Override
+    public void exportChannel(ChannelRequest channelRequest, HttpServletResponse response)
+            throws PakGoPayException, IOException {
+        log.info("exportChannel start");
 
+        // 1) Parse and validate export columns (must go through whitelist)
+        ExportFileUtils.ColumnParseResult<ChannelDto> colRes =
+                ExportFileUtils.parseColumns(channelRequest, ExportReportDataColumns.CHANNEL_ALLOWED);
 
+        // 2) Init paging params
+        channelRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
+        channelRequest.setPageNo(1);
+
+        // 3) Export by paging and multi-sheet writing
+        ExportFileUtils.exportByPagingAndSheets(
+                response,
+                colRes.getHead(),
+                channelRequest,
+                (req) -> queryChannelData(req).getChannelDtoList(),
+                colRes.getDefs(),
+                ExportReportDataColumns.CHANNEL_EXPORT_FILE_NAME);
+
+        log.info("exportChannel end");
+    }
+
+    @Override
+    public void exportPayment(PaymentRequest paymentRequest, HttpServletResponse response)
+            throws PakGoPayException, IOException {
+        log.info("exportPayment start");
+
+        // 1) Parse and validate export columns (must go through whitelist)
+        ExportFileUtils.ColumnParseResult<PaymentDto> colRes =
+                ExportFileUtils.parseColumns(paymentRequest, ExportReportDataColumns.PAYMENT_ALLOWED);
+
+        // 2) Init paging params
+        paymentRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
+        paymentRequest.setPageNo(1);
+
+        // 3) Export by paging and multi-sheet writing
+        ExportFileUtils.exportByPagingAndSheets(
+                response,
+                colRes.getHead(),
+                paymentRequest,
+                (req) -> queryPaymentData(req).getPaymentDtoList(),
+                colRes.getDefs(),
+                ExportReportDataColumns.PAYMENT_EXPORT_FILE_NAME);
+
+        log.info("exportPayment end");
     }
 }

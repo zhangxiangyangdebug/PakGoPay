@@ -1,7 +1,5 @@
 package com.pakgopay.service.report.impl;
 
-import com.alibaba.excel.EasyExcel;
-import com.alibaba.excel.ExcelWriter;
 import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
@@ -16,8 +14,8 @@ import com.pakgopay.service.balance.BalanceService;
 import com.pakgopay.service.common.CommonService;
 import com.pakgopay.service.report.ExportReportDataColumns;
 import com.pakgopay.service.report.ReportService;
-import com.pakgopay.service.report.ThrowingFunction;
 import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.ExportFileUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,9 +23,9 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -371,21 +369,21 @@ public class ReportServiceImpl implements ReportService {
         log.info("exportMerchantReport start");
 
         // 1) Parse and validate export columns (must go through whitelist)
-        ColumnParseResult<MerchantReportDto> colRes =
-                parseColumns(merchantReportRequest, ExportReportDataColumns.MERCHANT_ALLOWED);
+        ExportFileUtils.ColumnParseResult<MerchantReportDto> colRes =
+                ExportFileUtils.parseColumns(merchantReportRequest, ExportReportDataColumns.MERCHANT_REPORT_ALLOWED);
 
         // 2) Init paging params
-        merchantReportRequest.setPageSize(CommonConstant.EXPORT_PAGE_SIZE);
+        merchantReportRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
         merchantReportRequest.setPageNo(1);
 
         // 3) Export by paging and multi-sheet writing
-        exportByPagingAndSheets(
+        ExportFileUtils.exportByPagingAndSheets(
                 response,
                 colRes.getHead(),
                 merchantReportRequest,
                 (req) -> getMerchantReportResponse(req).getMerchantReportDtoList(),
                 colRes.getDefs(),
-                CommonConstant.MERCHANT_EXPORT_FILE_NAME);
+                ExportReportDataColumns.MERCHANT_REPORT_EXPORT_FILE_NAME);
 
         log.info("exportMerchantReport end");
     }
@@ -397,21 +395,21 @@ public class ReportServiceImpl implements ReportService {
         log.info("exportChannelReport start");
 
         // 1) Parse and validate export columns (must go through whitelist)
-        ColumnParseResult<ChannelReportDto> colRes =
-                parseColumns(channelReportRequest, ExportReportDataColumns.CHANNEL_ALLOWED);
+        ExportFileUtils.ColumnParseResult<ChannelReportDto> colRes =
+                ExportFileUtils.parseColumns(channelReportRequest, ExportReportDataColumns.CHANNEL_REPORT_ALLOWED);
 
         // 2) Init paging params
-        channelReportRequest.setPageSize(CommonConstant.EXPORT_PAGE_SIZE);
+        channelReportRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
         channelReportRequest.setPageNo(1);
 
         // 3) Export by paging and multi-sheet writing
-        exportByPagingAndSheets(
+        ExportFileUtils.exportByPagingAndSheets(
                 response,
                 colRes.getHead(),
                 channelReportRequest,
                 (req) -> getChannelReportResponse(req).getChannelReportDtoList(),
                 colRes.getDefs(),
-                CommonConstant.CHANNEL_EXPORT_FILE_NAME);
+                ExportReportDataColumns.CHANNEL_REPORT_EXPORT_FILE_NAME);
 
         log.info("exportChannelReport end");
 
@@ -424,21 +422,21 @@ public class ReportServiceImpl implements ReportService {
         log.info("exportAgentReport start");
 
         // 1) Parse and validate export columns (must go through whitelist)
-        ColumnParseResult<AgentReportDto> colRes =
-                parseColumns(agentReportRequest, ExportReportDataColumns.AGENT_ALLOWED);
+        ExportFileUtils.ColumnParseResult<AgentReportDto> colRes =
+                ExportFileUtils.parseColumns(agentReportRequest, ExportReportDataColumns.AGENT_REPORT_ALLOWED);
 
         // 2) Init paging params
-        agentReportRequest.setPageSize(CommonConstant.EXPORT_PAGE_SIZE);
+        agentReportRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
         agentReportRequest.setPageNo(1);
 
         // 3) Export by paging and multi-sheet writing
-        exportByPagingAndSheets(
+        ExportFileUtils.exportByPagingAndSheets(
                 response,
                 colRes.getHead(),
                 agentReportRequest,
                 (req) -> getAgentReportResponse(req).getAgentReportDtoList(),
                 colRes.getDefs(),
-                CommonConstant.AGENT_EXPORT_FILE_NAME);
+                ExportReportDataColumns.AGENT_REPORT_EXPORT_FILE_NAME);
 
         log.info("exportAgentReport end");
     }
@@ -450,21 +448,21 @@ public class ReportServiceImpl implements ReportService {
         log.info("exportCurrencyReport start");
 
         // 1) Parse and validate export columns (must go through whitelist)
-        ColumnParseResult<CurrencyReportDto> colRes =
-                parseColumns(currencyReportRequest, ExportReportDataColumns.CURRENCY_ALLOWED);
+        ExportFileUtils.ColumnParseResult<CurrencyReportDto> colRes =
+                ExportFileUtils.parseColumns(currencyReportRequest, ExportReportDataColumns.CURRENCY_REPORT_ALLOWED);
 
         // 2) Init paging params
-        currencyReportRequest.setPageSize(CommonConstant.EXPORT_PAGE_SIZE);
+        currencyReportRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
         currencyReportRequest.setPageNo(1);
 
         // 3) Export by paging and multi-sheet writing
-        exportByPagingAndSheets(
+        ExportFileUtils.exportByPagingAndSheets(
                 response,
                 colRes.getHead(),
                 currencyReportRequest,
                 (req) -> getCurrencyReportResponse(req).getCurrencyReportDtoList(),
                 colRes.getDefs(),
-                CommonConstant.CURRENCY_EXPORT_FILE_NAME);
+                ExportReportDataColumns.CURRENCY_REPORT_EXPORT_FILE_NAME);
 
         log.info("exportCurrencyReport end");
     }
@@ -476,184 +474,23 @@ public class ReportServiceImpl implements ReportService {
         log.info("exportPaymentReport start");
 
         // 1) Parse and validate export columns (must go through whitelist)
-        ColumnParseResult<PaymentReportDto> colRes =
-                parseColumns(paymentReportRequest, ExportReportDataColumns.PAYMENT_ALLOWED);
+        ExportFileUtils.ColumnParseResult<PaymentReportDto> colRes =
+                ExportFileUtils.parseColumns(paymentReportRequest, ExportReportDataColumns.PAYMENT_REPORT_ALLOWED);
 
         // 2) Init paging params
-        paymentReportRequest.setPageSize(CommonConstant.EXPORT_PAGE_SIZE);
+        paymentReportRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
         paymentReportRequest.setPageNo(1);
 
         // 3) Export by paging and multi-sheet writing
-        exportByPagingAndSheets(
+        ExportFileUtils.exportByPagingAndSheets(
                 response,
                 colRes.getHead(),
                 paymentReportRequest,
                 (req) -> getPaymentReportResponse(req).getPaymentReportDtoList(),
                 colRes.getDefs(),
-                CommonConstant.PAYMENT_EXPORT_FILE_NAME
+                ExportReportDataColumns.PAYMENT_REPORT_EXPORT_FILE_NAME
         );
 
         log.info("exportPaymentReport end");
-    }
-
-    /**
-     * Core export logic: paging query + multi-sheet writing
-     */
-    private <REQ extends BaseReportRequest, ROW> void exportByPagingAndSheets(
-            HttpServletResponse response,
-            List<List<String>> head,
-            REQ request,
-            ThrowingFunction<REQ, List<ROW>, PakGoPayException> pageFetcher,
-            List<ExportReportDataColumns.ColumnDef<ROW>> defs, String fileName)
-            throws IOException, PakGoPayException {
-
-        int sheetNo = 1;           // Current sheet index (start from 1)
-        int sheetRowCount = 0;     // Current written row count in current sheet
-        boolean wroteAny = false;  // Whether any data has been written
-
-        ExcelWriter writer = null;
-        try {
-
-            while (true) {
-                // 1) Fetch one page data
-                List<ROW> pageData = pageFetcher.apply(request);
-
-                // 2) Stop if no more data
-                if (pageData == null || pageData.isEmpty()) {
-                    break;
-                }
-                // 3) Set Excel download response headers
-                setExcelDownloadHeaders(response, fileName);
-
-                wroteAny = true;
-
-                // 4) Convert DTO list to EasyExcel dynamic rows
-                List<List<String>> excelRows = toDynamicRows(pageData, defs);
-
-                // 5) Switch to next sheet if current sheet capacity is not enough
-                if (sheetRowCount + excelRows.size() > CommonConstant.EXPORT_SHEET_ROW_LIMIT) {
-                    sheetNo++;
-                    sheetRowCount = 0;
-                }
-
-                // 6) Write to current sheet
-                if (writer == null) {
-                    var os = response.getOutputStream();
-                    writer = EasyExcel.write(os)
-                            .head(head)
-                            .autoCloseStream(false)
-                            .build();
-                }
-                writer.write(excelRows, EasyExcel.writerSheet(sheetNo, "report-" + sheetNo).build());
-
-                // 7) Update current sheet row count
-                sheetRowCount += excelRows.size();
-
-                // 8) If current page size is less than page size, it means this is the last page
-                if (excelRows.size() < CommonConstant.EXPORT_PAGE_SIZE) {
-                    break;
-                }
-
-                // 9) Move to next page
-                request.setPageNo(request.getPageNo() + 1);
-            }
-        } catch (Exception e) {
-            log.warn("writer excel failed");
-            throw new PakGoPayException(ResultCode.FAIL, "writer excel failed");
-        }
-
-        // 9) If no data has been written, treat as empty result
-        if (!wroteAny) {
-            log.warn("data is empty");
-            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "data is empty");
-        }
-    }
-
-    /**
-     * Set Excel download headers
-     */
-    private void setExcelDownloadHeaders(HttpServletResponse response, String fileName) throws IOException {
-        if (response.isCommitted()) {
-            log.warn("response is commit");
-            return;
-        }
-        log.warn("setExcelDownloadHeaders start");
-        String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
-        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        response.setCharacterEncoding("utf-8");
-        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encoded);
-    }
-
-    /**
-     * Parse and validate merchant export columns (must use whitelist)
-     */
-    private <ROW> ColumnParseResult<ROW> parseColumns(
-            BaseReportRequest req,
-            Map<String, ExportReportDataColumns.ColumnDef<ROW>> allowedMap)
-            throws PakGoPayException {
-
-        // 1) Validate columns
-        if (req.getColumns() == null || req.getColumns().isEmpty()) {
-            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "columns is empty");
-        }
-
-        // 2) Parse columns by frontend order
-        List<ExportReportDataColumns.ColumnDef<ROW>> defs = new ArrayList<>();
-        List<List<String>> head = new ArrayList<>();
-
-        for (BaseReportRequest.ExportCol col : req.getColumns()) {
-            var def = allowedMap.get(col.getKey());
-            if (def == null) {
-                throw new PakGoPayException(ResultCode.INVALID_PARAMS, "not support column: " + col.getKey());
-            }
-
-            defs.add(def);
-
-            // Use frontend title first, otherwise fallback to backend default title
-            String title = (col.getTitle() != null && !col.getTitle().isBlank())
-                    ? col.getTitle()
-                    : def.defaultTitle();
-
-            // EasyExcel dynamic header format: List<List<String>>
-            head.add(Collections.singletonList(title));
-        }
-
-        return new ColumnParseResult<>(defs, head);
-    }
-
-    /**
-     * Convert DTO list to EasyExcel dynamic row format (List<List<String>>)
-     */
-    private <ROW> List<List<String>> toDynamicRows(
-            List<ROW> list,
-            List<ExportReportDataColumns.ColumnDef<ROW>> defs) {
-
-        return list.stream()
-                .map(r -> defs.stream()
-                        .map(d -> d.getter().apply(r))
-                        .toList())
-                .toList();
-    }
-
-
-    /**
-     * Column parse result holder
-     */
-    private static class ColumnParseResult<T> {
-        private final List<ExportReportDataColumns.ColumnDef<T>> defs;
-        private final List<List<String>> head;
-
-        public ColumnParseResult(List<ExportReportDataColumns.ColumnDef<T>> defs, List<List<String>> head) {
-            this.defs = defs;
-            this.head = head;
-        }
-
-        public List<ExportReportDataColumns.ColumnDef<T>> getDefs() {
-            return defs;
-        }
-
-        public List<List<String>> getHead() {
-            return head;
-        }
     }
 }
