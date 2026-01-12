@@ -502,7 +502,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                     paymentIdList.addAll(tempSet);
                 }
             });
-            paymentMapper.findByPaymentIds(paymentIdList);
+//            paymentMapper.findByPaymentIds(paymentIdList);
 
 
 

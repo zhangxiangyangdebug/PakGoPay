@@ -103,8 +103,13 @@ public class ExportFileUtils {
                 request.setPageNo(request.getPageNo() + 1);
             }
         } catch (Exception e) {
-            log.warn("writer excel failed");
+            log.warn("writer excel failed, e: {}", e.getMessage());
             throw new PakGoPayException(ResultCode.FAIL, "writer excel failed");
+        } finally {
+            if (writer != null) {
+                log.warn("writer finish");
+                writer.finish();
+            }
         }
 
         // 9) If no data has been written, treat as empty result

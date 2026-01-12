@@ -259,7 +259,7 @@
 
     <select id="findByPaymentIds"
             parameterType="java.util.List"
-            resultMap="PaymentsResultMap">
+            resultMap="PaymentResultMap">
 
         SELECT
         <include refid="BaseColumns"/>
