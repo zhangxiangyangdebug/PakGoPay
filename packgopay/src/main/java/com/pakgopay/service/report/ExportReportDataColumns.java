@@ -59,20 +59,53 @@ public final class ExportReportDataColumns {
         CHANNEL_ALLOWED.put("merchantFee", new ColumnDef<>("merchantFee", r -> safeToString(r.getMerchantFee())));
         CHANNEL_ALLOWED.put("orderProfit", new ColumnDef<>("orderProfit", r -> safeToString(r.getOrderProfit())));
 
-        //--------------------------------------------------------------------------------------------------------------
-
-        // merchant report, export column
-        MERCHANT_ALLOWED.put("merchantName", new ColumnDef<>("merchantName", MerchantReportDto::getMerchantName));
+        CHANNEL_ALLOWED.put("currency", new ColumnDef<>("currency", ChannelReportDto::getCurrency));
+        CHANNEL_ALLOWED.put("timeDate", new ColumnDef<>("timeDate", r -> safeToString(r.getRecordDate())));
 
         //--------------------------------------------------------------------------------------------------------------
 
         // merchant report, export column
-        MERCHANT_ALLOWED.put("merchantName", new ColumnDef<>("merchantName", MerchantReportDto::getMerchantName));
+        AGENT_ALLOWED.put("agentName", new ColumnDef<>("agentName", AgentReportDto::getAgentName));
+
+        AGENT_ALLOWED.put("orderQuantity", new ColumnDef<>("orderQuantity", r -> safeToString(r.getOrderQuantity())));
+        AGENT_ALLOWED.put("orderSuccessRate", new ColumnDef<>("orderSuccessRate", r -> safeCalculateRate(r.getOrderQuantity(), r.getSuccessQuantity())));
+        AGENT_ALLOWED.put("failedQuantity", new ColumnDef<>("failedQuantity", r -> safeToString(r.getOrderQuantity() - r.getSuccessQuantity())));
+        AGENT_ALLOWED.put("successQuantity", new ColumnDef<>("successQuantity", r -> safeToString(r.getSuccessQuantity())));
+
+        AGENT_ALLOWED.put("commission", new ColumnDef<>("commission", r -> safeToString(r.getCommission())));
+
+        AGENT_ALLOWED.put("currency", new ColumnDef<>("currency", AgentReportDto::getCurrency));
+        AGENT_ALLOWED.put("timeDate", new ColumnDef<>("timeDate", r -> safeToString(r.getRecordDate())));
 
         //--------------------------------------------------------------------------------------------------------------
 
         // merchant report, export column
-        MERCHANT_ALLOWED.put("merchantName", new ColumnDef<>("merchantName", MerchantReportDto::getMerchantName));
+        CURRENCY_ALLOWED.put("currency", new ColumnDef<>("currency", CurrencyReportDto::getCurrency));
+
+        CURRENCY_ALLOWED.put("orderQuantity", new ColumnDef<>("orderQuantity", r -> safeToString(r.getOrderQuantity())));
+        CURRENCY_ALLOWED.put("orderSuccessRate", new ColumnDef<>("orderSuccessRate", r -> safeCalculateRate(r.getOrderQuantity(), r.getSuccessQuantity())));
+        CURRENCY_ALLOWED.put("failedQuantity", new ColumnDef<>("failedQuantity", r -> safeToString(r.getOrderQuantity() - r.getSuccessQuantity())));
+        CURRENCY_ALLOWED.put("successQuantity", new ColumnDef<>("successQuantity", r -> safeToString(r.getSuccessQuantity())));
+
+        CURRENCY_ALLOWED.put("orderBalance", new ColumnDef<>("orderBalance", r -> safeToString(r.getOrderBalance())));
+
+        //--------------------------------------------------------------------------------------------------------------
+
+        // merchant report, export column
+        PAYMENT_ALLOWED.put("paymentName", new ColumnDef<>("paymentName", PaymentReportDto::getPaymentName));
+        PAYMENT_ALLOWED.put("paymentNo", new ColumnDef<>("paymentNo", r -> String.valueOf(r.getPaymentId())));
+
+        PAYMENT_ALLOWED.put("orderQuantity", new ColumnDef<>("orderQuantity", r -> safeToString(r.getOrderQuantity())));
+        PAYMENT_ALLOWED.put("orderSuccessRate", new ColumnDef<>("orderSuccessRate", r -> safeCalculateRate(r.getOrderQuantity(), r.getSuccessQuantity())));
+        PAYMENT_ALLOWED.put("failedQuantity", new ColumnDef<>("failedQuantity", r -> safeToString(r.getOrderQuantity() - r.getSuccessQuantity())));
+        PAYMENT_ALLOWED.put("successQuantity", new ColumnDef<>("successQuantity", r -> safeToString(r.getSuccessQuantity())));
+
+        PAYMENT_ALLOWED.put("merchantFee", new ColumnDef<>("merchantFee", r -> safeToString(r.getMerchantFee())));
+        PAYMENT_ALLOWED.put("orderProfit", new ColumnDef<>("orderProfit", r -> safeToString(r.getOrderProfit())));
+        PAYMENT_ALLOWED.put("orderBalance", new ColumnDef<>("orderBalance", r -> safeToString(r.getOrderBalance())));
+
+        PAYMENT_ALLOWED.put("currency", new ColumnDef<>("currency", PaymentReportDto::getCurrency));
+        PAYMENT_ALLOWED.put("timeDate", new ColumnDef<>("timeDate", r -> safeToString(r.getRecordDate())));
     }
 
     private static String safeToString(Object v) {

@@ -22,4 +22,12 @@ public interface ReportService {
     CommonResponse queryPaymentReport(@Valid PaymentReportRequest paymentReportRequest) throws PakGoPayException;
 
     void exportMerchantReport(@Valid MerchantReportRequest merchantReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+
+    void exportChannelReport(@Valid ChannelReportRequest channelReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+
+    void exportAgentReport(@Valid AgentReportRequest agentReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+
+    void exportCurrencyReport(@Valid BaseReportRequest currencyReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+
+    void exportPaymentReport(@Valid PaymentReportRequest paymentReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 }

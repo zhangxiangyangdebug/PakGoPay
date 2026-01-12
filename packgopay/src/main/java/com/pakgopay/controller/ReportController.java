@@ -100,6 +100,74 @@ public class ReportController {
         log.info("exportMerchantReport end");
     }
 
+    @PostMapping(value = "exportChannelReport")
+    public void exportChannelReport(
+            @RequestBody @Valid ChannelReportRequest channelReportRequest, HttpServletResponse response) {
+        log.info("exportChannelReport start");
+        try {
+            reportService.exportChannelReport(channelReportRequest, response);
+        } catch (PakGoPayException e) {
+            log.error("exportChannelReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            writeJsonError(response, e.getCode(), "exportChannelReport failed: " + e.getMessage());
+        } catch (IOException e) {
+            log.error("exportChannelReport failed, IOException message: {}", e.getMessage());
+            writeJsonError(response,
+                    ResultCode.FAIL, "exportChannelReport failed, IOException message: " + e.getMessage());
+        }
+        log.info("exportChannelReport end");
+    }
+
+    @PostMapping(value = "exportAgentReport")
+    public void exportAgentReport(
+            @RequestBody @Valid AgentReportRequest agentReportRequest, HttpServletResponse response) {
+        log.info("exportAgentReport start");
+        try {
+            reportService.exportAgentReport(agentReportRequest, response);
+        } catch (PakGoPayException e) {
+            log.error("exportAgentReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            writeJsonError(response, e.getCode(), "exportAgentReport failed: " + e.getMessage());
+        } catch (IOException e) {
+            log.error("exportAgentReport failed, IOException message: {}", e.getMessage());
+            writeJsonError(response,
+                    ResultCode.FAIL, "exportAgentReport failed, IOException message: " + e.getMessage());
+        }
+        log.info("exportAgentReport end");
+    }
+
+    @PostMapping(value = "exportCurrencyReport")
+    public void exportCurrencyReport(
+            @RequestBody @Valid BaseReportRequest currencyReportRequest, HttpServletResponse response) {
+        log.info("exportCurrencyReport start");
+        try {
+            reportService.exportCurrencyReport(currencyReportRequest, response);
+        } catch (PakGoPayException e) {
+            log.error("exportCurrencyReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            writeJsonError(response, e.getCode(), "exportCurrencyReport failed: " + e.getMessage());
+        } catch (IOException e) {
+            log.error("exportCurrencyReport failed, IOException message: {}", e.getMessage());
+            writeJsonError(response,
+                    ResultCode.FAIL, "exportCurrencyReport failed, IOException message: " + e.getMessage());
+        }
+        log.info("exportCurrencyReport end");
+    }
+
+    @PostMapping(value = "exportPaymentReport")
+    public void exportPaymentReport(
+            @RequestBody @Valid PaymentReportRequest paymentReportRequest, HttpServletResponse response) {
+        log.info("exportPaymentReport start");
+        try {
+            reportService.exportPaymentReport(paymentReportRequest, response);
+        } catch (PakGoPayException e) {
+            log.error("exportPaymentReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            writeJsonError(response, e.getCode(), "exportPaymentReport failed: " + e.getMessage());
+        } catch (IOException e) {
+            log.error("exportPaymentReport failed, IOException message: {}", e.getMessage());
+            writeJsonError(response,
+                    ResultCode.FAIL, "exportPaymentReport failed, IOException message: " + e.getMessage());
+        }
+        log.info("exportPaymentReport end");
+    }
+
 
     private void writeJsonError(HttpServletResponse response, ResultCode code, String msg) {
         try {

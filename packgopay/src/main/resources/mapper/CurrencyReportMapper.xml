@@ -13,6 +13,9 @@
         <id column="record_date" property="recordDate" javaType="java.lang.Long"/>
 
         <result column="order_balance" property="orderBalance" javaType="java.math.BigDecimal"/>
+        <result column="merchant_fee" property="merchantFee" javaType="java.math.BigDecimal"/>
+        <result column="order_profit" property="orderProfit" javaType="java.math.BigDecimal"/>
+
         <result column="order_quantity" property="orderQuantity" javaType="java.lang.Integer"/>
         <result column="success_quantity" property="successQuantity" javaType="java.lang.Integer"/>
 
@@ -31,6 +34,8 @@
         #{currency},
         #{orderType},
         #{orderBalance},
+        #{merchantFee},
+        #{orderProfit},
         #{orderQuantity},
         #{successQuantity},
         #{createTime},
@@ -45,6 +50,8 @@
         currency,
         order_type,
         order_balance,
+        merchant_fee,
+        order_profit,
         order_quantity,
         success_quantity,
         create_time,
@@ -58,6 +65,8 @@
         UPDATE currency_report
         <set>
             <if test="orderBalance != null">order_balance = #{orderBalance},</if>
+            <if test="merchantFee != null">merchant_fee = #{merchantFee},</if>
+            <if test="orderProfit != null">order_profit = #{orderProfit},</if>
             <if test="orderQuantity != null">order_quantity = #{orderQuantity},</if>
             <if test="successQuantity != null">success_quantity = #{successQuantity},</if>
 

@@ -19,6 +19,12 @@ public class CurrencyReportDto implements Serializable {
     /** Order amount (sum) */
     private BigDecimal orderBalance;
 
+    /** Merchant fee */
+    private BigDecimal merchantFee;
+
+    /** Platform profit */
+    private BigDecimal orderProfit;
+
     /** Total order quantity */
     private Integer orderQuantity;
 
