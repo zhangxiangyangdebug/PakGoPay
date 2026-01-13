@@ -482,6 +482,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         log.info("queryChannelData start");
         ChannelEntity entity = new ChannelEntity();
         entity.setChannelId(channelQueryRequest.getChannelId());
+        entity.setPaymentId(channelQueryRequest.getPaymentId());
+        entity.setCurrency(channelQueryRequest.getCurrency());
         entity.setChannelName(channelQueryRequest.getChannelName());
         entity.setStatus(channelQueryRequest.getStatus());
         entity.setPageNo(channelQueryRequest.getPageNo());
@@ -551,8 +553,10 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
     private PaymentResponse queryPaymentData(PaymentQueryRequest paymentQueryRequest) throws PakGoPayException {
         PaymentEntity entity = new PaymentEntity();
-        entity.setPaymentNo(paymentQueryRequest.getPaymentNo());
         entity.setPaymentName(paymentQueryRequest.getPaymentName());
+        entity.setIsThird(paymentQueryRequest.getIsThird());
+        entity.setPaymentType(paymentQueryRequest.getPaymentType());
+        entity.setCurrency(paymentQueryRequest.getCurrency());
         entity.setStatus(paymentQueryRequest.getStatus());
         entity.setPageNo(paymentQueryRequest.getPageNo());
         entity.setPageSize(paymentQueryRequest.getPageSize());
@@ -648,9 +652,11 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     private ChannelDto checkAndGenerateChannelDto(ChannelEditRequest channelEditRequest) throws PakGoPayException {
         ChannelDto dto = new ChannelDto();
         dto.setChannelId(PatchBuilderUtil.parseRequiredLong(channelEditRequest.getChannelId(), "channelId"));
+        dto.setUpdateTime(System.currentTimeMillis() / 1000);
 
         return PatchBuilderUtil.from(channelEditRequest).to(dto)
                 .str(channelEditRequest::getChannelName, dto::setChannelName)
+                .str(channelEditRequest::getUpdateBy, dto::setUpdateBy)
                 .obj(channelEditRequest::getStatus, dto::setStatus)
                 .ids(channelEditRequest::getPaymentIds, dto::setPaymentIds)
                 .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
@@ -681,10 +687,12 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     private PaymentDto checkAndGeneratePaymentDto(PaymentEditRequest paymentEditRequest) throws PakGoPayException {
         PaymentDto dto = new PaymentDto();
         dto.setPaymentId(PatchBuilderUtil.parseRequiredLong(paymentEditRequest.getPaymentId(), "paymentId"));
+        dto.setUpdateTime(System.currentTimeMillis() / 1000);
 
         return PatchBuilderUtil.from(paymentEditRequest).to(dto)
                 .str(paymentEditRequest::getPaymentNo, dto::setPaymentNo)
                 .str(paymentEditRequest::getPaymentName, dto::setPaymentName)
+                .str(paymentEditRequest::getUpdateBy, dto::setUpdateBy)
                 .obj(paymentEditRequest::getStatus, dto::setStatus)
                 .obj(paymentEditRequest::getSupportType, dto::setSupportType)
                 .str(paymentEditRequest::getPaymentType, dto::setPaymentType)

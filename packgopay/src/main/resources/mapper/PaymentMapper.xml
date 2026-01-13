@@ -228,12 +228,20 @@
     <sql id="PaymentQueryWhere">
         <where>
 
-            <if test="paymentNo != null">
-                AND payment_no LIKE CONCAT('%', #{paymentNo}, '%')
-            </if>
-
             <if test="paymentName != null and paymentName != ''">
                 AND payment_name LIKE CONCAT('%', #{paymentName}, '%')
+            </if>
+
+            <if test="isThird != null and isThird != ''">
+                AND isThird = #{isThird}
+            </if>
+
+            <if test="paymentType != null and paymentType != ''">
+                AND payment_type = #{paymentType}
+            </if>
+
+            <if test="currency != null and currency != ''">
+                AND currency = #{currency}
             </if>
 
             <if test="status != null">

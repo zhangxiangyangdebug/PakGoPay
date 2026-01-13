@@ -2,10 +2,7 @@ package com.pakgopay.controller;
 
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.common.reqeust.channel.ChannelEditRequest;
-import com.pakgopay.common.reqeust.channel.ChannelQueryRequest;
-import com.pakgopay.common.reqeust.channel.PaymentEditRequest;
-import com.pakgopay.common.reqeust.channel.PaymentQueryRequest;
+import com.pakgopay.common.reqeust.channel.*;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.service.channel.ChannelPaymentService;
 import com.pakgopay.util.ExportFileUtils;
@@ -107,5 +104,16 @@ public class ChannelPaymentController {
             return CommonResponse.fail(e.getCode(), "editPayment failed: " + e.getMessage());
         }
     }
+
+//    @PostMapping("/addChannel")
+//    public CommonResponse addChannel(@RequestBody @Valid ChannelAddRequest channelAddRequest, HttpServletRequest request) {
+//        log.info("addChannel start");
+//        try {
+//            return channelPaymentService.addChannel(channelAddRequest);
+//        } catch (PakGoPayException e) {
+//            log.error("addChannel failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+//            return CommonResponse.fail(e.getCode(), "addChannel failed: " + e.getMessage());
+//        }
+//    }
 
 }

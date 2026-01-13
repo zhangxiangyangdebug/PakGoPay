@@ -197,6 +197,19 @@
                 AND channel_name LIKE CONCAT('%', #{channelName}, '%')
             </if>
 
+            <if test="paymentId != null and paymentId != ''">
+                AND (
+                payment_ids = #{paymentId}
+                OR payment_ids LIKE CONCAT('%,', #{paymentId})
+                OR payment_ids LIKE CONCAT(#{paymentId}, ',%')
+                OR payment_ids LIKE CONCAT('%,',#{paymentId}, ',%')
+                )
+            </if>
+
+            <if test="currency != null and currency != ''">
+                AND currency = #{currency}
+            </if>
+
             <if test="status != null">
                 AND status = #{status}
             </if>
