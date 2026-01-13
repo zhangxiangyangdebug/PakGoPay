@@ -49,6 +49,11 @@ public class BaseRequestInjectAdvice extends RequestBodyAdviceAdapter {
                 req.setUserId(userId.toString());
             }
 
+            Object userName = request.getAttribute(CommonConstant.ATTR_USER_NAME);
+            if (userName != null) {
+                req.setUserName(userName.toString());
+            }
+
         }
 
         return body;

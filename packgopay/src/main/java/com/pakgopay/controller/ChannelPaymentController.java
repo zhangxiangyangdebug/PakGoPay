@@ -116,4 +116,15 @@ public class ChannelPaymentController {
 //        }
 //    }
 
+    @PostMapping("/addPayment")
+    public CommonResponse addPayment(@RequestBody @Valid PaymentAddRequest paymentAddRequest, HttpServletRequest request) {
+        log.info("addPayment start");
+        try {
+            return channelPaymentService.addPayment(paymentAddRequest);
+        } catch (PakGoPayException e) {
+            log.error("addPayment failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "addPayment failed: " + e.getMessage());
+        }
+    }
+
 }

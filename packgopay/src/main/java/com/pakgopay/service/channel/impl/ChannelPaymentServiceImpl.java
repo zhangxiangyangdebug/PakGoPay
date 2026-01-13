@@ -6,10 +6,7 @@ import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.common.reqeust.channel.ChannelEditRequest;
-import com.pakgopay.common.reqeust.channel.ChannelQueryRequest;
-import com.pakgopay.common.reqeust.channel.PaymentEditRequest;
-import com.pakgopay.common.reqeust.channel.PaymentQueryRequest;
+import com.pakgopay.common.reqeust.channel.*;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.common.response.channel.ChannelResponse;
 import com.pakgopay.common.response.channel.PaymentResponse;
@@ -656,7 +653,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
         return PatchBuilderUtil.from(channelEditRequest).to(dto)
                 .str(channelEditRequest::getChannelName, dto::setChannelName)
-                .str(channelEditRequest::getUpdateBy, dto::setUpdateBy)
+                .str(channelEditRequest::getUserName, dto::setUpdateBy)
                 .obj(channelEditRequest::getStatus, dto::setStatus)
                 .ids(channelEditRequest::getPaymentIds, dto::setPaymentIds)
                 .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
@@ -692,7 +689,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         return PatchBuilderUtil.from(paymentEditRequest).to(dto)
                 .str(paymentEditRequest::getPaymentNo, dto::setPaymentNo)
                 .str(paymentEditRequest::getPaymentName, dto::setPaymentName)
-                .str(paymentEditRequest::getUpdateBy, dto::setUpdateBy)
+                .str(paymentEditRequest::getUserName, dto::setUpdateBy)
                 .obj(paymentEditRequest::getStatus, dto::setStatus)
                 .obj(paymentEditRequest::getSupportType, dto::setSupportType)
                 .str(paymentEditRequest::getPaymentType, dto::setPaymentType)
@@ -733,5 +730,110 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
+    }
+
+
+    @Override
+    public CommonResponse addChannel(ChannelAddRequest channelAddRequest) {
+        return null;
+    }
+
+    @Override
+    public CommonResponse addPayment(PaymentAddRequest paymentAddRequest) throws PakGoPayException {
+        log.info("addPayment start");
+
+        PaymentDto paymentDto = checkAndGeneratePaymentDtoForAdd(paymentAddRequest);
+        try {
+            int ret = paymentMapper.insert(paymentDto);
+            log.info("addPayment insert done, ret={}", ret);
+        } catch (Exception e) {
+            log.error("addPayment insert failed", e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("addPayment end");
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private PaymentDto checkAndGeneratePaymentDtoForAdd(
+            PaymentAddRequest paymentAddRequest) throws PakGoPayException {
+        PaymentDto dto = new PaymentDto();
+        long now = System.currentTimeMillis() / 1000;
+
+        PatchBuilderUtil<PaymentAddRequest, PaymentDto> builder = PatchBuilderUtil.from(paymentAddRequest).to(dto)
+
+                // 1) Basic Info
+                .str(paymentAddRequest::getPaymentNo, dto::setPaymentNo)
+                .str(paymentAddRequest::getPaymentName, dto::setPaymentName)
+                .str(paymentAddRequest::getCurrency, dto::setCurrency)
+                .str(paymentAddRequest::getPaymentType, dto::setPaymentType)
+                .str(paymentAddRequest::getIsThird, dto::setIsThird)
+
+                // 2) Status & Capability
+                .obj(paymentAddRequest::getStatus, dto::setStatus)
+                .obj(paymentAddRequest::getSupportType, dto::setSupportType)
+                .obj(paymentAddRequest::getIsCheckoutCounter, dto::setIsCheckoutCounter)
+                .str(paymentAddRequest::getEnableTimePeriod, dto::setEnableTimePeriod)
+
+                // 3) Amount Limits (optional)
+                .obj(paymentAddRequest::getPaymentMaxAmount, dto::setPaymentMaxAmount)
+                .obj(paymentAddRequest::getPaymentMinAmount, dto::setPaymentMinAmount)
+
+                // 10) Meta Info
+                .obj(paymentAddRequest::getRemark, dto::setRemark)
+                .obj(() -> now, dto::setCreateTime)
+                .obj(() -> now, dto::setUpdateTime)
+                .str(paymentAddRequest::getUserName, dto::setCreateBy)
+                .str(paymentAddRequest::getUserName, dto::setUpdateBy);
+
+
+        // supportType routing
+        Integer supportType = paymentAddRequest.getSupportType();
+        if (supportType == 0) {
+            applyCollectRequired(builder, paymentAddRequest);
+        } else if (supportType == 1) {
+            applyPayRequired(builder, paymentAddRequest);
+        } else {
+            applyCollectRequired(builder, paymentAddRequest);
+            applyPayRequired(builder, paymentAddRequest);
+        }
+
+        // Checkout counter requirement
+        builder.ifTrue(Integer.valueOf(1).equals(paymentAddRequest.getIsCheckoutCounter()))
+                .reqStr("checkoutCounterUrl", paymentAddRequest::getCheckoutCounterUrl, dto::setCheckoutCounterUrl);
+
+        // Bank info requirement (no lambda, no swallowing)
+        builder.ifTrue(CommonConstant.PAYMENT_TYPE_BANK.equals(paymentAddRequest.getPaymentType()))
+                .reqStr("bankName", paymentAddRequest::getBankName, dto::setBankName)
+                .reqStr("bankAccount", paymentAddRequest::getBankAccount, dto::setBankAccount)
+                .reqStr("bankUserName", paymentAddRequest::getBankUserName, dto::setBankUserName);
+
+        return builder.build();
+    }
+
+    private void applyPayRequired(
+            PatchBuilderUtil<PaymentAddRequest, PaymentDto> builder, PaymentAddRequest req) throws PakGoPayException {
+        PaymentDto dto = builder.dto();
+
+        builder.reqObj("payDailyLimit", req::getPayDailyLimit, dto::setPayDailyLimit)
+                .reqObj("payMonthlyLimit", req::getPayMonthlyLimit, dto::setPayMonthlyLimit)
+                .reqStr("paymentPayRate", req::getPaymentPayRate, dto::setPaymentPayRate)
+                .reqStr("paymentRequestPayUrl", req::getPaymentRequestPayUrl, dto::setPaymentRequestPayUrl)
+                .reqStr("paymentCheckPayUrl", req::getPaymentCheckPayUrl, dto::setPaymentCheckPayUrl)
+                .reqStr("payInterfaceParam", req::getPayInterfaceParam, dto::setPayInterfaceParam)
+                .reqStr("payCallbackAddr", req::getPayCallbackAddr, dto::setPayCallbackAddr);
+    }
+
+    private void applyCollectRequired(
+            PatchBuilderUtil<PaymentAddRequest, PaymentDto> builder, PaymentAddRequest req) throws PakGoPayException {
+        PaymentDto dto = builder.dto();
+
+        builder.reqObj("collectionDailyLimit", req::getCollectionDailyLimit, dto::setCollectionDailyLimit)
+                .reqObj("collectionMonthlyLimit", req::getCollectionMonthlyLimit, dto::setCollectionMonthlyLimit)
+                .reqStr("paymentCollectionRate", req::getPaymentCollectionRate, dto::setPaymentCollectionRate)
+                .reqStr("paymentRequestCollectionUrl", req::getPaymentRequestCollectionUrl, dto::setPaymentRequestCollectionUrl)
+                .reqStr("paymentCheckCollectionUrl", req::getPaymentCheckCollectionUrl, dto::setPaymentCheckCollectionUrl)
+                .reqStr("collectionInterfaceParam", req::getCollectionInterfaceParam, dto::setCollectionInterfaceParam)
+                .reqStr("collectionCallbackAddr", req::getCollectionCallbackAddr, dto::setCollectionCallbackAddr);
     }
 }

@@ -50,6 +50,8 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 if (userInfo != null) {
                     String userId = userInfo.split("&")[0];
                     request.setAttribute(CommonConstant.ATTR_USER_ID, userId);
+                    String userName = userInfo.split("&")[1];
+                    request.setAttribute(CommonConstant.ATTR_USER_NAME, userName);
                 }
                 // 设置用户认证状态
                 filterChain.doFilter(request, response);

@@ -1,7 +1,6 @@
 package com.pakgopay.common.reqeust.channel;
 
 import com.pakgopay.common.reqeust.BaseRequest;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -15,12 +14,6 @@ public class ChannelEditRequest extends BaseRequest {
      */
     @NotNull(message = "channelId is null")
     private String channelId;
-
-    /**
-     * Channel number
-     */
-    @NotBlank(message = "updateBy is empty")
-    private String updateBy;
 
     /**
      * Channel name

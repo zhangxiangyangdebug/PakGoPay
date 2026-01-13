@@ -10,6 +10,9 @@ public class CommonConstant {
     // attr user id
     public static final String ATTR_USER_ID = "CTX_USER_ID";
 
+    // attr user id
+    public static final String ATTR_USER_NAME = "CTX_USER_NAME";
+
     // xiayou 启用状态-禁用
     public static Integer ENABLE_STATUS_DISABLE = 0;
 
@@ -58,6 +61,9 @@ public class CommonConstant {
 
     // Role agent
     public static final int ROLE_AGENT = 4;
+
+    // payment type is 2:bank
+    public static final String PAYMENT_TYPE_BANK = "2";
 
     // merchant report view permissions
     public static final List<Integer> MERCHANT_REPORT_SUPPORT_ROLE = new ArrayList<>() {

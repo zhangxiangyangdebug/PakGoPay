@@ -13,7 +13,14 @@ public final class PatchBuilderUtil<REQ, DTO> {
 
     private final REQ req;
     private final DTO dto;
-    private int updated;
+
+    private int updated = 0;
+
+    /**
+     * Skip flag for next chain segment.
+     * If true, the next patch method will be skipped once, then reset to false.
+     */
+    private boolean skipOnce = false;
 
     private PatchBuilderUtil(REQ req, DTO dto) {
         this.req = req;
@@ -26,65 +33,130 @@ public final class PatchBuilderUtil<REQ, DTO> {
 
     public static final class FromStep<REQ> {
         private final REQ req;
-
-        private FromStep(REQ req) {
-            this.req = req;
-        }
-
+        private FromStep(REQ req) { this.req = req; }
         public <DTO> PatchBuilderUtil<REQ, DTO> to(DTO dto) {
             return new PatchBuilderUtil<>(req, dto);
         }
     }
 
-    public DTO dto() {
-        return dto;
+    public DTO dto() { return dto; }
+    public int updatedCount() { return updated; }
+
+    /** Enable skipping the next patch method if condition is false */
+    public PatchBuilderUtil<REQ, DTO> ifTrue(boolean condition) {
+        this.skipOnce = !condition;
+        return this;
     }
 
-    public int updatedCount() {
-        return updated;
+    /** Enable skipping the next patch method if condition is true */
+    public PatchBuilderUtil<REQ, DTO> ifFalse(boolean condition) {
+        this.skipOnce = condition;
+        return this;
     }
 
-    /** String: trim + not blank */
+    private boolean shouldSkipOnce() {
+        if (skipOnce) {
+            skipOnce = false;
+            return true;
+        }
+        return false;
+    }
+
+    private PakGoPayException invalid(String msg) {
+        return new PakGoPayException(ResultCode.INVALID_PARAMS, msg);
+    }
+
+    // ---------------------------
+    // Required setters (ADD)
+    // ---------------------------
+
+    /** Required string: trim + not blank */
+    public PatchBuilderUtil<REQ, DTO> reqStr(String field, Supplier<String> getter, Consumer<String> setter) throws PakGoPayException {
+        if (shouldSkipOnce()) return this;
+
+        String v = getter.get();
+        if (v == null || v.trim().isEmpty()) {
+            throw invalid(field + " is empty");
+        }
+        setter.accept(v.trim());
+        updated++;
+        return this;
+    }
+
+    /** Required object: not null */
+    public <T> PatchBuilderUtil<REQ, DTO> reqObj(String field, Supplier<T> getter, Consumer<T> setter) throws PakGoPayException {
+        if (shouldSkipOnce()) return this;
+
+        T v = getter.get();
+        if (v == null) {
+            throw invalid(field + " is null");
+        }
+        setter.accept(v);
+        updated++;
+        return this;
+    }
+
+    // ---------------------------
+    // Optional setters (EDIT or optional fields)
+    // ---------------------------
+
+    /** Optional string: trim + not blank */
     public PatchBuilderUtil<REQ, DTO> str(Supplier<String> getter, Consumer<String> setter) {
-        String value = getter.get();
-        if (value != null) {
-            String v = value.trim();
-            if (!v.isEmpty()) {
-                setter.accept(v);
+        if (shouldSkipOnce()) return this;
+
+        String v = getter.get();
+        if (v != null) {
+            String t = v.trim();
+            if (!t.isEmpty()) {
+                setter.accept(t);
                 updated++;
             }
         }
         return this;
     }
 
-    /** Any object: not null */
+    /** Optional object: not null */
     public <T> PatchBuilderUtil<REQ, DTO> obj(Supplier<T> getter, Consumer<T> setter) {
-        T value = getter.get();
-        if (value != null) {
-            setter.accept(value);
+        if (shouldSkipOnce()) return this;
+
+        T v = getter.get();
+        if (v != null) {
+            setter.accept(v);
             updated++;
         }
         return this;
     }
 
     /**
-     * List -> CSV string, allow clearing:
-     * - list == null: do not update
-     * - list is empty: update with ""
+     * List -> CSV string
+     * - list == null : do not update
+     * - empty list  : update with ""
      */
     public PatchBuilderUtil<REQ, DTO> ids(Supplier<? extends List<?>> getter, Consumer<String> setter) {
+        if (shouldSkipOnce()) return this;
+
         List<?> list = getter.get();
-        if (list != null) {
-            String v = list.stream()
-                    .filter(Objects::nonNull)
-                    .map(String::valueOf)
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .distinct()
-                    .collect(Collectors.joining(","));
-            setter.accept(v); // empty list -> ""
-            updated++;
-        }
+        if (list == null) return this;
+
+        String csv = list.stream()
+                .filter(Objects::nonNull)
+                .map(String::valueOf)
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .collect(Collectors.joining(","));
+        setter.accept(csv); // empty -> ""
+        updated++;
+        return this;
+    }
+
+    // ---------------------------
+    // Validation helpers
+    // ---------------------------
+
+    public PatchBuilderUtil<REQ, DTO> require(boolean condition, String message) throws PakGoPayException {
+        if (shouldSkipOnce()) return this;
+        if (!condition) throw invalid(message);
         return this;
     }
 
@@ -110,4 +182,3 @@ public final class PatchBuilderUtil<REQ, DTO> {
         }
     }
 }
-

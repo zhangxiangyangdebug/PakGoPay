@@ -10,6 +10,11 @@ public class BaseRequest {
     String userId;
 
     /**
+     * user name
+     */
+    String userName;
+
+    /**
      * client Ip
      */
     String clientIp;

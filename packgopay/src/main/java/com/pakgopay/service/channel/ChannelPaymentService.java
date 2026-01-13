@@ -2,10 +2,7 @@ package com.pakgopay.service.channel;
 
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.common.reqeust.channel.ChannelEditRequest;
-import com.pakgopay.common.reqeust.channel.ChannelQueryRequest;
-import com.pakgopay.common.reqeust.channel.PaymentEditRequest;
-import com.pakgopay.common.reqeust.channel.PaymentQueryRequest;
+import com.pakgopay.common.reqeust.channel.*;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.entity.TransactionInfo;
 import jakarta.servlet.http.HttpServletResponse;
@@ -30,4 +27,8 @@ public interface ChannelPaymentService {
     CommonResponse editChannel(@Valid ChannelEditRequest channelEditRequest) throws PakGoPayException;
 
     CommonResponse editPayment(@Valid PaymentEditRequest paymentEditRequest) throws PakGoPayException;
+
+    CommonResponse addChannel(@Valid ChannelAddRequest channelAddRequest);
+
+    CommonResponse addPayment(@Valid PaymentAddRequest paymentAddRequest) throws PakGoPayException;
 }

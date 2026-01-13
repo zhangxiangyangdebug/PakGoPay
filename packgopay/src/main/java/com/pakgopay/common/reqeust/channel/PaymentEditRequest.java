@@ -87,7 +87,4 @@ public class PaymentEditRequest extends BaseRequest {
 
     /** Currency */
     private String currency;
-
-    /** Updated by (note: DB type is datetime, but mapped as unix timestamp here) */
-    private String updateBy;
 }
