@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class ChannelDto implements Serializable {
@@ -87,4 +88,9 @@ public class ChannelDto implements Serializable {
 
     /** xiaoyou 渠道关联通道ids（逗号分隔等） */
     private String paymentIds;
+
+    /**
+     * payment infos
+     */
+    private List<PaymentDto> paymentDtoList;
 }

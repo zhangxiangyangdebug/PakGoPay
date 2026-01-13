@@ -2,8 +2,8 @@ package com.pakgopay.service.channel;
 
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.common.reqeust.channel.ChannelRequest;
-import com.pakgopay.common.reqeust.channel.PaymentRequest;
+import com.pakgopay.common.reqeust.channel.ChannelQueryRequest;
+import com.pakgopay.common.reqeust.channel.PaymentQueryRequest;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.entity.TransactionInfo;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,11 +17,11 @@ public interface ChannelPaymentService {
 
     void calculateTransactionFee(TransactionInfo transactionInfo, OrderType orderType);
 
-    CommonResponse queryChannel(@Valid ChannelRequest channelRequest) throws PakGoPayException;
+    CommonResponse queryChannel(@Valid ChannelQueryRequest channelQueryRequest) throws PakGoPayException;
 
-    CommonResponse queryPayment(@Valid PaymentRequest paymentRequest) throws PakGoPayException;
+    CommonResponse queryPayment(@Valid PaymentQueryRequest paymentQueryRequest) throws PakGoPayException;
 
-    void exportChannel(@Valid ChannelRequest channelRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+    void exportChannel(@Valid ChannelQueryRequest channelQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 
-    void exportPayment(@Valid PaymentRequest paymentRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+    void exportPayment(@Valid PaymentQueryRequest paymentQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 }

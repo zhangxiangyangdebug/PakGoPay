@@ -4,11 +4,11 @@ import com.pakgopay.common.reqeust.ExportBaseRequest;
 import lombok.Data;
 
 @Data
-public class PaymentRequest extends ExportBaseRequest {
+public class PaymentQueryRequest extends ExportBaseRequest {
     /**
      * Payment number
      */
-    private String paymentId;
+    private String paymentNo;
 
     /**
      * Payment name

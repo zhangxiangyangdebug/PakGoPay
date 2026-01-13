@@ -4,7 +4,7 @@ import com.pakgopay.common.reqeust.ExportBaseRequest;
 import lombok.Data;
 
 @Data
-public class ChannelRequest extends ExportBaseRequest {
+public class ChannelQueryRequest extends ExportBaseRequest {
 
     /**
      * Channel number

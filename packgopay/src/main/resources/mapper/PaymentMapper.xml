@@ -13,7 +13,7 @@
         <result column="support_type" property="supportType" javaType="java.lang.Integer"/>
         <result column="isThird" property="isThird" javaType="java.lang.String"/>
 
-        <result column="payment_no" property="paymentNo" javaType="java.lang.Integer"/>
+        <result column="payment_no" property="paymentNo" javaType="java.lang.String"/>
 
         <result column="payment_pay_rate" property="paymentPayRate" javaType="java.lang.String"/>
         <result column="payment_collection_rate" property="paymentCollectionRate" javaType="java.lang.String"/>
@@ -223,8 +223,8 @@
     <sql id="PaymentQueryWhere">
         <where>
 
-            <if test="paymentId != null">
-                AND payment_id = #{paymentId}
+            <if test="paymentNo != null">
+                AND payment_no LIKE CONCAT('%', #{paymentNo}, '%')
             </if>
 
             <if test="paymentName != null and paymentName != ''">
@@ -253,7 +253,7 @@
         <include refid="BaseColumns"/>
         FROM payment
         <include refid="PaymentQueryWhere"/>
-        ORDER BY channel_id DESC
+        ORDER BY payment_id DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 
@@ -262,8 +262,11 @@
             resultMap="PaymentResultMap">
 
         SELECT
-        <include refid="BaseColumns"/>
-        FROM payments
+            payment_id,
+            payment_no,
+            payment_name,
+            support_type
+        FROM payment
         <where>
             <if test="paymentIdList != null and paymentIdList.size() > 0">
                 AND payment_id IN

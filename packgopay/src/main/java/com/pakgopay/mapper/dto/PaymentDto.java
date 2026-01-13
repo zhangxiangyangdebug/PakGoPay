@@ -17,13 +17,13 @@ public class PaymentDto implements Serializable {
     private String paymentName;
 
     /** xiaoyou 支持类型0：代收、1：代付、2:代收/代付 */
-    private String supportType;
+    private Integer supportType;
 
     /** xiaoyou 是否是三方通道0：否、1：是（varchar） */
     private String isThird;
 
     /** xiaoyou 通道编号 */
-    private Integer paymentNo;
+    private String paymentNo;
 
     /** xiaoyou 代付费率（varchar） */
     private String paymentPayRate;
@@ -108,4 +108,9 @@ public class PaymentDto implements Serializable {
 
     /** xiaoyou 银行卡姓名 */
     private String bankUserName;
+
+    /**
+     * enable status
+     */
+    private Integer status;
 }

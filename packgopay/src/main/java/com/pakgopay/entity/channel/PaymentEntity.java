@@ -8,7 +8,7 @@ public class PaymentEntity {
     /**
      * Payment number
      */
-    private String paymentId;
+    private String paymentNo;
 
     /**
      * Payment name
