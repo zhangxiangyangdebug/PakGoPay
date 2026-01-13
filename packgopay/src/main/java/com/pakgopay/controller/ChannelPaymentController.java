@@ -2,7 +2,9 @@ package com.pakgopay.controller;
 
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.common.reqeust.channel.ChannelEditRequest;
 import com.pakgopay.common.reqeust.channel.ChannelQueryRequest;
+import com.pakgopay.common.reqeust.channel.PaymentEditRequest;
 import com.pakgopay.common.reqeust.channel.PaymentQueryRequest;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.service.channel.ChannelPaymentService;
@@ -84,15 +86,26 @@ public class ChannelPaymentController {
     }
 
 
-//    @PostMapping("/editChannel")
-//    public CommonResponse editChannel(@RequestBody @Valid ChannelQueryRequest channelQueryRequest, HttpServletRequest request) {
-//        log.info("editChannel start");
-//        try {
-//            return channelPaymentService.editChannel(channelQueryRequest);
-//        } catch (PakGoPayException e) {
-//            log.error("editChannel failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-//            return CommonResponse.fail(e.getCode(), "editChannel failed: " + e.getMessage());
-//        }
-//    }
+    @PostMapping("/editChannel")
+    public CommonResponse editChannel(@RequestBody @Valid ChannelEditRequest channelEditRequest, HttpServletRequest request) {
+        log.info("editChannel start");
+        try {
+            return channelPaymentService.editChannel(channelEditRequest);
+        } catch (PakGoPayException e) {
+            log.error("editChannel failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "editChannel failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/editPayment")
+    public CommonResponse editPayment(@RequestBody @Valid PaymentEditRequest paymentEditRequest, HttpServletRequest request) {
+        log.info("editPayment start");
+        try {
+            return channelPaymentService.editPayment(paymentEditRequest);
+        } catch (PakGoPayException e) {
+            log.error("editPayment failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "editPayment failed: " + e.getMessage());
+        }
+    }
 
 }

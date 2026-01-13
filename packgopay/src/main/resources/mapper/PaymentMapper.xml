@@ -32,6 +32,8 @@
         <result column="collection_monthly_limit" property="collectionMonthlyLimit" javaType="java.math.BigDecimal"/>
         <result column="pay_monthly_limit" property="payMonthlyLimit" javaType="java.math.BigDecimal"/>
 
+        <result column="enable_time_period" property="enableTimePeriod" javaType="java.lang.String"/>
+
         <result column="collection_interface_param" property="collectionInterfaceParam" javaType="java.lang.String"/>
         <result column="pay_interface_param" property="payInterfaceParam" javaType="java.lang.String"/>
 
@@ -43,7 +45,7 @@
         <result column="create_time" property="createTime" javaType="java.lang.Long"/>
         <result column="create_by" property="createBy" javaType="java.lang.String"/>
         <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
-        <result column="update_by" property="updateBy" javaType="java.lang.Long"/>
+        <result column="update_by" property="updateBy" javaType="java.lang.String"/>
 
         <result column="remark" property="remark" javaType="java.lang.String"/>
 
@@ -76,6 +78,7 @@
         pay_daily_limit,
         collection_monthly_limit,
         pay_monthly_limit,
+        enable_time_period,
         collection_interface_param,
         pay_interface_param,
         collection_callback_addr,
@@ -141,6 +144,7 @@
         #{payDailyLimit},
         #{collectionMonthlyLimit},
         #{payMonthlyLimit},
+        #{enableTimePeriod},
         #{collectionInterfaceParam},
         #{payInterfaceParam},
         #{collectionCallbackAddr},
@@ -181,6 +185,7 @@
             pay_daily_limit = #{payDailyLimit},
             collection_monthly_limit = #{collectionMonthlyLimit},
             pay_monthly_limit = #{payMonthlyLimit},
+            enable_time_period = #{enableTimePeriod},
             collection_interface_param = #{collectionInterfaceParam},
             pay_interface_param = #{payInterfaceParam},
             collection_callback_addr = #{collectionCallbackAddr},
@@ -265,7 +270,8 @@
             payment_id,
             payment_no,
             payment_name,
-            support_type
+            support_type,
+            currency
         FROM payment
         <where>
             <if test="paymentIdList != null and paymentIdList.size() > 0">

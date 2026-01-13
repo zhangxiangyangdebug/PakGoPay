@@ -6,7 +6,9 @@ import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.common.reqeust.channel.ChannelEditRequest;
 import com.pakgopay.common.reqeust.channel.ChannelQueryRequest;
+import com.pakgopay.common.reqeust.channel.PaymentEditRequest;
 import com.pakgopay.common.reqeust.channel.PaymentQueryRequest;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.common.response.channel.ChannelResponse;
@@ -20,6 +22,7 @@ import com.pakgopay.service.channel.ChannelPaymentService;
 import com.pakgopay.service.report.ExportReportDataColumns;
 import com.pakgopay.util.CommontUtil;
 import com.pakgopay.util.ExportFileUtils;
+import com.pakgopay.util.PatchBuilderUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -619,6 +622,90 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 ExportReportDataColumns.PAYMENT_EXPORT_FILE_NAME);
 
         log.info("exportPayment end");
+    }
+
+    @Override
+    public CommonResponse editChannel(ChannelEditRequest channelEditRequest) throws PakGoPayException {
+        log.info("editChannel start, channelId={}", channelEditRequest.getChannelId());
+
+        ChannelDto channelDto = checkAndGenerateChannelDto(channelEditRequest);
+        try {
+            int ret = channelMapper.updateByChannelId(channelDto);
+            log.info("editChannel updateByChannelId done, channelId={}, ret={}", channelEditRequest.getChannelId(), ret);
+
+            if (ret <= 0) {
+                return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
+            }
+        } catch (Exception e) {
+            log.error("editChannel updateByChannelId failed, channelId={}", channelEditRequest.getChannelId(), e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("editChannel end, channelId={}", channelEditRequest.getChannelId());
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private ChannelDto checkAndGenerateChannelDto(ChannelEditRequest channelEditRequest) throws PakGoPayException {
+        ChannelDto dto = new ChannelDto();
+        dto.setChannelId(PatchBuilderUtil.parseRequiredLong(channelEditRequest.getChannelId(), "channelId"));
+
+        return PatchBuilderUtil.from(channelEditRequest).to(dto)
+                .str(channelEditRequest::getChannelName, dto::setChannelName)
+                .obj(channelEditRequest::getStatus, dto::setStatus)
+                .ids(channelEditRequest::getPaymentIds, dto::setPaymentIds)
+                .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
+    }
+
+    @Override
+    public CommonResponse editPayment(PaymentEditRequest paymentEditRequest) throws PakGoPayException {
+        log.info("editPayment start, paymentId={}", paymentEditRequest.getPaymentId());
+
+        PaymentDto paymentDto = checkAndGeneratePaymentDto(paymentEditRequest);
+
+        try {
+            int ret = paymentMapper.updateByPaymentId(paymentDto);
+            log.info("editPayment updateByPaymentId done, paymentId={}, ret={}", paymentEditRequest.getPaymentId(), ret);
+
+            if (ret <= 0) {
+                return CommonResponse.fail(ResultCode.FAIL, "payment not found or no rows updated");
+            }
+        } catch (Exception e) {
+            log.error("editPayment updateByChannelId failed, channelId={}", paymentEditRequest.getPaymentId(), e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("editPayment end, channelId={}", paymentEditRequest.getPaymentId());
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private PaymentDto checkAndGeneratePaymentDto(PaymentEditRequest paymentEditRequest) throws PakGoPayException {
+        PaymentDto dto = new PaymentDto();
+        dto.setPaymentId(PatchBuilderUtil.parseRequiredLong(paymentEditRequest.getPaymentId(), "paymentId"));
+
+        return PatchBuilderUtil.from(paymentEditRequest).to(dto)
+                .str(paymentEditRequest::getPaymentNo, dto::setPaymentNo)
+                .str(paymentEditRequest::getPaymentName, dto::setPaymentName)
+                .obj(paymentEditRequest::getStatus, dto::setStatus)
+                .obj(paymentEditRequest::getSupportType, dto::setSupportType)
+                .str(paymentEditRequest::getPaymentType, dto::setPaymentType)
+                .str(paymentEditRequest::getEnableTimePeriod, dto::setEnableTimePeriod)
+                .obj(paymentEditRequest::getIsCheckoutCounter, dto::setIsCheckoutCounter)
+                .obj(paymentEditRequest::getCollectionDailyLimit, dto::setCollectionDailyLimit)
+                .obj(paymentEditRequest::getPayDailyLimit, dto::setPayDailyLimit)
+                .obj(paymentEditRequest::getCollectionMonthlyLimit, dto::setCollectionMonthlyLimit)
+                .obj(paymentEditRequest::getPayMonthlyLimit, dto::setPayMonthlyLimit)
+                .str(paymentEditRequest::getPaymentRequestPayUrl, dto::setPaymentRequestPayUrl)
+                .str(paymentEditRequest::getPaymentRequestCollectionUrl, dto::setPaymentRequestCollectionUrl)
+                .str(paymentEditRequest::getPaymentPayRate, dto::setPaymentPayRate)
+                .str(paymentEditRequest::getPaymentCollectionRate, dto::setPaymentCollectionRate)
+                .str(paymentEditRequest::getPaymentCheckPayUrl, dto::setPaymentCheckPayUrl)
+                .str(paymentEditRequest::getPaymentCheckCollectionUrl, dto::setPaymentCheckCollectionUrl)
+                .str(paymentEditRequest::getIsThird, dto::setIsThird)
+                .str(paymentEditRequest::getCollectionCallbackAddr, dto::setCollectionCallbackAddr)
+                .str(paymentEditRequest::getPayCallbackAddr, dto::setPayCallbackAddr)
+                .str(paymentEditRequest::getCheckoutCounterUrl, dto::setCheckoutCounterUrl)
+                .str(paymentEditRequest::getCurrency, dto::setCurrency)
+                .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
     }
 
     private List<Long> parseIds(String csv) {

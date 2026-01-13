@@ -7,110 +7,110 @@ import java.math.BigDecimal;
 
 @Data
 public class PaymentDto implements Serializable {
-
     private static final long serialVersionUID = 1L;
 
-    /** xiaoyou 通道id */
+    /** Payment channel ID */
     private Long paymentId;
 
-    /** xiaoyou 通道名称 */
+    /** Payment channel name */
     private String paymentName;
 
-    /** xiaoyou 支持类型0：代收、1：代付、2:代收/代付 */
+    /** Support type: 0-collection, 1-payout, 2-collection & payout */
     private Integer supportType;
 
-    /** xiaoyou 是否是三方通道0：否、1：是（varchar） */
+    /** Whether it is a third-party channel: 0-no, 1-yes (varchar in DB) */
     private String isThird;
 
-    /** xiaoyou 通道编号 */
+    /** Payment channel code */
     private String paymentNo;
 
-    /** xiaoyou 代付费率（varchar） */
+    /** Payout rate (stored as varchar) */
     private String paymentPayRate;
 
-    /** xiaoyou 代收费率（varchar） */
+    /** Collection rate (stored as varchar) */
     private String paymentCollectionRate;
 
-    /** xiaoyou 代付api接口地址 */
+    /** Payout API request URL */
     private String paymentRequestPayUrl;
 
-    /** xiaoyou 代收api接口地址 */
+    /** Collection API request URL */
     private String paymentRequestCollectionUrl;
 
-    /** xiaoyou 代付订单校验地址 */
+    /** Payout order check URL */
     private String paymentCheckPayUrl;
 
-    /** xiaoyou 代收订单校验地址 */
+    /** Collection order check URL */
     private String paymentCheckCollectionUrl;
 
-    /** xiaoyou 最大金额（varchar） */
+    /** Maximum amount */
     private BigDecimal paymentMaxAmount;
 
-    /** xiaoyou 最小金额（varchar） */
+    /** Minimum amount */
     private BigDecimal paymentMinAmount;
 
-    /** xiaoyou 代收日限额（varchar） */
+    /** Collection daily limit */
     private BigDecimal collectionDailyLimit;
 
-    /** xiaoyou 代付日限额（varchar） */
+    /** Payout daily limit */
     private BigDecimal payDailyLimit;
 
-    /** xiaoyou 代收月限额（varchar） */
+    /** Collection monthly limit */
     private BigDecimal collectionMonthlyLimit;
 
-    /** xiaoyou 代付月限额（varchar） */
+    /** Payout monthly limit */
     private BigDecimal payMonthlyLimit;
 
-    /** xiaoyou 代收接口参数 */
+    /** Enabled time period */
+    private String enableTimePeriod;
+
+    /** Collection interface parameters */
     private String collectionInterfaceParam;
 
-    /** xiaoyou 代付接口参数 */
+    /** Payout interface parameters */
     private String payInterfaceParam;
 
-    /** xiaoyou 代收回调地址 */
+    /** Collection callback URL */
     private String collectionCallbackAddr;
 
-    /** xiaoyou 代付回调地址 */
+    /** Payout callback URL */
     private String payCallbackAddr;
 
-    /** xiaoyou 币种 */
+    /** Currency */
     private String currency;
 
-    /** xiaoyou 创建时间 */
+    /** Create time (unix timestamp seconds) */
     private Long createTime;
 
-    /** xiaoyou 创建人 */
+    /** Created by */
     private String createBy;
 
-    /** xiaoyou 更新时间 */
+    /** Update time (unix timestamp seconds) */
     private Long updateTime;
 
-    /** xiaoyou 更新人（表结构里是 datetime，但注释写更新人；按数据库类型映射 unixTime） */
-    private Long updateBy;
+    /** Updated by (note: DB type is datetime, but mapped as unix timestamp here) */
+    private String updateBy;
 
-    /** xiaoyou 备注 */
+    /** Remark */
     private String remark;
 
-    /** xiaoyou 是否需要收银台 */
+    /** Whether checkout counter is required */
     private Integer isCheckoutCounter;
 
-    /** xiaoyou 收银台地址 */
+    /** Checkout counter URL */
     private String checkoutCounterUrl;
 
-    /** xiaoyou 通道类型1：app支付、2：银行卡支付 */
+    /** Payment type: 1-app payment, 2-bank card payment */
     private String paymentType;
 
-    /** xiaoyou 银行名称 */
+    /** Bank name */
     private String bankName;
 
-    /** xiaoyou 银行卡账号 */
+    /** Bank account number */
     private String bankAccount;
 
-    /** xiaoyou 银行卡姓名 */
+    /** Bank account holder name */
     private String bankUserName;
 
-    /**
-     * enable status
-     */
+    /** Enable status */
     private Integer status;
 }
