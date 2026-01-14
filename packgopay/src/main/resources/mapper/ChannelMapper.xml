@@ -82,21 +82,23 @@
 
     <!-- updateByChannelId -->
     <update id="updateByChannelId" parameterType="com.pakgopay.mapper.dto.ChannelDto">
-        update channel
-        set
-            channel_name = #{channelName},
-            total_count = #{totalCount},
-            fail_count = #{failCount},
-            success_rate = #{successRate},
-            update_time = #{updateTime},
-            update_by = #{updateBy},
-            create_time = #{createTime},
-            create_by = #{createBy},
-            status = #{status},
-            remark = #{remark},
-            payment_ids = #{paymentIds}
-        where channel_id = #{channelId}
+        UPDATE channel
+        <set>
+            <if test="channelName != null">channel_name = #{channelName},</if>
+            <if test="totalCount != null">total_count = #{totalCount},</if>
+            <if test="failCount != null">fail_count = #{failCount},</if>
+            <if test="successRate != null">success_rate = #{successRate},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="paymentIds != null">payment_ids = #{paymentIds},</if>
+        </set>
+        WHERE channel_id = #{channelId}
     </update>
+
 
     <!-- deleteByChannelId -->
     <delete id="deleteByChannelId">

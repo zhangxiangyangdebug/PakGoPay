@@ -167,41 +167,42 @@
 
     <!-- updateByPaymentId -->
     <update id="updateByPaymentId" parameterType="com.pakgopay.mapper.dto.PaymentDto">
-        update payment
-        set
-            payment_name = #{paymentName},
-            support_type = #{supportType},
-            isThird = #{isThird},
-            payment_no = #{paymentNo},
-            payment_pay_rate = #{paymentPayRate},
-            payment_collection_rate = #{paymentCollectionRate},
-            payment_request_pay_url = #{paymentRequestPayUrl},
-            payment_request_collection_url = #{paymentRequestCollectionUrl},
-            payment_check_pay_url = #{paymentCheckPayUrl},
-            payment_check_collection_url = #{paymentCheckCollectionUrl},
-            payment_max_amount = #{paymentMaxAmount},
-            payment_min_amount = #{paymentMinAmount},
-            collection_daily_limit = #{collectionDailyLimit},
-            pay_daily_limit = #{payDailyLimit},
-            collection_monthly_limit = #{collectionMonthlyLimit},
-            pay_monthly_limit = #{payMonthlyLimit},
-            enable_time_period = #{enableTimePeriod},
-            collection_interface_param = #{collectionInterfaceParam},
-            pay_interface_param = #{payInterfaceParam},
-            collection_callback_addr = #{collectionCallbackAddr},
-            pay_callback_addr = #{payCallbackAddr},
-            currency = #{currency},
-            update_time = #{updateTime},
-            update_by = #{updateBy},
-            remark = #{remark},
-            is_checkout_counter = #{isCheckoutCounter},
-            checkout_counter_url = #{checkoutCounterUrl},
-            payment_type = #{paymentType},
-            bank_name = #{bankName},
-            bank_account = #{bankAccount},
-            bank_user_name = #{bankUserName},
-            status = #{status}
-        where payment_id = #{paymentId}
+        UPDATE payment
+        <set>
+            <if test="paymentName != null">payment_name = #{paymentName},</if>
+            <if test="supportType != null">support_type = #{supportType},</if>
+            <if test="isThird != null">isThird = #{isThird},</if>
+            <if test="paymentNo != null">payment_no = #{paymentNo},</if>
+            <if test="paymentPayRate != null">payment_pay_rate = #{paymentPayRate},</if>
+            <if test="paymentCollectionRate != null">payment_collection_rate = #{paymentCollectionRate},</if>
+            <if test="paymentRequestPayUrl != null">payment_request_pay_url = #{paymentRequestPayUrl},</if>
+            <if test="paymentRequestCollectionUrl != null">payment_request_collection_url = #{paymentRequestCollectionUrl},</if>
+            <if test="paymentCheckPayUrl != null">payment_check_pay_url = #{paymentCheckPayUrl},</if>
+            <if test="paymentCheckCollectionUrl != null">payment_check_collection_url = #{paymentCheckCollectionUrl},</if>
+            <if test="paymentMaxAmount != null">payment_max_amount = #{paymentMaxAmount},</if>
+            <if test="paymentMinAmount != null">payment_min_amount = #{paymentMinAmount},</if>
+            <if test="collectionDailyLimit != null">collection_daily_limit = #{collectionDailyLimit},</if>
+            <if test="payDailyLimit != null">pay_daily_limit = #{payDailyLimit},</if>
+            <if test="collectionMonthlyLimit != null">collection_monthly_limit = #{collectionMonthlyLimit},</if>
+            <if test="payMonthlyLimit != null">pay_monthly_limit = #{payMonthlyLimit},</if>
+            <if test="enableTimePeriod != null">enable_time_period = #{enableTimePeriod},</if>
+            <if test="collectionInterfaceParam != null">collection_interface_param = #{collectionInterfaceParam},</if>
+            <if test="payInterfaceParam != null">pay_interface_param = #{payInterfaceParam},</if>
+            <if test="collectionCallbackAddr != null">collection_callback_addr = #{collectionCallbackAddr},</if>
+            <if test="payCallbackAddr != null">pay_callback_addr = #{payCallbackAddr},</if>
+            <if test="currency != null">currency = #{currency},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="isCheckoutCounter != null">is_checkout_counter = #{isCheckoutCounter},</if>
+            <if test="checkoutCounterUrl != null">checkout_counter_url = #{checkoutCounterUrl},</if>
+            <if test="paymentType != null">payment_type = #{paymentType},</if>
+            <if test="bankName != null">bank_name = #{bankName},</if>
+            <if test="bankAccount != null">bank_account = #{bankAccount},</if>
+            <if test="bankUserName != null">bank_user_name = #{bankUserName},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        WHERE payment_id = #{paymentId}
     </update>
 
     <!-- deleteByPaymentId -->

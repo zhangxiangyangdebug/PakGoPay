@@ -2,6 +2,7 @@ package com.pakgopay.service.agent.impl;
 
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.common.reqeust.agent.AgentEditRequest;
 import com.pakgopay.common.reqeust.agent.AgentQueryRequest;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.common.response.agent.AgentResponse;
@@ -11,11 +12,16 @@ import com.pakgopay.mapper.ChannelMapper;
 import com.pakgopay.mapper.dto.AgentInfoDto;
 import com.pakgopay.mapper.dto.ChannelDto;
 import com.pakgopay.service.agent.AgentService;
+import com.pakgopay.service.report.ExportReportDataColumns;
 import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.ExportFileUtils;
+import com.pakgopay.util.PatchBuilderUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -107,6 +113,90 @@ public class AgentServiceImpl implements AgentService {
         }
         log.info("getAgentDetailInfo end");
 
+    }
+
+    @Override
+    public void exportAgent(AgentQueryRequest agentQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException {
+        log.info("exportAgent start");
+
+        // 1) Parse and validate export columns (must go through whitelist)
+        ExportFileUtils.ColumnParseResult<AgentInfoDto> colRes =
+                ExportFileUtils.parseColumns(agentQueryRequest, ExportReportDataColumns.AGENT_ALLOWED);
+
+        // 2) Init paging params
+        agentQueryRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
+        agentQueryRequest.setPageNo(1);
+
+        // 3) Export by paging and multi-sheet writing
+        ExportFileUtils.exportByPagingAndSheets(
+                response,
+                colRes.getHead(),
+                agentQueryRequest,
+                (req) -> queryAgentData(req).getAgentInfoDtoList(),
+                colRes.getDefs(),
+                ExportReportDataColumns.CHANNEL_EXPORT_FILE_NAME);
+
+        log.info("exportAgent end");
+    }
+
+    @Override
+    public CommonResponse editAgent(AgentEditRequest agentEditRequest) throws PakGoPayException {
+        log.info("editAgent start, agentName={}", agentEditRequest.getAgentName());
+
+        AgentInfoDto agentInfoDto = checkAndGenerateAgentInfoDto(agentEditRequest);
+        try {
+            int ret = agentInfoMapper.updateByUserId(agentInfoDto);
+            log.info("editAgent updateByChannelId done, agentName={}, ret={}", agentEditRequest.getAgentName(), ret);
+
+            if (ret <= 0) {
+                return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
+            }
+        } catch (Exception e) {
+            log.error("editAgent updateByChannelId failed, agentName={}", agentEditRequest.getAgentName(), e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("editAgent end, agentName={}", agentEditRequest.getAgentName());
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private AgentInfoDto checkAndGenerateAgentInfoDto(AgentEditRequest agentEditRequest) throws PakGoPayException {
+        AgentInfoDto dto = new AgentInfoDto();
+        dto.setUserId(agentEditRequest.getUserId());
+        dto.setUpdateTime(System.currentTimeMillis() / 1000);
+
+        return PatchBuilderUtil.from(agentEditRequest).to(dto)
+
+                // basic
+                .str(agentEditRequest::getAgentName, dto::setAgentName)
+                .obj(agentEditRequest::getStatus, dto::setStatus)
+                .ids(agentEditRequest::getChannelIds, dto::setChannelIds)
+
+                // contact
+                .str(agentEditRequest::getContactName, dto::setContactName)
+                .str(agentEditRequest::getContactEmail, dto::setContactEmail)
+                .str(agentEditRequest::getContactPhone, dto::setContactPhone)
+
+                // collection config
+                .obj(agentEditRequest::getCollectionRate, dto::setCollectionRate)
+                .obj(agentEditRequest::getCollectionFixedFee, dto::setCollectionFixedFee)
+                .obj(agentEditRequest::getCollectionMaxFee, dto::setCollectionMaxFee)
+                .obj(agentEditRequest::getCollectionMinFee, dto::setCollectionMinFee)
+
+                // payout config
+                .obj(agentEditRequest::getPayRate, dto::setPayRate)
+                .obj(agentEditRequest::getPayFixedFee, dto::setPayFixedFee)
+                .obj(agentEditRequest::getPayMaxFee, dto::setPayMaxFee)
+                .obj(agentEditRequest::getPayMinFee, dto::setPayMinFee)
+
+                // ip whitelist
+                .str(agentEditRequest::getLoginIps, dto::setLoginIps)
+                .str(agentEditRequest::getWithdrawIps, dto::setWithdrawIps)
+
+                // operator
+                .str(agentEditRequest::getUserName, dto::setUpdateBy)
+
+                .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
     }
 
 

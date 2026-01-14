@@ -35,6 +35,9 @@
         <result column="pay_max_fee" property="payMaxFee" javaType="java.math.BigDecimal"/>
         <result column="pay_min_fee" property="payMinFee" javaType="java.math.BigDecimal"/>
 
+        <result column="login_ips" property="loginIps" javaType="java.lang.String"/>
+        <result column="withdraw_ips" property="withdrawIps" javaType="java.lang.String"/>
+
         <result column="create_time" property="createTime" javaType="java.lang.Long"/>
         <result column="create_by" property="createBy" javaType="java.lang.String"/>
 
@@ -70,6 +73,8 @@
         pay_fixed_fee,
         pay_max_fee,
         pay_min_fee,
+        login_ips,
+        withdraw_ips,
         create_time,
         create_by,
         update_time,
@@ -86,10 +91,42 @@
         ) VALUES (
         #{agentNo},#{agentName},#{userId},#{userName},#{parentId},#{topAgentId},#{channelIds},#{status},#{contactName},#{contactEmail},
         #{contactPhone},#{level},#{collectionRate},#{collectionFixedFee},#{collectionMaxFee},#{collectionMinFee},#{payRate},
-        #{payFixedFee},#{payMaxFee},#{payMinFee},#{createTime},#{createBy},#{updateTime},#{updateBy},
+        #{payFixedFee},#{payMaxFee},#{payMinFee},#{loginIps},#{withdrawIps},#{createTime},#{createBy},#{updateTime},#{updateBy},
         #{version},#{remark}
         )
     </insert>
+
+    <update id="updateByUserId" parameterType="com.pakgopay.mapper.dto.AgentInfoDto">
+        UPDATE agent_info
+        <set>
+            <if test="agentName != null">agent_name = #{agentName},</if>
+            <if test="userName != null">user_name = #{userName},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="topAgentId != null">top_agent_id = #{topAgentId},</if>
+            <if test="channelIds != null">channel_ids = #{channelIds},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="contactName != null">contact_name = #{contactName},</if>
+            <if test="contactEmail != null">contact_email = #{contactEmail},</if>
+            <if test="contactPhone != null">contact_phone = #{contactPhone},</if>
+            <if test="level != null">level = #{level},</if>
+            <if test="collectionRate != null">collection_rate = #{collectionRate},</if>
+            <if test="collectionFixedFee != null">collection_fixed_fee = #{collectionFixedFee},</if>
+            <if test="collectionMaxFee != null">collection_max_fee = #{collectionMaxFee},</if>
+            <if test="collectionMinFee != null">collection_min_fee = #{collectionMinFee},</if>
+            <if test="payRate != null">pay_rate = #{payRate},</if>
+            <if test="payFixedFee != null">pay_fixed_fee = #{payFixedFee},</if>
+            <if test="payMaxFee != null">pay_max_fee = #{payMaxFee},</if>
+            <if test="payMinFee != null">pay_min_fee = #{payMinFee},</if>
+            <if test="loginIps != null">login_ips = #{loginIps},</if>
+            <if test="withdrawIps != null">withdraw_ips = #{withdrawIps},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="updateBy != null">upeate_by = #{updateBy},</if>
+            <if test="version != null">version = #{version},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        WHERE user_id = #{userId}
+    </update>
+
 
     <select id="findByUserId" resultMap="AgentInfoResultMap">
         select

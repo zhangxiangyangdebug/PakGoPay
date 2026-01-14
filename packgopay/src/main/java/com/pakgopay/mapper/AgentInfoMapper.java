@@ -17,6 +17,8 @@ public interface AgentInfoMapper {
     /** Insert agent info */
     int insert(AgentInfoDto dto);
 
+    int updateByUserId(AgentInfoDto dto);
+
     /**
      * xiaoyou 查询所有代理信息
      */

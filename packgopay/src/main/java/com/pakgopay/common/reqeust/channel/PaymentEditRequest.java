@@ -40,6 +40,12 @@ public class PaymentEditRequest extends BaseRequest {
     /** Enabled time period */
     private String enableTimePeriod;
 
+    /** Collection interface parameters */
+    private String collectionInterfaceParam;
+
+    /** Payout interface parameters */
+    private String payInterfaceParam;
+
     /** Whether checkout counter is required */
     private Integer isCheckoutCounter;
 
@@ -60,6 +66,12 @@ public class PaymentEditRequest extends BaseRequest {
 
     /** Collection API request URL */
     private String paymentRequestCollectionUrl;
+
+    /** Maximum amount */
+    private BigDecimal paymentMaxAmount;
+
+    /** Minimum amount */
+    private BigDecimal paymentMinAmount;
 
     /** Payout rate (stored as varchar) */
     private String paymentPayRate;

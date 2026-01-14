@@ -89,7 +89,7 @@ public class ExportFileUtils {
                             .autoCloseStream(false)
                             .build();
                 }
-                writer.write(excelRows, EasyExcel.writerSheet(sheetNo, "report-" + sheetNo).build());
+                writer.write(excelRows, EasyExcel.writerSheet(sheetNo, "sheet-" + sheetNo).build());
 
                 // 7) Update current sheet row count
                 sheetRowCount += excelRows.size();
