@@ -693,6 +693,9 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 .obj(paymentEditRequest::getStatus, dto::setStatus)
                 .obj(paymentEditRequest::getSupportType, dto::setSupportType)
                 .str(paymentEditRequest::getPaymentType, dto::setPaymentType)
+                .str(paymentEditRequest::getBankName, dto::setBankName)
+                .str(paymentEditRequest::getBankAccount, dto::setBankAccount)
+                .str(paymentEditRequest::getBankUserName, dto::setBankUserName)
                 .str(paymentEditRequest::getEnableTimePeriod, dto::setEnableTimePeriod)
                 .str(paymentEditRequest::getPayInterfaceParam, dto::setPayInterfaceParam)
                 .str(paymentEditRequest::getCollectionInterfaceParam, dto::setCollectionInterfaceParam)
@@ -819,7 +822,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         builder.ifTrue(CommonConstant.PAYMENT_TYPE_BANK.equals(paymentAddRequest.getPaymentType()))
                 .reqStr("bankName", paymentAddRequest::getBankName, dto::setBankName)
                 .reqStr("bankAccount", paymentAddRequest::getBankAccount, dto::setBankAccount)
-                .reqStr("bankUserName", paymentAddRequest::getBankUserName, dto::setBankUserName);
+                .reqStr("bankUserName", paymentAddRequest::getBankUserName, dto::setBankUserName)
+                .endSkip();
 
         return builder.build();
     }

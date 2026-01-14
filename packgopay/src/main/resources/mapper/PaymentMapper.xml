@@ -129,7 +129,6 @@
         #{paymentId},
         #{paymentName},
         #{supportType},
-        #{payEnable},
         #{isThird},
         #{paymentNo},
         #{paymentPayRate},

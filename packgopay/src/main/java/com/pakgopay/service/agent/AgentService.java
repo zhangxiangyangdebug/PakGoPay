@@ -1,6 +1,7 @@
 package com.pakgopay.service.agent;
 
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.common.reqeust.agent.AgentAddRequest;
 import com.pakgopay.common.reqeust.agent.AgentEditRequest;
 import com.pakgopay.common.reqeust.agent.AgentQueryRequest;
 import com.pakgopay.common.response.CommonResponse;
@@ -15,4 +16,6 @@ public interface AgentService {
     void exportAgent(@Valid AgentQueryRequest agentQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 
     CommonResponse editAgent(@Valid AgentEditRequest agentEditRequest) throws PakGoPayException;
+
+    CommonResponse addAgent(@Valid AgentAddRequest agentAddRequest) throws PakGoPayException;
 }

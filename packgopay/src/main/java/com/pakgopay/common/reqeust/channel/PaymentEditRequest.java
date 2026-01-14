@@ -37,6 +37,15 @@ public class PaymentEditRequest extends BaseRequest {
     /** Payment type: 1-app payment, 2-bank card payment */
     private String paymentType;
 
+    /** Bank name */
+    private String bankName;
+
+    /** Bank account number */
+    private String bankAccount;
+
+    /** Bank account holder name */
+    private String bankUserName;
+
     /** Enabled time period */
     private String enableTimePeriod;
 

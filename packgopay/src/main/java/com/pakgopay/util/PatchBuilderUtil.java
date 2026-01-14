@@ -48,6 +48,12 @@ public final class PatchBuilderUtil<REQ, DTO> {
         return this;
     }
 
+    /** Enable skipping the next patch method if condition is false */
+    public PatchBuilderUtil<REQ, DTO> endSkip() {
+        this.skipOnce = false;
+        return this;
+    }
+
     /** Enable skipping the next patch method if condition is true */
     public PatchBuilderUtil<REQ, DTO> ifFalse(boolean condition) {
         this.skipOnce = condition;
@@ -55,11 +61,7 @@ public final class PatchBuilderUtil<REQ, DTO> {
     }
 
     private boolean shouldSkipOnce() {
-        if (skipOnce) {
-            skipOnce = false;
-            return true;
-        }
-        return false;
+        return skipOnce;
     }
 
     private PakGoPayException invalid(String msg) {

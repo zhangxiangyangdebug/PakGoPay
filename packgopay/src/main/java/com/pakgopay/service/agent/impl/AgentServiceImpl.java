@@ -2,6 +2,7 @@ package com.pakgopay.service.agent.impl;
 
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.common.reqeust.agent.AgentAddRequest;
 import com.pakgopay.common.reqeust.agent.AgentEditRequest;
 import com.pakgopay.common.reqeust.agent.AgentQueryRequest;
 import com.pakgopay.common.response.CommonResponse;
@@ -12,6 +13,7 @@ import com.pakgopay.mapper.ChannelMapper;
 import com.pakgopay.mapper.dto.AgentInfoDto;
 import com.pakgopay.mapper.dto.ChannelDto;
 import com.pakgopay.service.agent.AgentService;
+import com.pakgopay.service.login.impl.UserService;
 import com.pakgopay.service.report.ExportReportDataColumns;
 import com.pakgopay.util.CommontUtil;
 import com.pakgopay.util.ExportFileUtils;
@@ -34,6 +36,9 @@ public class AgentServiceImpl implements AgentService {
 
     @Autowired
     private ChannelMapper channelMapper;
+
+    @Autowired
+    private UserService userService;
 
     @Override
     public CommonResponse queryAgent(AgentQueryRequest agentQueryRequest) throws PakGoPayException {
@@ -199,5 +204,21 @@ public class AgentServiceImpl implements AgentService {
                 .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
     }
 
+    @Override
+    public CommonResponse addAgent(AgentAddRequest agentAddRequest) throws PakGoPayException {
+        log.info("addChannel start");
+
+//        CreateUserRequest createUserRequest = generateUserCreateInfo(agentAddRequest);
+//        try {
+//            int ret = channelMapper.insert(channelDto);
+//            log.info("addChannel insert done, ret={}", ret);
+//        } catch (Exception e) {
+//            log.error("addChannel insert failed", e);
+//            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+//        }
+
+        log.info("addChannel end");
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
 
 }

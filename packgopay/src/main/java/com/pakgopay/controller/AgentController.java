@@ -2,9 +2,9 @@ package com.pakgopay.controller;
 
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.common.reqeust.agent.AgentAddRequest;
 import com.pakgopay.common.reqeust.agent.AgentEditRequest;
 import com.pakgopay.common.reqeust.agent.AgentQueryRequest;
-import com.pakgopay.common.reqeust.channel.ChannelEditRequest;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.service.agent.AgentService;
 import com.pakgopay.util.ExportFileUtils;
@@ -63,6 +63,17 @@ public class AgentController {
         } catch (PakGoPayException e) {
             log.error("editAgent failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "editAgent failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/addAgent")
+    public CommonResponse addAgent(@RequestBody @Valid AgentAddRequest agentAddRequest, HttpServletRequest request) {
+        log.info("addAgent start");
+        try {
+            return agentService.addAgent(agentAddRequest);
+        } catch (PakGoPayException e) {
+            log.error("addAgent failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "addAgent failed: " + e.getMessage());
         }
     }
 }
