@@ -10,8 +10,8 @@ public class PaymentQueryRequest extends ExportBaseRequest {
      */
     private String paymentName;
 
-    /** Whether it is a third-party channel: 0-no, 1-yes (varchar in DB) */
-    private String isThird;
+    /** support type: 0:collect 1:pay 2:collect/pay */
+    private String supportType;
 
     /** Payment type: 1-app payment, 2-bank card payment */
     private String paymentType;

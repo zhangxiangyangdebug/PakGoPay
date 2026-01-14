@@ -551,7 +551,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     private PaymentResponse queryPaymentData(PaymentQueryRequest paymentQueryRequest) throws PakGoPayException {
         PaymentEntity entity = new PaymentEntity();
         entity.setPaymentName(paymentQueryRequest.getPaymentName());
-        entity.setIsThird(paymentQueryRequest.getIsThird());
+        entity.setSupportType(paymentQueryRequest.getSupportType());
         entity.setPaymentType(paymentQueryRequest.getPaymentType());
         entity.setCurrency(paymentQueryRequest.getCurrency());
         entity.setStatus(paymentQueryRequest.getStatus());

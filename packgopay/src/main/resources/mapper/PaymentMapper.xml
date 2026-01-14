@@ -232,8 +232,8 @@
                 AND payment_name LIKE CONCAT('%', #{paymentName}, '%')
             </if>
 
-            <if test="isThird != null and isThird != ''">
-                AND isThird = #{isThird}
+            <if test="supportType != null and supportType != ''">
+                AND support_type = #{supportType}
             </if>
 
             <if test="paymentType != null and paymentType != ''">

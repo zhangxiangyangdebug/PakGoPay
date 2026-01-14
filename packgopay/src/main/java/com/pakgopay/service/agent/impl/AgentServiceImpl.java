@@ -1,7 +1,9 @@
 package com.pakgopay.service.agent.impl;
 
+import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.common.reqeust.CreateUserRequest;
 import com.pakgopay.common.reqeust.agent.AgentAddRequest;
 import com.pakgopay.common.reqeust.agent.AgentEditRequest;
 import com.pakgopay.common.reqeust.agent.AgentQueryRequest;
@@ -208,7 +210,7 @@ public class AgentServiceImpl implements AgentService {
     public CommonResponse addAgent(AgentAddRequest agentAddRequest) throws PakGoPayException {
         log.info("addChannel start");
 
-//        CreateUserRequest createUserRequest = generateUserCreateInfo(agentAddRequest);
+        CreateUserRequest createUserRequest = generateUserCreateInfo(agentAddRequest);
 //        try {
 //            int ret = channelMapper.insert(channelDto);
 //            log.info("addChannel insert done, ret={}", ret);
@@ -219,6 +221,21 @@ public class AgentServiceImpl implements AgentService {
 
         log.info("addChannel end");
         return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private CreateUserRequest generateUserCreateInfo(AgentAddRequest agentAddRequest) {
+        CreateUserRequest dto = new CreateUserRequest();
+        long now = System.currentTimeMillis() / 1000;
+        dto.setRoleId(CommonConstant.ROLE_AGENT);
+
+        PatchBuilderUtil<AgentAddRequest, CreateUserRequest> builder = PatchBuilderUtil.from(agentAddRequest).to(dto)
+                .str(agentAddRequest::getAccountName,dto::setLoginName)
+                .str(agentAddRequest::getAccountPwd,dto::setPassword)
+                .str(agentAddRequest::getAccountConfirmPwd,dto::setConfirmPassword)
+                .str(agentAddRequest::getUserId,dto::setOperatorId)
+                .obj(agentAddRequest::getStatus,dto::setStatus);
+
+        return builder.build();
     }
 
 }
