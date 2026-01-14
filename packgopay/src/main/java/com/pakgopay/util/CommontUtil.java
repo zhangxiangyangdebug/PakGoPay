@@ -2,7 +2,11 @@ package com.pakgopay.util;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class CommontUtil {
 
@@ -58,5 +62,24 @@ public class CommontUtil {
         return amount
                 .multiply(rate)
                 .divide(ONE_HUNDRED, scale, RoundingMode.HALF_UP);
+    }
+
+    public static List<Long> parseIds(String csv) {
+        if (csv == null || csv.isBlank()) {
+            return Collections.emptyList();
+        }
+        return Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(s -> {
+                    try {
+                        return Long.valueOf(s);
+                    } catch (NumberFormatException e) {
+                        return null; // ignore invalid id
+                    }
+                })
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
     }
 }

@@ -4,20 +4,24 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class AgentInfoDto implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /** Agent login user ID */
-    private String userId;
-
     /** Agent number */
-    private String agentNo;
+    private Long agentNo;
 
     /** Agent name */
     private String agentName;
+
+    /** Agent login user ID */
+    private String userId;
+
+    /** User name */
+    private String userName;
 
     /** Parent agent ID */
     private String parentId;
@@ -84,4 +88,11 @@ public class AgentInfoDto implements Serializable {
 
     /** Remark */
     private String remark;
+
+    //-------------------------Extended information------------------------------------------
+    /** parent agent name */
+    private String parentAgentName;
+
+    /** agent's channel Info */
+    private List<ChannelDto> channelDtoList;
 }

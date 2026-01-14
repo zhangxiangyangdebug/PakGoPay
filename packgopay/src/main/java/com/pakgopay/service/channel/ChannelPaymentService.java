@@ -28,7 +28,7 @@ public interface ChannelPaymentService {
 
     CommonResponse editPayment(@Valid PaymentEditRequest paymentEditRequest) throws PakGoPayException;
 
-    CommonResponse addChannel(@Valid ChannelAddRequest channelAddRequest);
+    CommonResponse addChannel(@Valid ChannelAddRequest channelAddRequest) throws PakGoPayException;
 
     CommonResponse addPayment(@Valid PaymentAddRequest paymentAddRequest) throws PakGoPayException;
 }

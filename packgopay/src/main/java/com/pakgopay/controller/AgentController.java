@@ -1,5 +1,6 @@
 package com.pakgopay.controller;
 
+import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.reqeust.agent.AgentQueryRequest;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.service.agent.AgentService;
@@ -22,11 +23,11 @@ public class AgentController {
     @PostMapping("/queryAgent")
     public CommonResponse queryAgent(@RequestBody @Valid AgentQueryRequest agentQueryRequest, HttpServletRequest request) {
         log.info("queryAgent start");
-//        try {
+        try {
             return agentService.queryAgent(agentQueryRequest);
-//        } catch (PakGoPayException e) {
-//            log.error("queryAgent failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-//            return CommonResponse.fail(e.getCode(), "queryAgent failed: " + e.getMessage());
-//        }
+        } catch (PakGoPayException e) {
+            log.error("queryAgent failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryAgent failed: " + e.getMessage());
+        }
     }
 }

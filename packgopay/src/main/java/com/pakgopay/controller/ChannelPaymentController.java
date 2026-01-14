@@ -105,16 +105,16 @@ public class ChannelPaymentController {
         }
     }
 
-//    @PostMapping("/addChannel")
-//    public CommonResponse addChannel(@RequestBody @Valid ChannelAddRequest channelAddRequest, HttpServletRequest request) {
-//        log.info("addChannel start");
-//        try {
-//            return channelPaymentService.addChannel(channelAddRequest);
-//        } catch (PakGoPayException e) {
-//            log.error("addChannel failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-//            return CommonResponse.fail(e.getCode(), "addChannel failed: " + e.getMessage());
-//        }
-//    }
+    @PostMapping("/addChannel")
+    public CommonResponse addChannel(@RequestBody @Valid ChannelAddRequest channelAddRequest, HttpServletRequest request) {
+        log.info("addChannel start");
+        try {
+            return channelPaymentService.addChannel(channelAddRequest);
+        } catch (PakGoPayException e) {
+            log.error("addChannel failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "addChannel failed: " + e.getMessage());
+        }
+    }
 
     @PostMapping("/addPayment")
     public CommonResponse addPayment(@RequestBody @Valid PaymentAddRequest paymentAddRequest, HttpServletRequest request) {

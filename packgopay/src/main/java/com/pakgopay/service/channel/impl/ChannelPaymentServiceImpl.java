@@ -113,7 +113,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not channel");
         }
 
-        List<Long> channelIdList = parseIds(channelIds);
+        List<Long> channelIdList = CommontUtil.parseIds(channelIds);
         if (channelIdList.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not channel");
         }
@@ -318,7 +318,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             if (!StringUtils.hasText(ids)) {
                 return;
             }
-            List<Long> tempSet = parseIds(ids);
+            List<Long> tempSet = CommontUtil.parseIds(ids);
             tempSet.forEach(id -> paymentMap.put(id, dto));
             paymentIdList.addAll(tempSet);
         });
@@ -511,7 +511,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         Set<Long> allPaymentIds = new HashSet<>();
 
         for (ChannelDto channel : channelDtoList) {
-            List<Long> ids = parseIds(channel.getPaymentIds());
+            List<Long> ids = CommontUtil.parseIds(channel.getPaymentIds());
             channelPaymentIdsMap.put(channel, ids);
             allPaymentIds.addAll(ids);
         }
@@ -713,29 +713,40 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
     }
 
-    private List<Long> parseIds(String csv) {
-        if (csv == null || csv.isBlank()) {
-            return Collections.emptyList();
+    @Override
+    public CommonResponse addChannel(ChannelAddRequest channelAddRequest) throws PakGoPayException {
+        log.info("addChannel start");
+
+        ChannelDto channelDto = checkAndGenerateChannelDtoForAdd(channelAddRequest);
+        try {
+            int ret = channelMapper.insert(channelDto);
+            log.info("addChannel insert done, ret={}", ret);
+        } catch (Exception e) {
+            log.error("addChannel insert failed", e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
-        return Arrays.stream(csv.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(s -> {
-                    try {
-                        return Long.valueOf(s);
-                    } catch (NumberFormatException e) {
-                        return null; // ignore invalid id
-                    }
-                })
-                .filter(Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
+
+        log.info("addChannel end");
+        return CommonResponse.success(ResultCode.SUCCESS);
     }
 
+    private ChannelDto checkAndGenerateChannelDtoForAdd(ChannelAddRequest channelAddRequest) {
+        ChannelDto dto = new ChannelDto();
+        long now = System.currentTimeMillis() / 1000;
 
-    @Override
-    public CommonResponse addChannel(ChannelAddRequest channelAddRequest) {
-        return null;
+        PatchBuilderUtil<ChannelAddRequest, ChannelDto> builder = PatchBuilderUtil.from(channelAddRequest).to(dto)
+                .str(channelAddRequest::getChannelName,dto::setChannelName)
+                .obj(channelAddRequest::getStatus,dto::setStatus)
+                .ids(channelAddRequest::getPaymentIds,dto::setPaymentIds)
+
+                // 10) Meta Info
+                .obj(channelAddRequest::getRemark, dto::setRemark)
+                .obj(() -> now, dto::setCreateTime)
+                .obj(() -> now, dto::setUpdateTime)
+                .str(channelAddRequest::getUserName, dto::setCreateBy)
+                .str(channelAddRequest::getUserName, dto::setUpdateBy);
+
+        return builder.build();
     }
 
     @Override
@@ -789,12 +800,10 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
         // supportType routing
         Integer supportType = paymentAddRequest.getSupportType();
-        if (supportType == 0) {
+        if (supportType == 0 || supportType == 2) {
             applyCollectRequired(builder, paymentAddRequest);
-        } else if (supportType == 1) {
-            applyPayRequired(builder, paymentAddRequest);
-        } else {
-            applyCollectRequired(builder, paymentAddRequest);
+        }
+        if (supportType == 1 || supportType == 2) {
             applyPayRequired(builder, paymentAddRequest);
         }
 

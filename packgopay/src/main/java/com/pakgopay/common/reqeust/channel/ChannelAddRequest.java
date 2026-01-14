@@ -19,6 +19,11 @@ public class ChannelAddRequest extends BaseRequest {
     private Integer status;
 
     /**
+     * remark
+     */
+    private String remark;
+
+    /**
      * payment ids
      */
     private List<Integer> paymentIds;

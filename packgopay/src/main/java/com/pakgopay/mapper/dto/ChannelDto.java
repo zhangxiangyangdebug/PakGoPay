@@ -26,24 +26,6 @@ public class ChannelDto implements Serializable {
     /** xiaoyou 成功率 */
     private BigDecimal successRate;
 
-    /** xiaoyou 日代收限额 */
-    private BigDecimal dailyCollectionLimit;
-
-    /** xiaoyou 日代付限额 */
-    private BigDecimal dailyPayLimit;
-
-    /** xiaoyou 月代付限额（表里是 monthly_collection_limit，注释写月代付限额） */
-    private BigDecimal monthlyCollectionLimit;
-
-    /** xiaoyou 最低金额 */
-    private BigDecimal minAmount;
-
-    /** xiaoyou 最高金额 */
-    private BigDecimal maxAmount;
-
-    /** xiaoyou 月代付限额 */
-    private BigDecimal monthlyPayLimit;
-
     /** xiaoyou 更新时间 */
     private Long updateTime;
 
@@ -58,30 +40,6 @@ public class ChannelDto implements Serializable {
 
     /** xiaoyou 启用状态0-停用、1-启用 */
     private Integer status;
-
-    /** xiaoyou 代收最高费用 */
-    private BigDecimal collectionMaxFee;
-
-    /** xiaoyou 代收费率 */
-    private BigDecimal collectionRate;
-
-    /** xiaoyou 代收固定费用 */
-    private BigDecimal collectionFixedFee;
-
-    /** xiaoyou 代收最低费用 */
-    private BigDecimal collectionMinFee;
-
-    /** xiaoyou 代付费率 */
-    private BigDecimal payRate;
-
-    /** xiaoyou 代付固定费用 */
-    private BigDecimal payFixedFee;
-
-    /** xiaoyou 代付最高费用 */
-    private BigDecimal payMaxFee;
-
-    /** xiaoyou 代付最低费用 */
-    private BigDecimal payMinFee;
 
     /** xiaoyou 备注（表字段名 remark） */
     private String remark;

@@ -1,5 +1,6 @@
 package com.pakgopay.mapper;
 
+import com.pakgopay.entity.agent.AgentInfoEntity;
 import com.pakgopay.mapper.dto.AgentInfoDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -27,4 +28,10 @@ public interface AgentInfoMapper {
      */
     int updateStatus(@Param("userId") String userId,
                      @Param("status") Integer status);
+
+    /** Count by query */
+    Integer countByQuery(AgentInfoEntity entity);
+
+    /** Page query */
+    List<AgentInfoDto> pageByQuery(AgentInfoEntity entity);
 }

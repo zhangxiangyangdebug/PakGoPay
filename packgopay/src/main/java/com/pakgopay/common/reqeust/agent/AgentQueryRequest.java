@@ -10,4 +10,14 @@ public class AgentQueryRequest extends ExportBaseRequest {
      * Agent name
      */
     private String agentName;
+
+    /**
+     * account name
+     */
+    private String accountName;
+
+    /**
+     * status
+     */
+    private Integer status;
 }

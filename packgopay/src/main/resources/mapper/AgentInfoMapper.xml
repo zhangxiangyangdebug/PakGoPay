@@ -8,10 +8,11 @@
     <!-- Result map (explicit javaType) -->
     <resultMap id="AgentInfoResultMap" type="com.pakgopay.mapper.dto.AgentInfoDto">
 
-        <id column="user_id" property="userId" javaType="java.lang.String"/>
-
-        <result column="agent_no" property="agentNo" javaType="java.lang.String"/>
+        <id column="agent_no" property="agentNo" javaType="java.lang.Long"/>
         <result column="agent_name" property="agentName" javaType="java.lang.String"/>
+
+        <result column="user_id" property="userId" javaType="java.lang.String"/>
+        <result column="user_name" property="userName" javaType="java.lang.String"/>
 
         <result column="parent_id" property="parentId" javaType="java.lang.String"/>
         <result column="top_agent_id" property="topAgentId" javaType="java.lang.String"/>
@@ -49,9 +50,10 @@
 
     <!-- Base columns -->
     <sql id="BaseColumns">
-        user_id,
         agent_no,
         agent_name,
+        user_id,
+        user_name,
         parent_id,
         top_agent_id,
         channel_ids,
@@ -82,7 +84,7 @@
         INSERT INTO agent_info (
         <include refid="BaseColumns"/>
         ) VALUES (
-        #{userId},#{agentNo},#{agentName},#{parentId},#{topAgentId},#{channelIds},#{status},#{contactName},#{contactEmail},
+        #{agentNo},#{agentName},#{userId},#{userName},#{parentId},#{topAgentId},#{channelIds},#{status},#{contactName},#{contactEmail},
         #{contactPhone},#{level},#{collectionRate},#{collectionFixedFee},#{collectionMaxFee},#{collectionMinFee},#{payRate},
         #{payFixedFee},#{payMaxFee},#{payMinFee},#{createTime},#{createBy},#{updateTime},#{updateBy},
         #{version},#{remark}
@@ -110,5 +112,42 @@
         SET status = #{status}
         WHERE user_id = #{userId}
     </update>
+
+    <sql id="AgentQueryWhere">
+        <where>
+
+            <if test="userName != null and userName != ''">
+                AND user_name LIKE CONCAT('%', #{userName}, '%')
+            </if>
+
+            <if test="agentName != null and agentName != ''">
+                AND agent_name LIKE CONCAT('%', #{agentName}, '%')
+            </if>
+
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+
+        </where>
+    </sql>
+
+    <select id="countByQuery"
+            parameterType="com.pakgopay.entity.agent.AgentInfoEntity"
+            resultType="int">
+        SELECT COUNT(1)
+        FROM agent_info
+        <include refid="AgentQueryWhere"/>
+    </select>
+
+    <select id="pageByQuery"
+            parameterType="com.pakgopay.entity.agent.AgentInfoEntity"
+            resultMap="AgentInfoResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM agent_info
+        <include refid="AgentQueryWhere"/>
+        ORDER BY agent_no DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
 
 </mapper>
