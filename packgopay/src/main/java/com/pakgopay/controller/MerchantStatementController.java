@@ -2,6 +2,8 @@ package com.pakgopay.controller;
 
 import com.google.gson.Gson;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
+import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantStatementRequest;
 import com.pakgopay.data.response.CommonResponse;
@@ -70,6 +72,28 @@ public class MerchantStatementController {
         } catch (PakGoPayException e) {
             log.error("queryMerchant failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryMerchant failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/editMerchant")
+    public CommonResponse editMerchant(@RequestBody @Valid MerchantEditRequest merchantEditRequest, HttpServletRequest request) {
+        log.info("editMerchant start");
+        try {
+            return merchantService.editMerchant(merchantEditRequest);
+        } catch (PakGoPayException e) {
+            log.error("editMerchant failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "editMerchant failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/addMerchant")
+    public CommonResponse addMerchant(@RequestBody @Valid MerchantAddRequest merchantAddRequest, HttpServletRequest request) {
+        log.info("addMerchant start");
+        try {
+            return merchantService.addMerchant(merchantAddRequest);
+        } catch (PakGoPayException e) {
+            log.error("addMerchant failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "addMerchant failed: " + e.getMessage());
         }
     }
 

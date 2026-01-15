@@ -1,9 +1,14 @@
 package com.pakgopay.service;
 
+import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
+import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
-import jakarta.validation.Valid;
 
 public interface MerchantService {
-    CommonResponse queryMerchant(@Valid MerchantQueryRequest merchantQueryRequest);
+    CommonResponse queryMerchant(MerchantQueryRequest merchantQueryRequest);
+
+    CommonResponse editMerchant(MerchantEditRequest merchantEditRequest);
+
+    CommonResponse addMerchant(MerchantAddRequest merchantAddRequest);
 }

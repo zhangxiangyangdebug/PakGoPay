@@ -13,8 +13,7 @@
 
         <result column="merchant_name" property="merchantName" javaType="java.lang.String"/>
 
-        <result column="collection_enabled" property="collectionEnabled" javaType="java.lang.Boolean"/>
-        <result column="pay_enabled" property="payEnabled" javaType="java.lang.Boolean"/>
+        <result column="support_type" property="supportType" javaType="java.lang.Integer"/>
 
         <result column="status" property="status" javaType="java.lang.Integer"/>
         <result column="risk_level" property="riskLevel" javaType="java.lang.Integer"/>
@@ -45,13 +44,30 @@
     </resultMap>
 
     <sql id="BaseColumns">
-        user_id, parent_id, merchant_name, collection_enabled, pay_enabled,
-        status, risk_level, notification_enable,
-        create_time, create_by, update_time, update_by,
-        collection_rate, collection_fixed_fee, collection_max_fee, collection_min_fee,
-        pay_rate, pay_fixed_fee, pay_max_fee, pay_min_fee,
-        version, is_float,
-        col_white_ips, pay_white_ips, channel_ids
+        user_id,
+        parent_id,
+        merchant_name,
+        support_type,
+        status,
+        risk_level,
+        notification_enable,
+        create_time,
+        create_by,
+        update_time,
+        update_by,
+        collection_rate,
+        collection_fixed_fee,
+        collection_max_fee,
+        collection_min_fee,
+        pay_rate,
+        pay_fixed_fee,
+        pay_max_fee,
+        pay_min_fee,
+        version,
+        is_float,
+        col_white_ips,
+        pay_white_ips,
+        channel_ids
     </sql>
 
     <!-- 1.findByUserId -->
@@ -62,20 +78,71 @@
         limit 1
     </select>
 
-    <!-- 2.saveData -->
-    <insert id="saveData" parameterType="com.pakgopay.mapper.dto.MerchantInfoDto">
-        insert into merchant_info (
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.MerchantInfoDto">
+        INSERT INTO merchant_info (
         <include refid="BaseColumns"/>
-        ) values (
-        #{userId}, #{parentId}, #{merchantName}, #{collectionEnabled}, #{payEnabled},
-        #{status}, #{riskLevel}, #{notificationEnable},
-        #{createTime}, #{createBy}, #{updateTime}, #{updateBy},
-        #{collectionRate}, #{collectionFixedFee}, #{collectionMaxFee}, #{collectionMinFee},
-        #{payRate}, #{payFixedFee}, #{payMaxFee}, #{payMinFee},
-        #{version} #{isFloat},
-        #{colWhiteIps}, #{payWhiteIps}, #{channelIds}
+        ) VALUES (
+        #{userId},
+        #{parentId},
+        #{merchantName},
+        #{supportType},
+        #{status},
+        #{riskLevel},
+        #{notificationEnable},
+        #{createTime},
+        #{createBy},
+        #{updateTime},
+        #{updateBy},
+        #{collectionRate},
+        #{collectionFixedFee},
+        #{collectionMaxFee},
+        #{collectionMinFee},
+        #{payRate},
+        #{payFixedFee},
+        #{payMaxFee},
+        #{payMinFee},
+        #{version},
+        #{isFloat},
+        #{colWhiteIps},
+        #{payWhiteIps},
+        #{channelIds}
         )
     </insert>
+
+    <update id="updateByUserId" parameterType="com.pakgopay.mapper.dto.MerchantInfoDto">
+        UPDATE merchant_info
+        <set>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="merchantName != null and merchantName != ''">merchant_name = #{merchantName},</if>
+            <if test="supportType != null">support_type = #{supportType},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="riskLevel != null">risk_level = #{riskLevel},</if>
+            <if test="notificationEnable != null">notification_enable = #{notificationEnable},</if>
+
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+
+            <if test="collectionRate != null">collection_rate = #{collectionRate},</if>
+            <if test="collectionFixedFee != null">collection_fixed_fee = #{collectionFixedFee},</if>
+            <if test="collectionMaxFee != null">collection_max_fee = #{collectionMaxFee},</if>
+            <if test="collectionMinFee != null">collection_min_fee = #{collectionMinFee},</if>
+
+            <if test="payRate != null">pay_rate = #{payRate},</if>
+            <if test="payFixedFee != null">pay_fixed_fee = #{payFixedFee},</if>
+            <if test="payMaxFee != null">pay_max_fee = #{payMaxFee},</if>
+            <if test="payMinFee != null">pay_min_fee = #{payMinFee},</if>
+
+            <if test="version != null">version = #{version},</if>
+
+            <if test="isFloat != null">is_float = #{isFloat},</if>
+
+            <if test="colWhiteIps != null and colWhiteIps != ''">col_white_ips = #{colWhiteIps},</if>
+            <if test="payWhiteIps != null and payWhiteIps != ''">pay_white_ips = #{payWhiteIps},</if>
+
+            <if test="channelIds != null and channelIds != ''">channel_ids = #{channelIds},</if>
+        </set>
+        WHERE user_id = #{userId}
+    </update>
 
     <!-- 3.upDatePayWhiteIpsByUserId -->
     <update id="upDatePayWhiteIpsByUserId">

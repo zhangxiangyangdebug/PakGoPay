@@ -1,8 +1,12 @@
 package com.pakgopay.service.impl;
 
+import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.merchant.MerchantEntity;
+import com.pakgopay.data.reqeust.CreateUserRequest;
+import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
+import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.merchant.MerchantResponse;
@@ -15,7 +19,10 @@ import com.pakgopay.mapper.dto.ChannelDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.MerchantService;
+import com.pakgopay.service.login.impl.UserService;
 import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.PatchBuilderUtil;
+import com.pakgopay.util.TransactionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -39,6 +46,12 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Autowired
     private AgentInfoMapper agentInfoMapper;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private TransactionUtil transactionUtil;
 
 
     @Override
@@ -193,5 +206,157 @@ public class MerchantServiceImpl implements MerchantService {
 
     private static <T> List<T> safeList(List<T> list) {
         return list == null ? Collections.emptyList() : list;
+    }
+
+    @Override
+    public CommonResponse editMerchant(MerchantEditRequest merchantEditRequest) {
+        log.info("editMerchant start, merchantUserId={}", merchantEditRequest.getMerchantUserId());
+
+        MerchantInfoDto merchantInfoDto = checkAndGenerateMerchantInfo(merchantEditRequest);
+        try {
+            int ret = merchantInfoMapper.updateByUserId(merchantInfoDto);
+            log.info("editMerchant updateByChannelId done, merchantUserId={}, ret={}", merchantEditRequest.getMerchantUserId(), ret);
+
+            if (ret <= 0) {
+                return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
+            }
+        } catch (Exception e) {
+            log.error("editMerchant updateByChannelId failed, merchantUserId={}", merchantEditRequest.getMerchantUserId(), e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("editMerchant end, merchantUserId={}", merchantEditRequest.getMerchantUserId());
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private MerchantInfoDto checkAndGenerateMerchantInfo(
+            MerchantEditRequest req) throws PakGoPayException {
+        MerchantInfoDto dto = new MerchantInfoDto();
+        dto.setUserId(req.getMerchantUserId());
+        dto.setUpdateTime(System.currentTimeMillis() / 1000);
+
+        return PatchBuilderUtil.from(req).to(dto)
+                // basic
+                .str(req::getParentId, dto::setParentId)
+                .str(req::getMerchantName, dto::setMerchantName)
+                .obj(req::getSupportType, dto::setSupportType)
+                .obj(req::getStatus, dto::setStatus)
+                .obj(req::getRiskLevel, dto::setRiskLevel)
+                .obj(req::getNotificationEnable, dto::setNotificationEnable)
+
+                // collection fee config
+                .obj(req::getCollectionRate, dto::setCollectionRate)
+                .obj(req::getCollectionFixedFee, dto::setCollectionFixedFee)
+                .obj(req::getCollectionMaxFee, dto::setCollectionMaxFee)
+                .obj(req::getCollectionMinFee, dto::setCollectionMinFee)
+
+                // payout fee config
+                .obj(req::getPayRate, dto::setPayRate)
+                .obj(req::getPayFixedFee, dto::setPayFixedFee)
+                .obj(req::getPayMaxFee, dto::setPayMaxFee)
+                .obj(req::getPayMinFee, dto::setPayMinFee)
+
+                // float & whitelist
+                .obj(req::getIsFloat, dto::setIsFloat)
+                .str(req::getColWhiteIps, dto::setColWhiteIps)
+                .str(req::getPayWhiteIps, dto::setPayWhiteIps)
+
+                // channel ids (List<Long> -> "1,2,3")
+                .ids(req::getChannelIds, dto::setChannelIds)
+                .str(req::getUserName, dto::setUpdateBy)
+                .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
+    }
+
+    @Override
+    public CommonResponse addMerchant(MerchantAddRequest merchantAddRequest) {
+        log.info("addChannel start");
+
+        CreateUserRequest createUserRequest = generateUserCreateInfo(merchantAddRequest);
+        MerchantInfoDto merchantInfoDto = generateMerchantInfoForAdd(merchantAddRequest);
+
+        transactionUtil.runInTransaction(() -> {
+            Long userId = userService.createUser(createUserRequest);
+
+            merchantInfoDto.setUserId(userId.toString());
+            merchantInfoMapper.insert(merchantInfoDto);
+        });
+
+        log.info("addChannel end");
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private MerchantInfoDto generateMerchantInfoForAdd(MerchantAddRequest req) {
+        MerchantInfoDto dto = new MerchantInfoDto();
+        long now = System.currentTimeMillis() / 1000;
+
+        PatchBuilderUtil<MerchantAddRequest, MerchantInfoDto> b = PatchBuilderUtil.from(req).to(dto)
+                // =====================
+                // 1) Identity & Ownership
+                // =====================
+                .str(req::getParentId, dto::setParentId)
+                .reqStr("merchantName", req::getMerchantName, dto::setMerchantName)
+
+                // =====================
+                // 2) Basic Status & Capability
+                // =====================
+                .reqObj("supportType", req::getSupportType, dto::setSupportType)
+                .reqObj("status", req::getStatus, dto::setStatus)
+
+                // =====================
+                // 3) Risk & Notification
+                // =====================
+                .reqObj("riskLevel", req::getRiskLevel, dto::setRiskLevel)
+                .reqObj("notificationEnable", req::getNotificationEnable, dto::setNotificationEnable)
+
+                // =====================
+                // 4) Collection Fee Configuration
+                // =====================
+                .reqObj("collectionRate", req::getCollectionRate, dto::setCollectionRate)
+                .reqObj("collectionFixedFee", req::getCollectionFixedFee, dto::setCollectionFixedFee)
+                .reqObj("collectionMaxFee", req::getCollectionMaxFee, dto::setCollectionMaxFee)
+                .reqObj("collectionMinFee", req::getCollectionMinFee, dto::setCollectionMinFee)
+
+                // =====================
+                // 5) Payout Fee Configuration
+                // =====================
+                .reqObj("payRate", req::getPayRate, dto::setPayRate)
+                .reqObj("payFixedFee", req::getPayFixedFee, dto::setPayFixedFee)
+                .reqObj("payMaxFee", req::getPayMaxFee, dto::setPayMaxFee)
+                .reqObj("payMinFee", req::getPayMinFee, dto::setPayMinFee)
+
+                // =====================
+                // 6) Floating & Security
+                // =====================
+                .reqObj("isFloat", req::getIsFloat, dto::setIsFloat)
+                .reqStr("colWhiteIps", req::getColWhiteIps, dto::setColWhiteIps)
+                .reqStr("payWhiteIps", req::getPayWhiteIps, dto::setPayWhiteIps)
+
+                // =====================
+                // 7) Channel Configuration
+                // =====================
+                .str(req::getChannelIds, dto::setChannelIds);
+
+        // 4) meta
+        dto.setCreateTime(now);
+        dto.setUpdateTime(now);
+        dto.setCreateBy(req.getUserName());
+        dto.setUpdateBy(req.getUserName());
+
+        return b.build();
+    }
+
+    private CreateUserRequest generateUserCreateInfo(MerchantAddRequest merchantAddRequest) {
+        CreateUserRequest dto = new CreateUserRequest();
+        long now = System.currentTimeMillis() / 1000;
+        dto.setRoleId(CommonConstant.ROLE_MERCHANT);
+
+        PatchBuilderUtil<MerchantAddRequest, CreateUserRequest> builder = PatchBuilderUtil.from(merchantAddRequest).to(dto)
+                .str(merchantAddRequest::getAccountName, dto::setLoginName)
+                .str(merchantAddRequest::getAccountPwd, dto::setPassword)
+                .str(merchantAddRequest::getAccountConfirmPwd, dto::setConfirmPassword)
+                .str(merchantAddRequest::getUserId, dto::setOperatorId)
+                .obj(merchantAddRequest::getStatus, dto::setStatus);
+
+        return builder.build();
     }
 }

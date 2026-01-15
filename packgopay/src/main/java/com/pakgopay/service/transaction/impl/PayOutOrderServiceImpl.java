@@ -164,7 +164,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         }
 
         // check merchant is support payout
-        if (!merchantInfoDto.getPayEnabled()) {
+        if (merchantInfoDto.getSupportType() != 1 && merchantInfoDto.getSupportType() != 2) {
             log.error("The merchant is not support collection, merchantName: {}", merchantInfoDto.getMerchantName());
             throw new PakGoPayException(ResultCode.MERCHANT_NOT_SUPPORT_PAYOUT);
         }

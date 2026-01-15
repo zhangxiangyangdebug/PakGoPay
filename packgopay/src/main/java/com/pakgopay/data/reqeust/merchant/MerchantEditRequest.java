@@ -1,18 +1,18 @@
-package com.pakgopay.mapper.dto;
+package com.pakgopay.data.reqeust.merchant;
 
+import com.pakgopay.data.reqeust.BaseRequest;
 import lombok.Data;
 
-import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.List;
 
 @Data
-public class MerchantInfoDto implements Serializable {
+public class MerchantEditRequest extends BaseRequest {
 
-    private static final long serialVersionUID = 1L;
-
-    /** User ID */
-    private String userId;
+    /**
+     * merchant UserId
+     */
+    private String merchantUserId;
 
     /** Parent ID (upper-level ID) */
     private String parentId;
@@ -31,18 +31,6 @@ public class MerchantInfoDto implements Serializable {
 
     /** Whether notification is enabled (0 = No, 1 = Yes) */
     private Integer notificationEnable;
-
-    /** Creation time (Unix timestamp) */
-    private Long createTime;
-
-    /** Created by */
-    private String createBy;
-
-    /** Update time (Unix timestamp) */
-    private Long updateTime;
-
-    /** Updated by */
-    private String updateBy;
 
     /** Collection rate */
     private BigDecimal collectionRate;
@@ -68,9 +56,6 @@ public class MerchantInfoDto implements Serializable {
     /** Payout minimum fee */
     private BigDecimal payMinFee;
 
-    /** Version (for optimistic locking) */
-    private Integer version;
-
     /** Whether floating is enabled (0 = No, 1 = Yes) */
     private Integer isFloat;
 
@@ -81,13 +66,5 @@ public class MerchantInfoDto implements Serializable {
     private String payWhiteIps;
 
     /** Channel IDs (comma-separated) */
-    private String channelIds;
-
-    // ---------------------- external info -----------------
-
-    /** Merchant's agent infos */
-    List<AgentInfoDto> agentInfos;
-
-    /** Merchant's support currency */
-    List<String> currencyList;
+    private List<Long> channelIds;
 }

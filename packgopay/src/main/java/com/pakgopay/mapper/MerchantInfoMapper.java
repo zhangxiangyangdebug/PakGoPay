@@ -16,11 +16,10 @@ public interface MerchantInfoMapper {
      */
     MerchantInfoDto findByUserId(@Param("userId") String userId);
 
-    /**
-     * 2、saveData 插入保存数据
-     * @return 影响行数
-     */
-    int saveData(MerchantInfoDto dto);
+    /** Insert agent info */
+    int insert(MerchantInfoDto dto);
+
+    int updateByUserId(MerchantInfoDto dto);
 
     /** xiaoyou 3、upDatePayWhiteIpsByUserId：通过指定 userId 更新 pay_white_ips */
     int upDatePayWhiteIpsByUserId(@Param("userId") String userId,

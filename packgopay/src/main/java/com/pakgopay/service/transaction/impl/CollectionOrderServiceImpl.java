@@ -153,7 +153,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         }
 
         // check merchant is support collection
-        if (!merchantInfoDto.getCollectionEnabled()) {
+        if (merchantInfoDto.getSupportType() != 0 && merchantInfoDto.getSupportType() != 2) {
             log.error("The merchant is not support collection, merchantName: {}", merchantInfoDto.getMerchantName());
             throw new PakGoPayException(ResultCode.MERCHANT_NOT_SUPPORT_COLLECTION);
         }
