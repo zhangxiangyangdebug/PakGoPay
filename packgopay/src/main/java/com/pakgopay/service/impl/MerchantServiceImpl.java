@@ -120,6 +120,7 @@ public class MerchantServiceImpl implements MerchantService {
             merchant.setCurrencyList(currencies);
         }
     }
+
     /**
      * Build agent chain list: [parentAgent, upperAgent]
      * Upper agent is defined as parentAgent.parentId (one level up).
@@ -129,23 +130,29 @@ public class MerchantServiceImpl implements MerchantService {
             return Collections.emptyList();
         }
 
-        List<AgentInfoDto> chain = new ArrayList<>(2);
+        List<AgentInfoDto> chainBottomToTop = new ArrayList<>(3);
 
-        AgentInfoDto parent = agentByUserId.get(parentId);
-        if (parent != null) {
-            chain.add(parent);
-
-            // Upper agent: parent's parentId
-            String upperId = parent.getParentId();
-            if (upperId != null && !upperId.isBlank()) {
-                AgentInfoDto upper = agentByUserId.get(upperId);
-                if (upper != null) {
-                    chain.add(upper);
-                }
+        String curId = parentId;
+        int guard = 0; // prevent accidental cycles
+        while (curId != null && !curId.isBlank() && guard++ < 10) {
+            AgentInfoDto cur = agentByUserId.get(curId);
+            if (cur == null) {
+                break;
             }
+
+            chainBottomToTop.add(cur);
+
+            // Move upward: current's parentId
+            curId = cur.getParentId();
         }
 
-        return chain;
+        if (chainBottomToTop.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Reverse to [top -> ... -> bottom]
+        Collections.reverse(chainBottomToTop);
+        return chainBottomToTop;
     }
 
     /**

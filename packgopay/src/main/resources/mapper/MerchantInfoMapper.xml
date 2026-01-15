@@ -130,7 +130,7 @@
 
     <select id="pageByQuery"
             parameterType="com.pakgopay.data.entity.merchant.MerchantEntity"
-            resultMap="MerchantInfoResultMap">
+            resultMap="MerchantInfoDtoMap">
         SELECT
         <include refid="BaseColumns"/>
         FROM merchant_info m
