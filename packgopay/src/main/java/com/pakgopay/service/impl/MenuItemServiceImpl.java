@@ -1,4 +1,4 @@
-package com.pakgopay.service.login.impl;
+package com.pakgopay.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

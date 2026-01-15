@@ -1,4 +1,4 @@
-package com.pakgopay.service.systemConfig;
+package com.pakgopay.service;
 
 import com.pakgopay.data.reqeust.roleManagement.AddRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.DeleteRoleRequest;

@@ -1,4 +1,4 @@
-package com.pakgopay.service.report;
+package com.pakgopay.service;
 
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.report.*;

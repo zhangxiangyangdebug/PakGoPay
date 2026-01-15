@@ -1,4 +1,4 @@
-package com.pakgopay.service.login.impl;
+package com.pakgopay.service.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.google.gson.Gson;
@@ -10,7 +10,7 @@ import com.pakgopay.data.response.LoginResponse;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.service.common.AuthorizationService;
-import com.pakgopay.service.login.LoginService;
+import com.pakgopay.service.LoginService;
 import com.pakgopay.thirdUtil.GoogleUtil;
 import com.pakgopay.thirdUtil.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;

@@ -1,24 +1,23 @@
-package com.pakgopay.service.agent.impl;
+package com.pakgopay.service.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.entity.agent.AgentAccountInfoEntity;
+import com.pakgopay.data.entity.agent.AgentInfoEntity;
 import com.pakgopay.data.reqeust.CreateUserRequest;
 import com.pakgopay.data.reqeust.agent.*;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.agent.AgentAccountResponse;
 import com.pakgopay.data.response.agent.AgentResponse;
-import com.pakgopay.data.entity.agent.AgentAccountInfoEntity;
-import com.pakgopay.data.entity.agent.AgentInfoEntity;
 import com.pakgopay.mapper.AgentInfoMapper;
 import com.pakgopay.mapper.ChannelMapper;
 import com.pakgopay.mapper.WithdrawalAccountsMapper;
 import com.pakgopay.mapper.dto.AgentInfoDto;
 import com.pakgopay.mapper.dto.ChannelDto;
 import com.pakgopay.mapper.dto.WithdrawalAccountsDto;
-import com.pakgopay.service.agent.AgentService;
-import com.pakgopay.service.balance.BalanceService;
-import com.pakgopay.service.login.impl.UserService;
+import com.pakgopay.service.AgentService;
+import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.ExportReportDataColumns;
 import com.pakgopay.util.CommontUtil;
 import com.pakgopay.util.ExportFileUtils;
@@ -428,6 +427,9 @@ public class AgentServiceImpl implements AgentService {
             WithdrawalAccountsDto withdrawalAccountsDto = generateAccountInfoDtoForAdd(agentAccountAddRequest);
             int ret = withdrawalAccountsMapper.insert(withdrawalAccountsDto);
             log.info("addAgentAccount insert done, ret={}", ret);
+        } catch (PakGoPayException e) {
+            log.error("addAgentAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "addAgentAccount failed: " + e.getMessage());
         } catch (Exception e) {
             log.error("addAgentAccount insert failed", e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);

@@ -1,4 +1,4 @@
-package com.pakgopay.service.currencyTypeManagement;
+package com.pakgopay.service;
 
 import com.pakgopay.data.reqeust.currencyTypeManagement.CurrencyTypeRequest;
 import com.pakgopay.data.response.CommonResponse;

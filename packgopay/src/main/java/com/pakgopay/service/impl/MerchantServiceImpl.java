@@ -19,7 +19,6 @@ import com.pakgopay.mapper.dto.ChannelDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.MerchantService;
-import com.pakgopay.service.login.impl.UserService;
 import com.pakgopay.util.CommontUtil;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.TransactionUtil;

@@ -1,4 +1,4 @@
-package com.pakgopay.service.systemConfig.impl;
+package com.pakgopay.service.impl;
 
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
@@ -15,7 +15,7 @@ import com.pakgopay.mapper.dto.Role;
 import com.pakgopay.mapper.dto.RoleMenuDTO;
 import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.service.common.AuthorizationService;
-import com.pakgopay.service.systemConfig.SystemConfigService;
+import com.pakgopay.service.SystemConfigService;
 import com.pakgopay.thirdUtil.GoogleUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;

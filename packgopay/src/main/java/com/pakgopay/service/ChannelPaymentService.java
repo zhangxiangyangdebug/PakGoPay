@@ -1,4 +1,4 @@
-package com.pakgopay.service.channel;
+package com.pakgopay.service;
 
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.exception.PakGoPayException;

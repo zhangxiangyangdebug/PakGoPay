@@ -4,7 +4,7 @@ import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.report.*;
 import com.pakgopay.data.response.CommonResponse;
-import com.pakgopay.service.report.ReportService;
+import com.pakgopay.service.ReportService;
 import com.pakgopay.util.ExportFileUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;

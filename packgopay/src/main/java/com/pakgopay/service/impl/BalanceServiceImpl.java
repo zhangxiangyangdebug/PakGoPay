@@ -1,4 +1,4 @@
-package com.pakgopay.service.balance.impl;
+package com.pakgopay.service.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
@@ -6,7 +6,7 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.BalanceMapper;
 import com.pakgopay.mapper.dto.BalanceDto;
-import com.pakgopay.service.balance.BalanceService;
+import com.pakgopay.service.BalanceService;
 import com.pakgopay.util.CommontUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

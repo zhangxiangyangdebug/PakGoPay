@@ -1,4 +1,4 @@
-package com.pakgopay.service.login.impl;
+package com.pakgopay.service.impl;
 
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;

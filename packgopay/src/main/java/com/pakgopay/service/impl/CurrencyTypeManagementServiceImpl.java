@@ -1,4 +1,4 @@
-package com.pakgopay.service.currencyTypeManagement.impl;
+package com.pakgopay.service.impl;
 
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
@@ -7,7 +7,7 @@ import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.CurrencyTypeMapper;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.CurrencyTypeDTO;
-import com.pakgopay.service.currencyTypeManagement.CurrencyTypeManagementService;
+import com.pakgopay.service.CurrencyTypeManagementService;
 import com.pakgopay.thirdUtil.GoogleUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;

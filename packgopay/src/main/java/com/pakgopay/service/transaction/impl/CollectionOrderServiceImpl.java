@@ -10,7 +10,7 @@ import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
-import com.pakgopay.service.channel.impl.ChannelPaymentServiceImpl;
+import com.pakgopay.service.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.MerchantCheckService;
 import com.pakgopay.util.SnowflakeIdGenerator;

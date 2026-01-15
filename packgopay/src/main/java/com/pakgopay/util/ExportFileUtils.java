@@ -8,7 +8,7 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.ExportBaseRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.common.ExportReportDataColumns;
-import com.pakgopay.service.report.ThrowingFunction;
+import com.pakgopay.service.ThrowingFunction;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 

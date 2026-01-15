@@ -4,7 +4,7 @@ import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.channel.*;
 import com.pakgopay.data.response.CommonResponse;
-import com.pakgopay.service.channel.ChannelPaymentService;
+import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.util.ExportFileUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

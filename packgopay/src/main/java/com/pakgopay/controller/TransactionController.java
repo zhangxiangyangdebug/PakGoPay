@@ -6,7 +6,7 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.response.CommonResponse;
-import com.pakgopay.service.balance.BalanceService;
+import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.PayOutOrderService;
 import jakarta.servlet.http.HttpServletRequest;

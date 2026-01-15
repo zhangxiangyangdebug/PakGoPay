@@ -3,7 +3,7 @@ package com.pakgopay.controller;
 
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.common.AuthorizationService;
-import com.pakgopay.service.login.impl.MenuItemServiceImpl;
+import com.pakgopay.service.impl.MenuItemServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;

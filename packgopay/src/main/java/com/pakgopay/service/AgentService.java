@@ -1,4 +1,4 @@
-package com.pakgopay.service.agent;
+package com.pakgopay.service;
 
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.agent.*;
