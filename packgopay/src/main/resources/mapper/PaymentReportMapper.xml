@@ -113,7 +113,7 @@
     </sql>
 
     <select id="balanceInfosByQuery"
-            parameterType="com.pakgopay.entity.report.PaymentReportEntity"
+            parameterType="com.pakgopay.data.entity.report.PaymentReportEntity"
             resultType="java.math.BigDecimal">
         SELECT
         order_balance
@@ -122,7 +122,7 @@
     </select>
 
     <select id="pageByQuery"
-            parameterType="com.pakgopay.entity.report.PaymentReportEntity"
+            parameterType="com.pakgopay.data.entity.report.PaymentReportEntity"
             resultMap="PaymentReportResultMap">
         SELECT
         <include refid="BaseColumns"/>

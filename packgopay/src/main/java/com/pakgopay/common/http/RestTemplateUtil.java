@@ -1,6 +1,6 @@
 package com.pakgopay.common.http;
 
-import com.pakgopay.common.response.http.PaymentHttpResponse;
+import com.pakgopay.data.response.http.PaymentHttpResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;

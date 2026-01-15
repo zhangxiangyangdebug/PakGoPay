@@ -111,7 +111,7 @@
     </sql>
 
     <select id="countByQueryAgent"
-            parameterType="com.pakgopay.entity.agent.AgentAccountInfoEntity"
+            parameterType="com.pakgopay.data.entity.agent.AgentAccountInfoEntity"
             resultType="int">
         SELECT COUNT(1)
         FROM withdrawal_accounts wa
@@ -120,7 +120,7 @@
     </select>
 
     <select id="userIdsByQueryAgent"
-            parameterType="com.pakgopay.entity.agent.AgentAccountInfoEntity"
+            parameterType="com.pakgopay.data.entity.agent.AgentAccountInfoEntity"
             resultType="java.lang.String">
         SELECT DISTINCT wa.merchant_agent_id
         FROM withdrawal_accounts wa
@@ -129,7 +129,7 @@
     </select>
 
     <select id="pageByQueryAgent"
-            parameterType="com.pakgopay.entity.agent.AgentAccountInfoEntity"
+            parameterType="com.pakgopay.data.entity.agent.AgentAccountInfoEntity"
             resultMap="WithdrawalAccountsResultMap">
         SELECT
         wa.id,

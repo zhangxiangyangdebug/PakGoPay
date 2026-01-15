@@ -1,26 +1,5 @@
 package com.pakgopay.util;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.JWTCreator;
-import com.auth0.jwt.JWTVerifier;
-import com.auth0.jwt.algorithms.Algorithm;
-import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.auth0.jwt.interfaces.DecodedJWT;
-import com.google.gson.Gson;
-import com.pakgopay.common.entity.Children;
-import com.pakgopay.common.entity.Extra;
-import com.pakgopay.common.entity.MenuItem;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import org.jose4j.jwk.JsonWebKey;
-import org.jose4j.jwk.RsaJsonWebKey;
-import org.jose4j.jwk.RsaJwkGenerator;
-import org.jose4j.jws.AlgorithmIdentifiers;
-
-import java.security.SecureRandom;
-import java.time.LocalDateTime;
-import java.util.*;
-
 public class TokenUtils {
     /*private static final String SECRET_KEY = "wKkFKKTPpWtDq9C7cDqN8d7833T6C1xG6y9Z36ypv/lXK0cH0epj2zwaIgOGzlCdT7+ZY2GoCQWouHgDtfxPIkDxPDIVEwgqOq7yXiSLUvANubPW4tTG9MtSEskiUqEdT2YtWDTpYy8kjxSjx9L9fJ1fHq4MHwWspwvENoTyC8Q=";
     private static final long EXPIRATION_TIME = 1800000;

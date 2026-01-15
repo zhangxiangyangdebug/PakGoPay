@@ -2,8 +2,8 @@ package com.pakgopay.service.transaction;
 
 
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.common.reqeust.transaction.CollectionOrderRequest;
-import com.pakgopay.common.response.CommonResponse;
+import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
+import com.pakgopay.data.response.CommonResponse;
 import jakarta.validation.Valid;
 
 public interface CollectionOrderService {

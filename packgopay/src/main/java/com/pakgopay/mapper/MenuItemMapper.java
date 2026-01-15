@@ -1,6 +1,6 @@
 package com.pakgopay.mapper;
 
-import com.pakgopay.common.entity.Children;
+import com.pakgopay.data.entity.Children;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 

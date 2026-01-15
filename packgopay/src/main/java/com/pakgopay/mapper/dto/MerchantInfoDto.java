@@ -4,84 +4,93 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class MerchantInfoDto implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /** xiaoyou 用户ID */
+    /** User ID */
     private String userId;
 
-    /** xiaoyou 上级ID */
+    /** Parent ID (upper-level ID) */
     private String parentId;
 
-    /** xiaoyou 商户名称 */
+    /** Merchant name */
     private String merchantName;
 
-    /** xiaoyou 是否开启代收（0-否 1-是） */
+    /** Whether collection is enabled (0 = No, 1 = Yes) */
     private Boolean collectionEnabled;
 
-    /** xiaoyou 是否开启代付（0-否 1-是） */
+    /** Whether payout is enabled (0 = No, 1 = Yes) */
     private Boolean payEnabled;
 
-    /** xiaoyou 状态（0-禁用 1-启用） */
+    /** Status (0 = Disabled, 1 = Enabled) */
     private Integer status;
 
-    /** xiaoyou 风险等级 */
+    /** Risk level */
     private Integer riskLevel;
 
-    /** xiaoyou 是否开启通知（0-否 1-是） */
+    /** Whether notification is enabled (0 = No, 1 = Yes) */
     private Integer notificationEnable;
 
-    /** xiaoyou 创建时间 */
+    /** Creation time (Unix timestamp) */
     private Long createTime;
 
-    /** xiaoyou 创建人 */
+    /** Created by */
     private String createBy;
 
-    /** xiaoyou 更新时间 */
+    /** Update time (Unix timestamp) */
     private Long updateTime;
 
-    /** xiaoyou 更新人 */
+    /** Updated by */
     private String updateBy;
 
-    /** xiaoyou 代收费率 */
+    /** Collection rate */
     private BigDecimal collectionRate;
 
-    /** xiaoyou 代收固定手续费 */
+    /** Collection fixed fee */
     private BigDecimal collectionFixedFee;
 
-    /** xiaoyou 代收最高手续费 */
+    /** Collection maximum fee */
     private BigDecimal collectionMaxFee;
 
-    /** xiaoyou 代收最低手续费 */
+    /** Collection minimum fee */
     private BigDecimal collectionMinFee;
 
-    /** xiaoyou 代付费率 */
+    /** Payout rate */
     private BigDecimal payRate;
 
-    /** xiaoyou 代付固定手续费 */
+    /** Payout fixed fee */
     private BigDecimal payFixedFee;
 
-    /** xiaoyou 代付最高手续费 */
+    /** Payout maximum fee */
     private BigDecimal payMaxFee;
 
-    /** xiaoyou 代付最低手续费 */
+    /** Payout minimum fee */
     private BigDecimal payMinFee;
 
-    /** xiaoyou 版本号（乐观锁） */
+    /** Version (for optimistic locking) */
     private Integer version;
 
-    /** xiaoyou 是否浮动（0-否 1-是） */
+    /** Whether floating is enabled (0 = No, 1 = Yes) */
     private Integer isFloat;
 
-    /** xiaoyou 代收 IP 白名单（逗号分隔） */
+    /** Collection IP whitelist (comma-separated) */
     private String colWhiteIps;
 
-    /** xiaoyou 代付IP 白名单（逗号分隔） */
+    /** Payout IP whitelist (comma-separated) */
     private String payWhiteIps;
 
-    /** xiaoyou 渠道ID（逗号分隔） */
+    /** Channel IDs (comma-separated) */
     private String channelIds;
+
+    // ---------------------- external info -----------------
+
+    /** Merchant's agent infos */
+    List<AgentInfoDto> agentInfos;
+
+    /** Merchant's support currency */
+    List<String> currencyList;
 }

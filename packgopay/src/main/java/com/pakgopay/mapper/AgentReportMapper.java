@@ -1,6 +1,6 @@
 package com.pakgopay.mapper;
 
-import com.pakgopay.entity.report.AgentReportEntity;
+import com.pakgopay.data.entity.report.AgentReportEntity;
 import com.pakgopay.mapper.dto.AgentReportDto;
 import org.apache.ibatis.annotations.Mapper;
 

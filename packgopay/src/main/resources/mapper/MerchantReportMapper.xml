@@ -120,13 +120,13 @@
         </where>
     </sql>
 
-    <select id="countByQuery" resultType="java.lang.Integer" parameterType="com.pakgopay.entity.report.MerchantReportEntity">
+    <select id="countByQuery" resultType="java.lang.Integer" parameterType="com.pakgopay.data.entity.report.MerchantReportEntity">
         SELECT COUNT(1)
         FROM merchant_report
         <include refid="MerchantReportWhere"/>
     </select>
 
-    <select id="pageByQuery" resultMap="MerchantReportResultMap" parameterType="com.pakgopay.entity.report.MerchantReportEntity">
+    <select id="pageByQuery" resultMap="MerchantReportResultMap" parameterType="com.pakgopay.data.entity.report.MerchantReportEntity">
         SELECT
         <include refid="BaseColumns"/>
         FROM merchant_report

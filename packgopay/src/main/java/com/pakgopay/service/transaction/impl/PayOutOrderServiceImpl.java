@@ -1,13 +1,13 @@
 package com.pakgopay.service.transaction.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
-import com.pakgopay.entity.TransactionInfo;
+import com.pakgopay.data.entity.TransactionInfo;
 import com.pakgopay.common.enums.OrderStatus;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.common.reqeust.transaction.PayOutOrderRequest;
-import com.pakgopay.common.response.CommonResponse;
+import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
+import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;

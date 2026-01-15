@@ -1,7 +1,7 @@
 package com.pakgopay.common.exception;
 
 import com.pakgopay.common.enums.ResultCode;
-import com.pakgopay.common.response.CommonResponse;
+import com.pakgopay.data.response.CommonResponse;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;

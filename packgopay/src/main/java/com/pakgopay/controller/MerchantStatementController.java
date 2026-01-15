@@ -1,21 +1,31 @@
 package com.pakgopay.controller;
 
 import com.google.gson.Gson;
-import com.pakgopay.common.reqeust.MerchantStatementRequest;
-import com.pakgopay.common.response.CommonResponse;
-import com.pakgopay.common.response.MerchantStatementResponse;
+import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
+import com.pakgopay.data.reqeust.merchant.MerchantStatementRequest;
+import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.data.response.merchant.MerchantStatementResponse;
+import com.pakgopay.service.MerchantService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/pakGoPay/server/merchant")
 public class MerchantStatementController {
+
+    @Autowired
+    private MerchantService merchantService;
 
     @RequestMapping("/merchantStatement")
     public CommonResponse merchantStatementInfo(@RequestBody MerchantStatementRequest request) {
@@ -50,6 +60,17 @@ public class MerchantStatementController {
         merchantStatementResponseList.add(merchantStatementResponse);
         merchantStatementResponseList.add(merchantStatementResponse2);
         return CommonResponse.success(new Gson().toJson(merchantStatementResponseList));
+    }
+
+    @PostMapping("/queryMerchant")
+    public CommonResponse queryMerchant(@RequestBody @Valid MerchantQueryRequest merchantQueryRequest, HttpServletRequest request) {
+        log.info("queryMerchant start");
+        try {
+            return merchantService.queryMerchant(merchantQueryRequest);
+        } catch (PakGoPayException e) {
+            log.error("queryMerchant failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryMerchant failed: " + e.getMessage());
+        }
     }
 
 }

@@ -1,6 +1,5 @@
 package com.pakgopay.common.security;
 
-import com.pakgopay.entity.User;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.UserDTO;
 import org.springframework.beans.factory.annotation.Autowired;

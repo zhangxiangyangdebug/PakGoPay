@@ -1,7 +1,7 @@
 package com.pakgopay.controller;
 
 
-import com.pakgopay.common.response.CommonResponse;
+import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.common.AuthorizationService;
 import com.pakgopay.service.login.impl.MenuItemServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;

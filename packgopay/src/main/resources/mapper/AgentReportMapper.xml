@@ -108,7 +108,7 @@
 
     <!-- Count -->
     <select id="commissionInfosByQuery"
-            parameterType="com.pakgopay.entity.report.AgentReportEntity"
+            parameterType="com.pakgopay.data.entity.report.AgentReportEntity"
             resultType="java.math.BigDecimal">
         SELECT
         commission
@@ -118,7 +118,7 @@
 
     <!-- Page query -->
     <select id="pageByQuery"
-            parameterType="com.pakgopay.entity.report.AgentReportEntity"
+            parameterType="com.pakgopay.data.entity.report.AgentReportEntity"
             resultMap="AgentReportResultMap">
         SELECT
         <include refid="BaseColumns"/>

@@ -1,13 +1,12 @@
 package com.pakgopay.controller;
 
-import com.pakgopay.common.reqeust.LoginRequest;
-import com.pakgopay.common.response.CommonResponse;
-import com.pakgopay.entity.TestMessage;
-import com.pakgopay.entity.User;
+import com.pakgopay.data.reqeust.LoginRequest;
+import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.data.entity.TestMessage;
 import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.service.common.AuthorizationService;
 import com.pakgopay.service.login.LoginService;
-import com.pakgopay.service.TestMq;
+import com.pakgopay.service.common.TestMq;
 import com.pakgopay.service.login.impl.UserService;
 import com.pakgopay.thirdUtil.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;

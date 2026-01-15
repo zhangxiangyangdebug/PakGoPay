@@ -169,7 +169,7 @@
     </sql>
 
     <select id="countByQuery"
-            parameterType="com.pakgopay.entity.agent.AgentInfoEntity"
+            parameterType="com.pakgopay.data.entity.agent.AgentInfoEntity"
             resultType="int">
         SELECT COUNT(1)
         FROM agent_info
@@ -177,7 +177,7 @@
     </select>
 
     <select id="pageByQuery"
-            parameterType="com.pakgopay.entity.agent.AgentInfoEntity"
+            parameterType="com.pakgopay.data.entity.agent.AgentInfoEntity"
             resultMap="AgentInfoResultMap">
         SELECT
         <include refid="BaseColumns"/>

@@ -155,7 +155,7 @@
     </sql>
 
     <select id="countByQuery"
-            parameterType="com.pakgopay.entity.channel.ChannelEntity"
+            parameterType="com.pakgopay.data.entity.channel.ChannelEntity"
             resultType="int">
         SELECT COUNT(1)
         FROM channel
@@ -163,7 +163,7 @@
     </select>
 
     <select id="pageByQuery"
-            parameterType="com.pakgopay.entity.channel.ChannelEntity"
+            parameterType="com.pakgopay.data.entity.channel.ChannelEntity"
             resultMap="ChannelResultMap">
         SELECT
         <include refid="BaseColumns"/>

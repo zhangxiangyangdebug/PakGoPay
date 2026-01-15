@@ -1,7 +1,7 @@
 package com.pakgopay.common.config;
 
 import com.pakgopay.common.constant.CommonConstant;
-import com.pakgopay.common.reqeust.BaseRequest;
+import com.pakgopay.data.reqeust.BaseRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpInputMessage;

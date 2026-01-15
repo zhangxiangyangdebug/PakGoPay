@@ -1,7 +1,7 @@
 package com.pakgopay.controller;
 
-import com.pakgopay.common.reqeust.currencyTypeManagement.CurrencyTypeRequest;
-import com.pakgopay.common.response.CommonResponse;
+import com.pakgopay.data.reqeust.currencyTypeManagement.CurrencyTypeRequest;
+import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.currencyTypeManagement.CurrencyTypeManagementService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;

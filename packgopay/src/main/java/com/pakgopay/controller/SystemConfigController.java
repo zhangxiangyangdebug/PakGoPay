@@ -1,15 +1,13 @@
 package com.pakgopay.controller;
 
-import com.pakgopay.common.reqeust.CreateUserRequest;
-import com.pakgopay.common.reqeust.roleManagement.AddRoleRequest;
-import com.pakgopay.common.reqeust.roleManagement.DeleteRoleRequest;
-import com.pakgopay.common.reqeust.roleManagement.ModifyRoleRequest;
-import com.pakgopay.common.response.CommonResponse;
-import com.pakgopay.mapper.dto.Role;
+import com.pakgopay.data.reqeust.CreateUserRequest;
+import com.pakgopay.data.reqeust.roleManagement.AddRoleRequest;
+import com.pakgopay.data.reqeust.roleManagement.DeleteRoleRequest;
+import com.pakgopay.data.reqeust.roleManagement.ModifyRoleRequest;
+import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.systemConfig.SystemConfigService;
 import com.pakgopay.service.login.impl.UserService;
 import jakarta.servlet.http.HttpServletRequest;
-import org.apache.ibatis.annotations.Param;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 

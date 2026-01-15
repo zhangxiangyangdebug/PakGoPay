@@ -1,7 +1,7 @@
 package com.pakgopay.mq;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.pakgopay.service.notice.NotificationService;
+import com.pakgopay.service.common.NotificationService;
 import org.springframework.amqp.rabbit.annotation.Queue;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;

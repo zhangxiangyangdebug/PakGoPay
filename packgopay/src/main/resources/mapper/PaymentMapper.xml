@@ -252,7 +252,7 @@
     </sql>
 
     <select id="countByQuery"
-            parameterType="com.pakgopay.entity.channel.PaymentEntity"
+            parameterType="com.pakgopay.data.entity.channel.PaymentEntity"
             resultType="int">
         SELECT COUNT(1)
         FROM payment
@@ -260,7 +260,7 @@
     </select>
 
     <select id="pageByQuery"
-            parameterType="com.pakgopay.entity.channel.PaymentEntity"
+            parameterType="com.pakgopay.data.entity.channel.PaymentEntity"
             resultMap="PaymentResultMap">
         SELECT
         <include refid="BaseColumns"/>

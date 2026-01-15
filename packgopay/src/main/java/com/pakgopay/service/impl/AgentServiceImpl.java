@@ -1,0 +1,464 @@
+package com.pakgopay.service.agent.impl;
+
+import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.enums.ResultCode;
+import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.reqeust.CreateUserRequest;
+import com.pakgopay.data.reqeust.agent.*;
+import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.data.response.agent.AgentAccountResponse;
+import com.pakgopay.data.response.agent.AgentResponse;
+import com.pakgopay.data.entity.agent.AgentAccountInfoEntity;
+import com.pakgopay.data.entity.agent.AgentInfoEntity;
+import com.pakgopay.mapper.AgentInfoMapper;
+import com.pakgopay.mapper.ChannelMapper;
+import com.pakgopay.mapper.WithdrawalAccountsMapper;
+import com.pakgopay.mapper.dto.AgentInfoDto;
+import com.pakgopay.mapper.dto.ChannelDto;
+import com.pakgopay.mapper.dto.WithdrawalAccountsDto;
+import com.pakgopay.service.agent.AgentService;
+import com.pakgopay.service.balance.BalanceService;
+import com.pakgopay.service.login.impl.UserService;
+import com.pakgopay.service.common.ExportReportDataColumns;
+import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.ExportFileUtils;
+import com.pakgopay.util.PatchBuilderUtil;
+import com.pakgopay.util.TransactionUtil;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+public class AgentServiceImpl implements AgentService {
+
+    @Autowired
+    private AgentInfoMapper agentInfoMapper;
+
+    @Autowired
+    private ChannelMapper channelMapper;
+
+    @Autowired
+    private WithdrawalAccountsMapper withdrawalAccountsMapper;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private BalanceService balanceService;
+
+    @Autowired
+    private TransactionUtil transactionUtil;
+
+    @Override
+    public CommonResponse queryAgent(AgentQueryRequest agentQueryRequest) throws PakGoPayException {
+        log.info("queryAgent start");
+        AgentResponse response = queryAgentData(agentQueryRequest);
+        log.info("queryAgent end");
+        return CommonResponse.success(response);
+    }
+
+    private AgentResponse queryAgentData(AgentQueryRequest agentQueryRequest) throws PakGoPayException {
+        log.info("queryAgentData start");
+        AgentInfoEntity entity = new AgentInfoEntity();
+        entity.setAgentName(agentQueryRequest.getAgentName());
+        entity.setUserName(agentQueryRequest.getAccountName());
+        entity.setStatus(agentQueryRequest.getStatus());
+        entity.setPageNo(agentQueryRequest.getPageNo());
+        entity.setPageSize(agentQueryRequest.getPageSize());
+
+        AgentResponse response = new AgentResponse();
+        try {
+            Integer totalNumber = agentInfoMapper.countByQuery(entity);
+            List<AgentInfoDto> agentInfoDtoList = agentInfoMapper.pageByQuery(entity);
+            getAgentDetailInfo(agentInfoDtoList);
+
+            response.setAgentInfoDtoList(agentInfoDtoList);
+            response.setTotalNumber(totalNumber);
+        } catch (Exception e) {
+            log.error("agentInfoMapper queryAgentData failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        response.setPageNo(entity.getPageNo());
+        response.setPageSize(entity.getPageSize());
+        log.info("queryAgentData end");
+        return response;
+    }
+
+    private void getAgentDetailInfo(List<AgentInfoDto> agentInfoDtoList) {
+        log.info("getAgentDetailInfo start");
+        Map<AgentInfoDto, List<Long>> agentChannelIdsMap = new HashMap<>();
+        Map<Long, String> agentNameMap = new HashMap<>();
+        Set<Long> allChannelIds = new HashSet<>();
+
+        for (AgentInfoDto agentInfo : agentInfoDtoList) {
+            List<Long> ids = CommontUtil.parseIds(agentInfo.getChannelIds());
+            agentChannelIdsMap.put(agentInfo, ids);
+            agentNameMap.put(agentInfo.getAgentNo(), agentInfo.getAgentName());
+            allChannelIds.addAll(ids);
+        }
+
+        Map<Long, ChannelDto> channelMap = allChannelIds.isEmpty()
+                ? Collections.emptyMap()
+                : channelMapper.getPaymentIdsByChannelIds(new ArrayList<>(allChannelIds), null).stream()
+                .filter(p -> p != null && p.getChannelId() != null)
+                .collect(Collectors.toMap(ChannelDto::getChannelId, v -> v, (a, b) -> a));
+        log.info("getPaymentIdsByChannelIds channelMap size: {}", channelMap.size());
+        for (AgentInfoDto agentInfo : agentInfoDtoList) {
+            List<Long> ids = agentChannelIdsMap.getOrDefault(agentInfo, Collections.emptyList());
+
+            List<ChannelDto> list = agentInfo.getChannelDtoList();
+            if (list == null) {
+                list = new ArrayList<>();
+                agentInfo.setChannelDtoList(list);
+            }
+
+            for (Long pid : ids) {
+                ChannelDto p = channelMap.get(pid);
+                if (p != null) {
+                    list.add(p);
+                }
+            }
+
+            String parentAgentName = agentNameMap.get(agentInfo.getAgentNo());
+            if (parentAgentName != null) {
+                agentInfo.setParentAgentName(parentAgentName);
+            }
+        }
+        log.info("getAgentDetailInfo end");
+
+    }
+
+    @Override
+    public void exportAgent(AgentQueryRequest agentQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException {
+        log.info("exportAgent start");
+
+        // 1) Parse and validate export columns (must go through whitelist)
+        ExportFileUtils.ColumnParseResult<AgentInfoDto> colRes =
+                ExportFileUtils.parseColumns(agentQueryRequest, ExportReportDataColumns.AGENT_ALLOWED);
+
+        // 2) Init paging params
+        agentQueryRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
+        agentQueryRequest.setPageNo(1);
+
+        // 3) Export by paging and multi-sheet writing
+        ExportFileUtils.exportByPagingAndSheets(
+                response,
+                colRes.getHead(),
+                agentQueryRequest,
+                (req) -> queryAgentData(req).getAgentInfoDtoList(),
+                colRes.getDefs(),
+                ExportReportDataColumns.CHANNEL_EXPORT_FILE_NAME);
+
+        log.info("exportAgent end");
+    }
+
+    @Override
+    public CommonResponse editAgent(AgentEditRequest agentEditRequest) throws PakGoPayException {
+        log.info("editAgent start, agentName={}", agentEditRequest.getAgentName());
+
+        AgentInfoDto agentInfoDto = checkAndGenerateAgentInfoDto(agentEditRequest);
+        try {
+            int ret = agentInfoMapper.updateByUserId(agentInfoDto);
+            log.info("editAgent updateByChannelId done, agentName={}, ret={}", agentEditRequest.getAgentName(), ret);
+
+            if (ret <= 0) {
+                return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
+            }
+        } catch (Exception e) {
+            log.error("editAgent updateByChannelId failed, agentName={}", agentEditRequest.getAgentName(), e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("editAgent end, agentName={}", agentEditRequest.getAgentName());
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private AgentInfoDto checkAndGenerateAgentInfoDto(AgentEditRequest agentEditRequest) throws PakGoPayException {
+        AgentInfoDto dto = new AgentInfoDto();
+        dto.setUserId(agentEditRequest.getUserId());
+        dto.setUpdateTime(System.currentTimeMillis() / 1000);
+
+        return PatchBuilderUtil.from(agentEditRequest).to(dto)
+
+                // basic
+                .str(agentEditRequest::getAgentName, dto::setAgentName)
+                .obj(agentEditRequest::getStatus, dto::setStatus)
+                .ids(agentEditRequest::getChannelIds, dto::setChannelIds)
+
+                // contact
+                .str(agentEditRequest::getContactName, dto::setContactName)
+                .str(agentEditRequest::getContactEmail, dto::setContactEmail)
+                .str(agentEditRequest::getContactPhone, dto::setContactPhone)
+
+                // collection config
+                .obj(agentEditRequest::getCollectionRate, dto::setCollectionRate)
+                .obj(agentEditRequest::getCollectionFixedFee, dto::setCollectionFixedFee)
+                .obj(agentEditRequest::getCollectionMaxFee, dto::setCollectionMaxFee)
+                .obj(agentEditRequest::getCollectionMinFee, dto::setCollectionMinFee)
+
+                // payout config
+                .obj(agentEditRequest::getPayRate, dto::setPayRate)
+                .obj(agentEditRequest::getPayFixedFee, dto::setPayFixedFee)
+                .obj(agentEditRequest::getPayMaxFee, dto::setPayMaxFee)
+                .obj(agentEditRequest::getPayMinFee, dto::setPayMinFee)
+
+                // ip whitelist
+                .str(agentEditRequest::getLoginIps, dto::setLoginIps)
+                .str(agentEditRequest::getWithdrawIps, dto::setWithdrawIps)
+
+                // operator
+                .str(agentEditRequest::getUserName, dto::setUpdateBy)
+
+                .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
+    }
+
+    @Override
+    public CommonResponse addAgent(AgentAddRequest agentAddRequest) throws PakGoPayException {
+        log.info("addChannel start");
+
+        CreateUserRequest createUserRequest = generateUserCreateInfo(agentAddRequest);
+        AgentInfoDto agentInfoDto = generateAgentInfoDtoForAdd(agentAddRequest);
+
+        transactionUtil.runInTransaction(() -> {
+            Long userId = userService.createUser(createUserRequest);
+
+            agentInfoDto.setUserId(userId.toString());
+            agentInfoMapper.insert(agentInfoDto);
+        });
+
+        log.info("addChannel end");
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private AgentInfoDto generateAgentInfoDtoForAdd(AgentAddRequest req) throws PakGoPayException {
+        AgentInfoDto dto = new AgentInfoDto();
+        long now = System.currentTimeMillis() / 1000;
+
+        PatchBuilderUtil<AgentAddRequest, AgentInfoDto> b = PatchBuilderUtil.from(req).to(dto)
+
+                // =====================
+                // 1) Identity & Account Info
+                // =====================
+                .reqStr("agentName", req::getAgentName, dto::setAgentName)
+                .reqStr("accountName", req::getAccountName, dto::setUserName)
+                .str(req::getParentId, dto::setParentId)
+                .str(req::getTopAgentId, dto::setTopAgentId)
+                .reqObj("level", req::getLevel, dto::setLevel)
+                .ids(req::getChannelIds, dto::setChannelIds)
+
+                // =====================
+                // 2) Status
+                // =====================
+                .reqObj("status", req::getStatus, dto::setStatus)
+
+                // =====================
+                // 3) Contact Info
+                // =====================
+                .reqStr("contactName", req::getContactName, dto::setContactName)
+                .reqStr("contactEmail", req::getContactEmail, dto::setContactEmail)
+                .reqStr("contactPhone", req::getContactPhone, dto::setContactPhone)
+
+                // =====================
+                // 4) Collection Configuration
+                // =====================
+                .reqObj("collectionRate", req::getCollectionRate, dto::setCollectionRate)
+                .reqObj("collectionFixedFee", req::getCollectionFixedFee, dto::setCollectionFixedFee)
+                .reqObj("collectionMaxFee", req::getCollectionMaxFee, dto::setCollectionMaxFee)
+                .reqObj("collectionMinFee", req::getCollectionMinFee, dto::setCollectionMinFee)
+
+                // =====================
+                // 5) Payout Configuration
+                // =====================
+                .reqObj("payRate", req::getPayRate, dto::setPayRate)
+                .reqObj("payFixedFee", req::getPayFixedFee, dto::setPayFixedFee)
+                .reqObj("payMaxFee", req::getPayMaxFee, dto::setPayMaxFee)
+                .reqObj("payMinFee", req::getPayMinFee, dto::setPayMinFee)
+
+                // =====================
+                // 6) Security / Whitelist (optional)
+                // =====================
+                .str(req::getLoginIps, dto::setLoginIps)
+                .str(req::getWithdrawIps, dto::setWithdrawIps)
+
+                // =====================
+                // 7) Other (optional)
+                // =====================
+                .str(req::getRemark, dto::setRemark);
+
+        // 4) meta
+        dto.setCreateTime(now);
+        dto.setUpdateTime(now);
+        dto.setCreateBy(req.getUserName());
+        dto.setUpdateBy(req.getUserName());
+
+        return b.build();
+    }
+
+    private CreateUserRequest generateUserCreateInfo(AgentAddRequest agentAddRequest) {
+        CreateUserRequest dto = new CreateUserRequest();
+        long now = System.currentTimeMillis() / 1000;
+        dto.setRoleId(CommonConstant.ROLE_AGENT);
+
+        PatchBuilderUtil<AgentAddRequest, CreateUserRequest> builder = PatchBuilderUtil.from(agentAddRequest).to(dto)
+                .str(agentAddRequest::getAccountName, dto::setLoginName)
+                .str(agentAddRequest::getAccountPwd, dto::setPassword)
+                .str(agentAddRequest::getAccountConfirmPwd, dto::setConfirmPassword)
+                .str(agentAddRequest::getUserId, dto::setOperatorId)
+                .obj(agentAddRequest::getStatus, dto::setStatus);
+
+        return builder.build();
+    }
+
+    @Override
+    public CommonResponse queryAgentAccount(AgentAccountQueryRequest agentAccountQueryRequest) {
+        log.info("queryAgentAccount start");
+        AgentAccountResponse response = queryAgentAccountData(agentAccountQueryRequest);
+        log.info("queryAgentAccount end");
+        return CommonResponse.success(response);
+    }
+
+    private AgentAccountResponse queryAgentAccountData(
+            AgentAccountQueryRequest agentAccountQueryRequest) throws PakGoPayException {
+        log.info("queryAgentAccountData start");
+        AgentAccountInfoEntity entity = new AgentAccountInfoEntity();
+        entity.setAgentName(agentAccountQueryRequest.getAgentName());
+        entity.setWalletAddr(agentAccountQueryRequest.getWalletAddr());
+        entity.setStartTime(agentAccountQueryRequest.getStartTime());
+        entity.setEndTime(agentAccountQueryRequest.getEndTime());
+        entity.setPageSize(agentAccountQueryRequest.getPageSize());
+        entity.setPageNo(agentAccountQueryRequest.getPageNo());
+
+        AgentAccountResponse response = new AgentAccountResponse();
+        try {
+            Integer totalNumber = withdrawalAccountsMapper.countByQueryAgent(entity);
+            List<WithdrawalAccountsDto> withdrawalAccountsDtoList = withdrawalAccountsMapper.pageByQueryAgent(entity);
+
+            if (agentAccountQueryRequest.getIsNeedCardData()) {
+                List<String> userIds = withdrawalAccountsMapper.userIdsByQueryAgent(entity);
+                if (userIds != null && userIds.isEmpty()) {
+                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
+                    response.setCardInfo(cardInfo);
+                }
+            }
+
+            response.setWithdrawalAccountsDtoList(withdrawalAccountsDtoList);
+            response.setTotalNumber(totalNumber);
+        } catch (Exception e) {
+            log.error("withdrawalAccountsMapper pageByQuery failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        response.setPageNo(entity.getPageNo());
+        response.setPageSize(entity.getPageSize());
+        log.info("queryAgentAccountData end");
+        return response;
+    }
+
+    @Override
+    public void exportAgentAccount(
+            AgentAccountQueryRequest agentQueryRequest, HttpServletResponse response) throws IOException {
+        log.info("exportAgentAccount start");
+
+        // 1) Parse and validate export columns (must go through whitelist)
+        ExportFileUtils.ColumnParseResult<WithdrawalAccountsDto> colRes =
+                ExportFileUtils.parseColumns(agentQueryRequest, ExportReportDataColumns.AGENT_ACCOUNT_ALLOWED);
+
+        // 2) Init paging params
+        agentQueryRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
+        agentQueryRequest.setPageNo(1);
+
+        // 3) Export by paging and multi-sheet writing
+        ExportFileUtils.exportByPagingAndSheets(
+                response,
+                colRes.getHead(),
+                agentQueryRequest,
+                (req) -> queryAgentAccountData(req).getWithdrawalAccountsDtoList(),
+                colRes.getDefs(),
+                ExportReportDataColumns.CHANNEL_EXPORT_FILE_NAME);
+
+        log.info("exportAgentAccount end");
+    }
+
+    @Override
+    public CommonResponse editAgentAccount(AgentAccountEditRequest agentAccountEditRequest) {
+        log.info("editAgentAccount start, withdrawalId={}", agentAccountEditRequest.getId());
+
+        WithdrawalAccountsDto withdrawalAccountsDto = generateAccountsDto(agentAccountEditRequest);
+        try {
+            int ret = withdrawalAccountsMapper.updateById(withdrawalAccountsDto);
+            log.info("editAgentAccount updateByChannelId done, withdrawalId={}, ret={}", agentAccountEditRequest.getId(), ret);
+
+            if (ret <= 0) {
+                return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
+            }
+        } catch (Exception e) {
+            log.error("editAgentAccount updateByChannelId failed, withdrawalId={}", agentAccountEditRequest.getId(), e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("editAgentAccount end, withdrawalId={}", agentAccountEditRequest.getId());
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private WithdrawalAccountsDto generateAccountsDto(AgentAccountEditRequest agentAccountEditRequest) {
+        WithdrawalAccountsDto dto = new WithdrawalAccountsDto();
+        dto.setId(PatchBuilderUtil.parseRequiredLong(agentAccountEditRequest.getId(), "id"));
+        dto.setUpdateTime(System.currentTimeMillis() / 1000);
+
+        return PatchBuilderUtil.from(agentAccountEditRequest).to(dto)
+                .str(agentAccountEditRequest::getWalletAddr, dto::setWalletAddr)
+                .obj(agentAccountEditRequest::getStatus, dto::setStatus)
+                .str(agentAccountEditRequest::getUserName, dto::setUpdateBy)
+                .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
+    }
+
+    @Override
+    public CommonResponse addAgentAccount(AgentAccountAddRequest agentAccountAddRequest) {
+        log.info("addAgentAccount start");
+
+        try {
+            WithdrawalAccountsDto withdrawalAccountsDto = generateAccountInfoDtoForAdd(agentAccountAddRequest);
+            int ret = withdrawalAccountsMapper.insert(withdrawalAccountsDto);
+            log.info("addAgentAccount insert done, ret={}", ret);
+        } catch (Exception e) {
+            log.error("addAgentAccount insert failed", e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("addAgentAccount end");
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private WithdrawalAccountsDto generateAccountInfoDtoForAdd(AgentAccountAddRequest req) throws PakGoPayException {
+        WithdrawalAccountsDto dto = new WithdrawalAccountsDto();
+        long now = System.currentTimeMillis() / 1000;
+
+        PatchBuilderUtil<AgentAccountAddRequest, WithdrawalAccountsDto> b = PatchBuilderUtil.from(req).to(dto)
+                .str(req::getWalletName, dto::setWalletName)
+                .str(req::getWalletAddr, dto::setWalletAddr)
+                .obj(req::getStatus, dto::setStatus)
+                .str(req::getRemark, dto::setRemark);
+
+        // 4) meta
+        dto.setCreateTime(now);
+        dto.setUpdateTime(now);
+        dto.setCreateBy(req.getUserName());
+        dto.setUpdateBy(req.getUserName());
+
+        AgentInfoDto agentInfoDto = agentInfoMapper.findByAgentName(req.getAgentName())
+                .orElseThrow(() -> new PakGoPayException(
+                        ResultCode.USER_IS_NOT_EXIST
+                        , "agent is not exists, agentName:" + req.getAgentName()));
+        dto.setMerchantAgentId(agentInfoDto.getUserId());
+
+        return b.build();
+    }
+}

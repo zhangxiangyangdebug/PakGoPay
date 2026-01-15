@@ -1,6 +1,6 @@
 package com.pakgopay.mapper;
 
-import com.pakgopay.entity.agent.AgentAccountInfoEntity;
+import com.pakgopay.data.entity.agent.AgentAccountInfoEntity;
 import com.pakgopay.mapper.dto.WithdrawalAccountsDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;

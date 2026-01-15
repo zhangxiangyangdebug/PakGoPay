@@ -1,9 +1,12 @@
 package com.pakgopay.mapper;
 
 
+import com.pakgopay.data.entity.merchant.MerchantEntity;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 @Mapper
 public interface MerchantInfoMapper {
@@ -37,4 +40,8 @@ public interface MerchantInfoMapper {
      * find userId by merchant name
      */
     String findByMerchantName(@Param("merchantName") String merchantName);
+
+    Integer countByQuery(MerchantEntity entity);
+
+    List<MerchantInfoDto> pageByQuery(MerchantEntity entity);
 }

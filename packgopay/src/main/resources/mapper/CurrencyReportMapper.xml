@@ -101,7 +101,7 @@
 
     <!-- 1) Return order_balance list -->
     <select id="balanceInfosByQuery"
-            parameterType="com.pakgopay.entity.report.BaseReportEntity"
+            parameterType="com.pakgopay.data.entity.report.BaseReportEntity"
             resultType="java.math.BigDecimal">
         SELECT
         order_balance
@@ -111,7 +111,7 @@
 
     <!-- 2) Page query -->
     <select id="pageByQuery"
-            parameterType="com.pakgopay.entity.report.BaseReportEntity"
+            parameterType="com.pakgopay.data.entity.report.BaseReportEntity"
             resultMap="CurrencyReportResultMap">
         SELECT
         <include refid="BaseColumns"/>
