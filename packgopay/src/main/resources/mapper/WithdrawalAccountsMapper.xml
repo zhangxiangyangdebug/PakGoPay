@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.WithdrawalAccountsMapper">
+
+    <!-- Result map (explicit javaType) -->
+    <resultMap id="WithdrawalAccountsResultMap" type="com.pakgopay.mapper.dto.WithdrawalAccountsDto">
+        <id column="id" property="id" javaType="java.lang.Long"/>
+        <result column="merchant_agent_id" property="merchantAgentId" javaType="java.lang.String"/>
+        <result column="user_name" property="userName" javaType="java.lang.String"/>
+        <result column="agent_name" property="agentName" javaType="java.lang.String"/>
+        <result column="wallet_addr" property="walletAddr" javaType="java.lang.String"/>
+        <result column="wallet_name" property="walletName" javaType="java.lang.String"/>
+        <result column="status" property="status" javaType="java.lang.Integer"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="create_by" property="createBy" javaType="java.lang.String"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
+        <result column="update_by" property="updateBy" javaType="java.lang.String"/>
+        <result column="remark" property="remark" javaType="java.lang.String"/>
+    </resultMap>
+
+    <!-- Base columns -->
+    <sql id="BaseColumns">
+        id,
+        merchant_agent_id,
+        wallet_addr,
+        wallet_name,
+        status,
+        create_time,
+        create_by,
+        update_time,
+        update_by,
+        remark
+    </sql>
+
+    <!-- Insert -->
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.WithdrawalAccountsDto">
+        INSERT INTO withdrawal_accounts (
+        <include refid="BaseColumns"/>
+        ) VALUES (
+        #{id},
+        #{merchantAgentId},
+        #{walletAddr},
+        #{walletName},
+        #{status},
+        #{createTime},
+        #{createBy},
+        #{updateTime},
+        #{updateBy},
+        #{remark}
+        )
+    </insert>
+
+    <!-- Find by id -->
+    <select id="findById" resultMap="WithdrawalAccountsResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM withdrawal_accounts
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <!-- List by merchantAgentId -->
+    <select id="listByMerchantAgentId" resultMap="WithdrawalAccountsResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM withdrawal_accounts
+        WHERE merchant_agent_id = #{merchantAgentId}
+        ORDER BY id DESC
+    </select>
+
+    <!-- Dynamic update by id -->
+    <update id="updateById" parameterType="com.pakgopay.mapper.dto.WithdrawalAccountsDto">
+        UPDATE withdrawal_accounts
+        <set>
+            <if test="merchantAgentId != null">merchant_agent_id = #{merchantAgentId},</if>
+            <if test="walletAddr != null">wallet_addr = #{walletAddr},</if>
+            <if test="walletName != null">wallet_name = #{walletName},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- Update status -->
+    <update id="updateStatus">
+        UPDATE withdrawal_accounts
+        SET status = #{status},
+            update_time = #{updateTime},
+            update_by = #{updateBy}
+        WHERE id = #{id}
+    </update>
+
+    <!-- Delete -->
+    <delete id="deleteById">
+        DELETE FROM withdrawal_accounts
+        WHERE id = #{id}
+    </delete>
+
+    <sql id="AgentAccountQueryWhere">
+        <where>
+            <if test="walletAddr != null and walletAddr != ''">AND wa.wallet_addr LIKE CONCAT('%', #{walletAddr}, '%')</if>
+            <if test="agentName != null and agentName != ''">AND ai.agent_name LIKE CONCAT('%', #{agentName}, '%')</if>
+            <if test="startTime != null">AND wa.create_time <![CDATA[>=]]> #{startTime}</if>
+            <if test="endTime != null">AND wa.create_time <![CDATA[<=]]> #{endTime}</if>
+        </where>
+    </sql>
+
+    <select id="countByQueryAgent"
+            parameterType="com.pakgopay.entity.agent.AgentAccountInfoEntity"
+            resultType="int">
+        SELECT COUNT(1)
+        FROM withdrawal_accounts wa
+        LEFT JOIN agent_info ai ON ai.user_id = wa.merchant_agent_id
+        <include refid="AgentAccountQueryWhere"/>
+    </select>
+
+    <select id="userIdsByQueryAgent"
+            parameterType="com.pakgopay.entity.agent.AgentAccountInfoEntity"
+            resultType="java.lang.String">
+        SELECT DISTINCT wa.merchant_agent_id
+        FROM withdrawal_accounts wa
+        LEFT JOIN agent_info ai ON ai.user_id = wa.merchant_agent_id
+        <include refid="AgentAccountQueryWhere"/>
+    </select>
+
+    <select id="pageByQueryAgent"
+            parameterType="com.pakgopay.entity.agent.AgentAccountInfoEntity"
+            resultMap="WithdrawalAccountsResultMap">
+        SELECT
+        wa.id,
+        wa.merchant_agent_id,
+        wa.wallet_addr,
+        wa.wallet_name,
+        wa.status,
+        wa.create_time,
+        wa.create_by,
+        wa.update_time,
+        wa.update_by,
+        wa.remark,
+        ai.user_name,
+        ai.agent_name
+        FROM withdrawal_accounts wa
+        LEFT JOIN agent_info ai ON ai.user_id = wa.merchant_agent_id
+        <include refid="AgentAccountQueryWhere"/>
+        ORDER BY wa.id DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+</mapper>

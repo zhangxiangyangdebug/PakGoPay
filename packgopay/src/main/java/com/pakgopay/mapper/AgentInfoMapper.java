@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 @Mapper
 public interface AgentInfoMapper {
@@ -36,4 +37,6 @@ public interface AgentInfoMapper {
 
     /** Page query */
     List<AgentInfoDto> pageByQuery(AgentInfoEntity entity);
+
+    Optional<AgentInfoDto> findByAgentName(@Param("agentName") String agentName);
 }

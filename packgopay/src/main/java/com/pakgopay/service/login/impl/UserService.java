@@ -27,19 +27,15 @@ public class UserService {
 
 
         try {
-            int result = createUser(user);
-            if (result == 0) {
-                return CommonResponse.fail(ResultCode.FAIL, "create user failed");
-            } else {
-                return CommonResponse.success("Create user successfully");
-            }
+            createUser(user);
+            return CommonResponse.success("Create user successfully");
         } catch (PakGoPayException e) {
             log.error("createLoginUser failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "createLoginUser failed: " + e.getMessage());
         }
     }
 
-    public int createUser(CreateUserRequest user) throws PakGoPayException {
+    public long createUser(CreateUserRequest user) throws PakGoPayException {
         // check data
         if (!user.getPassword().equals(user.getConfirmPassword())) {
             throw new PakGoPayException(ResultCode.FAIL, "check password is same with confirm password");
@@ -76,6 +72,10 @@ public class UserService {
             }
         }*/
 
-        return result;
+        if (result == 0) {
+            throw new PakGoPayException(ResultCode.FAIL, "create user failed");
+        }
+
+        return userId;
     }
 }

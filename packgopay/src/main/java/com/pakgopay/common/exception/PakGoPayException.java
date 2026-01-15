@@ -4,7 +4,7 @@ import com.pakgopay.common.enums.ResultCode;
 import lombok.Getter;
 
 @Getter
-public class PakGoPayException extends Exception {
+public class PakGoPayException extends RuntimeException {
 
     private ResultCode code;
     private String message;

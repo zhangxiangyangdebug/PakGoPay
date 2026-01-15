@@ -87,8 +87,6 @@ public class AgentAddRequest extends BaseRequest {
 
     /** Collection rate (0 ~ 1) */
     @NotNull(message = "collectionRate is null")
-    @DecimalMin(value = "0", inclusive = false, message = "collectionRate must > 0")
-    @DecimalMax(value = "1", inclusive = true, message = "collectionRate must <= 1")
     private BigDecimal collectionRate;
 
     /** Collection fixed fee */
@@ -113,8 +111,6 @@ public class AgentAddRequest extends BaseRequest {
 
     /** Payout rate (0 ~ 1) */
     @NotNull(message = "payRate is null")
-    @DecimalMin(value = "0", inclusive = false, message = "payRate must > 0")
-    @DecimalMax(value = "1", inclusive = true, message = "payRate must <= 1")
     private BigDecimal payRate;
 
     /** Payout fixed fee */
@@ -138,9 +134,11 @@ public class AgentAddRequest extends BaseRequest {
     // =====================
 
     /** Login white ips (comma separated) */
+    @NotBlank(message = "loginIps is empty")
     private String loginIps;
 
     /** Withdraw ips (comma separated) */
+    @NotBlank(message = "withdrawIps is empty")
     private String withdrawIps;
 
 
@@ -149,7 +147,6 @@ public class AgentAddRequest extends BaseRequest {
     // =====================
 
     /** Remark */
-    @Size(max = 255, message = "remark length must <= 255")
     private String remark;
 }
 

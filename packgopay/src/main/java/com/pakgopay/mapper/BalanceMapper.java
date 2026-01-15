@@ -15,7 +15,7 @@ public interface BalanceMapper {
      * Query balance list.
      * If userId is null or empty, return all.
      */
-    List<BalanceDto> listByUserId(@Param("userId") String userId);
+    List<BalanceDto> listByUserIds(@Param("userIds") List<String> userIds);
 
     /** Query balance by userId and currency */
     BalanceDto findByUserIdAndCurrency(@Param("userId") String userId, @Param("currency") String currency);

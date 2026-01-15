@@ -104,15 +104,14 @@
         WHERE user_id = #{userId}
     </update>
 
-    <select id="listByUserId" resultMap="BalanceResultMap">
+    <select id="listByUserIds" resultMap="BalanceResultMap">
         SELECT
         <include refid="BaseColumns"/>
         FROM balance
-        <where>
-            <if test="userId != null and userId != ''">
-                AND user_id = #{userId}
-            </if>
-        </where>
+        WHERE user_id IN
+        <foreach collection="userIds" item="uid" open="(" close=")" separator=",">
+            #{uid}
+        </foreach>
     </select>
 
 </mapper>

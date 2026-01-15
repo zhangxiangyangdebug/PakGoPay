@@ -86,19 +86,19 @@ public class BalanceServiceImpl implements BalanceService {
         log.info("freezeBalance end");
     }
 
-    public Map<String, Map<String, BigDecimal>> getBalanceInfos(String userId) throws PakGoPayException {
+    public Map<String, Map<String, BigDecimal>> getBalanceInfos(List<String> userIds) throws PakGoPayException {
         log.info("getBalanceInfos start");
         Map<String, Map<String, BigDecimal>> result = new HashMap<>();
         List<BalanceDto> balanceDtoList;
         try {
-            balanceDtoList = balanceMapper.listByUserId(userId);
+            balanceDtoList = balanceMapper.listByUserIds(userIds);
         } catch (Exception e) {
             log.error("balance listByUserId failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
         if (balanceDtoList == null || balanceDtoList.isEmpty()) {
-            log.error("getBalanceInfos record is not exists, userId {}", userId);
+            log.error("getBalanceInfos record is not exists, userId {}", userIds);
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_BALANCE_DATA);
         }
 

@@ -2,9 +2,7 @@ package com.pakgopay.controller;
 
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.common.reqeust.agent.AgentAddRequest;
-import com.pakgopay.common.reqeust.agent.AgentEditRequest;
-import com.pakgopay.common.reqeust.agent.AgentQueryRequest;
+import com.pakgopay.common.reqeust.agent.*;
 import com.pakgopay.common.response.CommonResponse;
 import com.pakgopay.service.agent.AgentService;
 import com.pakgopay.util.ExportFileUtils;
@@ -74,6 +72,56 @@ public class AgentController {
         } catch (PakGoPayException e) {
             log.error("addAgent failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "addAgent failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/queryAgentAccount")
+    public CommonResponse queryAgentAccount(@RequestBody @Valid AgentAccountQueryRequest agentQueryRequest, HttpServletRequest request) {
+        log.info("queryAgentAccount start");
+        try {
+            return agentService.queryAgentAccount(agentQueryRequest);
+        } catch (PakGoPayException e) {
+            log.error("queryAgentAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryAgentAccount failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "exportAgentAccount")
+    public void exportAgentAccount(
+            @RequestBody @Valid AgentAccountQueryRequest agentQueryRequest, HttpServletResponse response) {
+        log.info("exportAgentAccount start");
+        try {
+            agentService.exportAgentAccount(agentQueryRequest, response);
+        } catch (PakGoPayException e) {
+            log.error("exportAgentAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            ExportFileUtils.writeJsonError(response, e.getCode(), "exportAgentAccount failed: " + e.getMessage());
+        } catch (IOException e) {
+            log.error("exportAgentAccount failed, IOException message: {}", e.getMessage());
+            ExportFileUtils.writeJsonError(response,
+                    ResultCode.FAIL, "exportAgentAccount failed, IOException message: " + e.getMessage());
+        }
+        log.info("exportAgentAccount end");
+    }
+
+    @PostMapping("/editAgentAccount")
+    public CommonResponse editAgentAccount(@RequestBody @Valid AgentAccountEditRequest agentAccountEditRequest, HttpServletRequest request) {
+        log.info("editAgentAccount start");
+        try {
+            return agentService.editAgentAccount(agentAccountEditRequest);
+        } catch (PakGoPayException e) {
+            log.error("editAgentAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "editAgentAccount failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/addAgentAccount")
+    public CommonResponse addAgentAccount(@RequestBody @Valid AgentAccountAddRequest agentAccountAddRequest, HttpServletRequest request) {
+        log.info("addAgentAccount start");
+        try {
+            return agentService.addAgentAccount(agentAccountAddRequest);
+        } catch (PakGoPayException e) {
+            log.error("addAgentAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "addAgentAccount failed: " + e.getMessage());
         }
     }
 }

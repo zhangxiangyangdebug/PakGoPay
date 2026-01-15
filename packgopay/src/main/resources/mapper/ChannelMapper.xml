@@ -147,10 +147,6 @@
                 )
             </if>
 
-            <if test="currency != null and currency != ''">
-                AND currency = #{currency}
-            </if>
-
             <if test="status != null">
                 AND status = #{status}
             </if>

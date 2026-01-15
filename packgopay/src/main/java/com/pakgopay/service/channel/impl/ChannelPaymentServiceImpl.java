@@ -480,7 +480,6 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         ChannelEntity entity = new ChannelEntity();
         entity.setChannelId(channelQueryRequest.getChannelId());
         entity.setPaymentId(channelQueryRequest.getPaymentId());
-        entity.setCurrency(channelQueryRequest.getCurrency());
         entity.setChannelName(channelQueryRequest.getChannelName());
         entity.setStatus(channelQueryRequest.getStatus());
         entity.setPageNo(channelQueryRequest.getPageNo());

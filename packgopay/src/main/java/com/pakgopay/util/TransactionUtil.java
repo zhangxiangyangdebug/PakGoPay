@@ -1,5 +1,7 @@
 package com.pakgopay.util;
 
+import com.pakgopay.common.enums.ResultCode;
+import com.pakgopay.common.exception.PakGoPayException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -79,11 +81,9 @@ public class TransactionUtil {
     }
 
     private RuntimeException wrapAsRuntime(Exception e) {
-        if (e instanceof RuntimeException re) {
-            return re;
-        }
-        // You can convert to PakGoPayException here if you want
-        return new RuntimeException(e);
+        if (e instanceof PakGoPayException pe) return pe;
+        if (e instanceof RuntimeException re) return re;
+        return new PakGoPayException(ResultCode.FAIL, e.getMessage());
     }
 }
 

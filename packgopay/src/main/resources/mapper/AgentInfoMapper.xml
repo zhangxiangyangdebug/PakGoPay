@@ -187,4 +187,12 @@
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 
+    <select id="findByAgentName" resultMap="AgentInfoResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM agent_info
+        WHERE agent_name = #{agentName}
+        LIMIT 1
+    </select>
+
 </mapper>

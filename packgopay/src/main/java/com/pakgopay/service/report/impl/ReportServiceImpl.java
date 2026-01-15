@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -211,7 +212,7 @@ public class ReportServiceImpl implements ReportService {
         }
 
         if (isNeedCardData) {
-            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(entity.getUserId());
+            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(new ArrayList<String>(){{add(entity.getUserId());}});
             response.setCardInfo(cardInfo);
         }
 

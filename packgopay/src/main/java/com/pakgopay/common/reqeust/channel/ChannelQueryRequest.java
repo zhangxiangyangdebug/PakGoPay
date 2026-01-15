@@ -17,11 +17,6 @@ public class ChannelQueryRequest extends ExportBaseRequest {
     private String paymentId;
 
     /**
-     * currency
-     */
-    private String currency;
-
-    /**
      * Channel name
      */
     private String channelName;
