@@ -1,6 +1,7 @@
 package com.pakgopay.data.response;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import lombok.Data;
@@ -44,7 +45,8 @@ public class CommonResponse<T> implements Serializable {
     }
 
     public static <T> CommonResponse<T> success(Object data) {
-        return new CommonResponse<>(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMessage(), JSON.toJSONString(data));
+        return new CommonResponse<>(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMessage()
+                , JSON.toJSONString(data, SerializerFeature.DisableCircularReferenceDetect));
     }
 
     public static CommonResponse<Void> fail(ResultCode resultCode) {

@@ -30,7 +30,6 @@ import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.TransactionUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -147,7 +146,7 @@ public class AgentServiceImpl implements AgentService {
             List<Long> ids =
                     channelIdsByUserId.getOrDefault(agentInfo.getUserId(), new ArrayList<>());
             agentInfo.setChannelDtoList(buildChannelListByIds(ids,channelMap));
-            agentInfo.setChannelIdList(new ArrayList<>(ids));
+            agentInfo.setChannelIdList(ids);
             // parent agent's channel info
             if (agentInfo.getParentId() == null || agentInfo.getParentId().isEmpty()) {
                 continue;
@@ -179,9 +178,7 @@ public class AgentServiceImpl implements AgentService {
             if (id == null) continue;
             ChannelDto c = channelMap.get(id);
             if (c != null) {
-                ChannelDto dto = new ChannelDto();
-                BeanUtils.copyProperties(c, dto);
-                list.add(dto);
+                list.add(c);
             }
         }
         return list;
