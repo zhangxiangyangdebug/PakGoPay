@@ -18,7 +18,7 @@ public class AgentInfoEntity {
     /**
      * status
      */
-    private Integer Status;
+    private Integer status;
 
     /** Page number (start from 1) */
     private Integer pageNo;

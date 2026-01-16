@@ -147,7 +147,7 @@ public class AgentServiceImpl implements AgentService {
             List<Long> ids =
                     channelIdsByUserId.getOrDefault(agentInfo.getUserId(), new ArrayList<>());
             agentInfo.setChannelDtoList(buildChannelListByIds(ids,channelMap));
-            agentInfo.setChannelIdList(ids);
+            agentInfo.setChannelIdList(new ArrayList<>(ids));
             // parent agent's channel info
             if (agentInfo.getParentId() == null || agentInfo.getParentId().isEmpty()) {
                 continue;
