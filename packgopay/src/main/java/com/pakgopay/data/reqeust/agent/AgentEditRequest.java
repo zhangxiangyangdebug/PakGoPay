@@ -10,6 +10,11 @@ import java.util.List;
 public class AgentEditRequest extends BaseRequest {
 
     /**
+     * Agent no
+     */
+    private String agentNo;
+
+    /**
      * Agent name
      */
     private String agentName;

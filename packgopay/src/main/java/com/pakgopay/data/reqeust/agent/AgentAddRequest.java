@@ -45,7 +45,7 @@ public class AgentAddRequest extends BaseRequest {
     private Integer level;
 
     /** Agent's channel ids */
-    @NotEmpty(message = "channelIds is empty")
+    @NotNull(message = "channelIds is null")
     private List<Integer> channelIds;
 
 

@@ -217,7 +217,7 @@ public class AgentServiceImpl implements AgentService {
 
         AgentInfoDto agentInfoDto = checkAndGenerateAgentInfoDto(agentEditRequest);
         try {
-            int ret = agentInfoMapper.updateByUserId(agentInfoDto);
+            int ret = agentInfoMapper.updateByAgentNo(agentInfoDto);
             log.info("editAgent updateByChannelId done, agentName={}, ret={}", agentEditRequest.getAgentName(), ret);
 
             if (ret <= 0) {
@@ -234,7 +234,7 @@ public class AgentServiceImpl implements AgentService {
 
     private AgentInfoDto checkAndGenerateAgentInfoDto(AgentEditRequest agentEditRequest) throws PakGoPayException {
         AgentInfoDto dto = new AgentInfoDto();
-        dto.setUserId(agentEditRequest.getUserId());
+        dto.setAgentNo(PatchBuilderUtil.parseRequiredLong("agentNo",agentEditRequest.getAgentNo()));
         dto.setUpdateTime(System.currentTimeMillis() / 1000);
 
         return PatchBuilderUtil.from(agentEditRequest).to(dto)

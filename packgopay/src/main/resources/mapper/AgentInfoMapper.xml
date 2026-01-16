@@ -96,7 +96,7 @@
         )
     </insert>
 
-    <update id="updateByUserId" parameterType="com.pakgopay.mapper.dto.AgentInfoDto">
+    <update id="updateByAgentNo" parameterType="com.pakgopay.mapper.dto.AgentInfoDto">
         UPDATE agent_info
         <set>
             <if test="agentName != null">agent_name = #{agentName},</if>
@@ -124,7 +124,7 @@
             <if test="version != null">version = #{version},</if>
             <if test="remark != null">remark = #{remark},</if>
         </set>
-        WHERE user_id = #{userId}
+        WHERE agent_no = #{agentNo}
     </update>
 
 

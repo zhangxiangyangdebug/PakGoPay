@@ -167,10 +167,61 @@ public final class ExportReportDataColumns {
             add(CommonConstant.SUPPORT_TYPE_COLLECTION);
             add(CommonConstant.SUPPORT_TYPE_ALL);
         }})));
+        CHANNEL_ALLOWED.put("payPayment",
+                new ColumnDef<>("collectPayment", r -> safeToPaymentInfo(r.getPaymentDtoList(), new ArrayList<>() {{
+                    add(CommonConstant.SUPPORT_TYPE_COLLECTION);
+                    add(CommonConstant.SUPPORT_TYPE_ALL);
+                }})));
 
+        CHANNEL_ALLOWED.put("status", new ColumnDef<>("status", r -> safeToString(r.getStatus())));
+        CHANNEL_ALLOWED.put("currency", new ColumnDef<>("currency", r -> safeToCurrency(r.getPaymentDtoList())));
 
+        CHANNEL_ALLOWED.put("createTime", new ColumnDef<>("createTime", r -> safeToString(r.getCreateTime())));
+
+        //--------------------------------------------------------------------------------------------------------------
+
+        // payment, export column
+        PAYMENT_ALLOWED.put("paymentNo", new ColumnDef<>("paymentNo", PaymentDto::getPaymentNo));
+        PAYMENT_ALLOWED.put("paymentName", new ColumnDef<>("paymentName", PaymentDto::getPaymentName));
+        PAYMENT_ALLOWED.put("status", new ColumnDef<>("status", r -> safeToString(r.getStatus())));
+        PAYMENT_ALLOWED.put("isThird", new ColumnDef<>("isThird", PaymentDto::getIsThird));
+        PAYMENT_ALLOWED.put("supportType", new ColumnDef<>("supportType", r -> safeToSupportType(r.getSupportType())));
+        PAYMENT_ALLOWED.put("enableTimePeriod", new ColumnDef<>("enableTimePeriod", PaymentDto::getEnableTimePeriod));
+        PAYMENT_ALLOWED.put("paymentType", new ColumnDef<>("paymentType", r -> safeToPaymentType(r.getPaymentType())));
     }
 
+    private static String safeToPaymentType(String paymentType){
+
+        if(CommonConstant.PAYMENT_TYPE_APP.equals(paymentType)){
+            return "App";
+        }
+
+        if(CommonConstant.PAYMENT_TYPE_BANK.equals(paymentType)){
+            return "Bank";
+        }
+        return "";
+    }
+
+    private static String safeToSupportType(Integer supportType){
+
+        if(CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)){
+            return "collection";
+        }
+
+        if(CommonConstant.SUPPORT_TYPE_PAY.equals(supportType)){
+            return "pay";
+        }
+
+        if(CommonConstant.SUPPORT_TYPE_ALL.equals(supportType)){
+            return "collection/pay";
+        }
+        return "";
+    }
+
+    private static String safeToCurrency(List<PaymentDto> paymentDtoList) {
+        if (paymentDtoList == null || paymentDtoList.isEmpty()) return "";
+        return paymentDtoList.stream().map(PaymentDto::getCurrency).distinct().collect(Collectors.joining(","));
+    }
 
     private static String safeToPaymentInfo(List<PaymentDto> paymentDtoList, List<Integer> supportTypes){
         if (paymentDtoList == null || paymentDtoList.isEmpty()) return "";
