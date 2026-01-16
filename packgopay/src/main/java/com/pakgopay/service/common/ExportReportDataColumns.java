@@ -90,7 +90,7 @@ public final class ExportReportDataColumns {
 
         //--------------------------------------------------------------------------------------------------------------
 
-        // merchant report, export column
+        // channel report, export column
         CHANNEL_REPORT_ALLOWED.put("channelName", new ColumnDef<>("channelName", ChannelReportDto::getChannelName));
 
         CHANNEL_REPORT_ALLOWED.put("orderQuantity", new ColumnDef<>("orderQuantity", r -> safeToString(r.getOrderQuantity())));
@@ -106,7 +106,7 @@ public final class ExportReportDataColumns {
 
         //--------------------------------------------------------------------------------------------------------------
 
-        // merchant report, export column
+        // agent report, export column
         AGENT_REPORT_ALLOWED.put("agentName", new ColumnDef<>("agentName", AgentReportDto::getAgentName));
 
         AGENT_REPORT_ALLOWED.put("orderQuantity", new ColumnDef<>("orderQuantity", r -> safeToString(r.getOrderQuantity())));
@@ -121,7 +121,7 @@ public final class ExportReportDataColumns {
 
         //--------------------------------------------------------------------------------------------------------------
 
-        // merchant report, export column
+        // currency report, export column
         CURRENCY_REPORT_ALLOWED.put("currency", new ColumnDef<>("currency", CurrencyReportDto::getCurrency));
 
         CURRENCY_REPORT_ALLOWED.put("orderQuantity", new ColumnDef<>("orderQuantity", r -> safeToString(r.getOrderQuantity())));
@@ -137,7 +137,7 @@ public final class ExportReportDataColumns {
 
         //--------------------------------------------------------------------------------------------------------------
 
-        // merchant report, export column
+        // payment report, export column
         PAYMENT_REPORT_ALLOWED.put("paymentName", new ColumnDef<>("paymentName", PaymentReportDto::getPaymentName));
         PAYMENT_REPORT_ALLOWED.put("paymentNo", new ColumnDef<>("paymentNo", r -> String.valueOf(r.getPaymentId())));
 
@@ -156,6 +156,7 @@ public final class ExportReportDataColumns {
         //--------------------------------------------------------------------------------------------------------------
 
         // channel, export column
+//        CHANNEL_ALLOWED.put("paymentName", new ColumnDef<>("paymentName", PaymentReportDto::getPaymentName));
 
 
     }

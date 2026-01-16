@@ -99,7 +99,7 @@ public class BalanceServiceImpl implements BalanceService {
 
         if (balanceDtoList == null || balanceDtoList.isEmpty()) {
             log.error("getBalanceInfos record is not exists, userId {}", userIds);
-            throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_BALANCE_DATA);
+            return result;
         }
 
         for (BalanceDto info : balanceDtoList) {

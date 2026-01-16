@@ -153,10 +153,10 @@ public class AgentServiceImpl implements AgentService {
                 continue;
             }
             List<Long> parentChannelIds =
-                    channelIdsByUserId.getOrDefault(agentInfoDto.getParentId(), new ArrayList<>());
-            agentInfo.setChannelDtoList(buildChannelListByIds(parentChannelIds,channelMap));
+                    channelIdsByUserId.getOrDefault(agentInfoDto.getUserId(), new ArrayList<>());
+            agentInfo.setParentChannelDtoList(buildChannelListByIds(parentChannelIds,channelMap));
             agentInfo.setParentAgentName(agentInfoDto.getAgentName());
-            agentInfo.setParentUserName(agentInfoDto.getParentUserName());
+            agentInfo.setParentUserName(agentInfoDto.getAccountName());
         }
         log.info("getAgentDetailInfo end");
     }
