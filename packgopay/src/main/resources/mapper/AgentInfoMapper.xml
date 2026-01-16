@@ -12,7 +12,7 @@
         <result column="agent_name" property="agentName" javaType="java.lang.String"/>
 
         <result column="user_id" property="userId" javaType="java.lang.String"/>
-        <result column="account_name" property="accountName" javaType="java.lang.String"/>
+        <result column="user_name" property="accountName" javaType="java.lang.String"/>
 
         <result column="parent_id" property="parentId" javaType="java.lang.String"/>
         <result column="top_agent_id" property="topAgentId" javaType="java.lang.String"/>
@@ -56,7 +56,7 @@
         agent_no,
         agent_name,
         user_id,
-        user_name as account_name,
+        user_name,
         parent_id,
         top_agent_id,
         channel_ids,
