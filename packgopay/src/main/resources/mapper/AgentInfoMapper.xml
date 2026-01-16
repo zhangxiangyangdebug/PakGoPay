@@ -136,6 +136,16 @@
         limit 1
     </select>
 
+    <select id="findByUserIds" resultMap="AgentInfoResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM agent_info
+        WHERE user_id IN
+        <foreach collection="userIds" item="uid" open="(" close=")" separator=",">
+            #{uid}
+        </foreach>
+    </select>
+
     <select id="getAllAgentInfo" resultMap="AgentInfoResultMap">
         select
         <include refid="BaseColumns"/>

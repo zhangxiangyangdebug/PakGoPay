@@ -15,6 +15,8 @@ public interface AgentInfoMapper {
     /** Query agent info by login userId */
     AgentInfoDto findByUserId(@Param("userId") String userId);
 
+    List<AgentInfoDto> findByUserIds(@Param("userIds") List<String> userIds);
+
     /** Insert agent info */
     int insert(AgentInfoDto dto);
 

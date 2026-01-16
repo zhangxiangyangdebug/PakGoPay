@@ -93,14 +93,39 @@ public class AgentServiceImpl implements AgentService {
 
     private void getAgentDetailInfo(List<AgentInfoDto> agentInfoDtoList) {
         log.info("getAgentDetailInfo start");
-        Map<AgentInfoDto, List<Long>> agentChannelIdsMap = new HashMap<>();
-        Map<Long, String> agentNameMap = new HashMap<>();
+
+        if (agentInfoDtoList == null || agentInfoDtoList.isEmpty()) {
+            log.info("agentInfoDtoList is empty");
+            return;
+        }
+
+        // 1) Collect distinct parentIds
+        List<String> parentIds = agentInfoDtoList.stream()
+                .map(AgentInfoDto::getParentId)
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .toList();
+
+        // 2) Query parent agents in batch (avoid IN ())
+        List<AgentInfoDto> parentAgentInfos = parentIds.isEmpty()
+                ? Collections.emptyList()
+                : agentInfoMapper.findByUserIds(parentIds);
+
+        // 4) Parse channelIds once and collect all unique channelIds
+        Map<String, AgentInfoDto> agentInfoMap = new HashMap<>();
         Set<Long> allChannelIds = new HashSet<>();
+        Map<String, List<Long>> channelIdsByUserId = new HashMap<>();
+        for (AgentInfoDto agentInfo : parentAgentInfos) {
+            List<Long> ids = CommontUtil.parseIds(agentInfo.getChannelIds());
+            agentInfoMap.put(agentInfo.getUserId(), agentInfo);
+            channelIdsByUserId.put(agentInfo.getUserId(), ids);
+            allChannelIds.addAll(ids);
+        }
 
         for (AgentInfoDto agentInfo : agentInfoDtoList) {
             List<Long> ids = CommontUtil.parseIds(agentInfo.getChannelIds());
-            agentChannelIdsMap.put(agentInfo, ids);
-            agentNameMap.put(agentInfo.getAgentNo(), agentInfo.getAgentName());
+            agentInfoMap.put(agentInfo.getUserId(), agentInfo);
+            channelIdsByUserId.put(agentInfo.getUserId(), ids);
             allChannelIds.addAll(ids);
         }
 
@@ -110,29 +135,41 @@ public class AgentServiceImpl implements AgentService {
                 .filter(p -> p != null && p.getChannelId() != null)
                 .collect(Collectors.toMap(ChannelDto::getChannelId, v -> v, (a, b) -> a));
         log.info("getPaymentIdsByChannelIds channelMap size: {}", channelMap.size());
+        // 6) Fill detail info for each agent
         for (AgentInfoDto agentInfo : agentInfoDtoList) {
-            List<Long> ids = agentChannelIdsMap.getOrDefault(agentInfo, Collections.emptyList());
-
-            List<ChannelDto> list = agentInfo.getChannelDtoList();
-            if (list == null) {
-                list = new ArrayList<>();
-                agentInfo.setChannelDtoList(list);
-            }
-
-            for (Long pid : ids) {
-                ChannelDto p = channelMap.get(pid);
-                if (p != null) {
-                    list.add(p);
-                }
-            }
-
-            String parentAgentName = agentNameMap.get(agentInfo.getAgentNo());
-            if (parentAgentName != null) {
-                agentInfo.setParentAgentName(parentAgentName);
-            }
+            // agent's channel info
+            List<Long> ids =
+                    channelIdsByUserId.getOrDefault(agentInfo.getUserId(), new ArrayList<>());
+            agentInfo.setChannelDtoList(buildChannelListByIds(ids,channelMap));
+            // parent agent's channel info
+            AgentInfoDto agentInfoDto = agentInfoMap.get(agentInfo.getParentId());
+            List<Long> parentChannelIds =
+                    channelIdsByUserId.getOrDefault(agentInfoDto.getParentId(), new ArrayList<>());
+            agentInfo.setChannelDtoList(buildChannelListByIds(parentChannelIds,channelMap));
+            agentInfo.setParentAgentName(agentInfoDto.getAgentName());
+            agentInfo.setParentUserName(agentInfoDto.getParentUserName());
         }
         log.info("getAgentDetailInfo end");
+    }
 
+    /**
+     * Build ChannelDto list by channelId list and channel map.
+     * Keeps the order of ids and ignores non-existing ids.
+     */
+    private static List<ChannelDto> buildChannelListByIds(List<Long> ids, Map<Long, ChannelDto> channelMap) {
+        if (ids == null || ids.isEmpty() || channelMap == null || channelMap.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<ChannelDto> list = new ArrayList<>(ids.size());
+        for (Long id : ids) {
+            if (id == null) continue;
+            ChannelDto c = channelMap.get(id);
+            if (c != null) {
+                list.add(c);
+            }
+        }
+        return list;
     }
 
     @Override

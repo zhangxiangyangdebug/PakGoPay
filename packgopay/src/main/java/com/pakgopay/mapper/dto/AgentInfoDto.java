@@ -99,6 +99,12 @@ public class AgentInfoDto implements Serializable {
     /** parent agent name */
     private String parentAgentName;
 
+    /** parent user name */
+    private String parentUserName;
+
+    /** agent's parent channel Info */
+    private List<ChannelDto> parentChannelDtoList;
+
     /** agent's channel Info */
     private List<ChannelDto> channelDtoList;
 }
