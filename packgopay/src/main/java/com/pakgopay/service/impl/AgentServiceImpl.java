@@ -270,6 +270,9 @@ public class AgentServiceImpl implements AgentService {
             Long userId = userService.createUser(createUserRequest);
 
             agentInfoDto.setUserId(userId.toString());
+            if(agentInfoDto.getLevel() == 1){
+                agentInfoDto.setTopAgentId(userId.toString());
+            }
             agentInfoMapper.insert(agentInfoDto);
         });
 
@@ -288,8 +291,10 @@ public class AgentServiceImpl implements AgentService {
                 // =====================
                 .reqStr("agentName", req::getAgentName, dto::setAgentName)
                 .reqStr("accountName", req::getAccountName, dto::setAccountName)
-                .str(req::getParentId, dto::setParentId)
-                .str(req::getTopAgentId, dto::setTopAgentId)
+                .ifTrue(req.getLevel() != 1)
+                .reqStr("topAgentId",req::getTopAgentId, dto::setTopAgentId)
+                .reqStr("parentId",req::getParentId, dto::setParentId)
+                .endSkip()
                 .reqObj("level", req::getLevel, dto::setLevel)
                 .ids(req::getChannelIds, dto::setChannelIds)
 

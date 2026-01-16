@@ -33,11 +33,9 @@ public class AgentAddRequest extends BaseRequest {
     private String accountConfirmPwd;
 
     /** Parent agent ID (nullable for top-level agent) */
-    @NotBlank(message = "parentId is empty")
     private String parentId;
 
     /** Top agent ID */
-    @NotBlank(message = "topAgentId is empty")
     private String topAgentId;
 
     /** Agent level */
