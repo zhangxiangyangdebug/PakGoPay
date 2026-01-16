@@ -107,4 +107,7 @@ public class AgentInfoDto implements Serializable {
 
     /** agent's channel Info */
     private List<ChannelDto> channelDtoList;
+
+    /** agent's channel id list */
+    private List<Long> channelIdList;
 }

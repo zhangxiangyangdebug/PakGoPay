@@ -1,12 +1,16 @@
 package com.pakgopay.service.common;
 
+import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.mapper.dto.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public final class ExportReportDataColumns {
     private ExportReportDataColumns() {
@@ -156,9 +160,24 @@ public final class ExportReportDataColumns {
         //--------------------------------------------------------------------------------------------------------------
 
         // channel, export column
-//        CHANNEL_ALLOWED.put("paymentName", new ColumnDef<>("paymentName", PaymentReportDto::getPaymentName));
+        CHANNEL_ALLOWED.put("channelName", new ColumnDef<>("channelName", ChannelDto::getChannelName));
+
+        CHANNEL_ALLOWED.put("collectPayment",
+                new ColumnDef<>("collectPayment", r -> safeToPaymentInfo(r.getPaymentDtoList(), new ArrayList<>() {{
+            add(CommonConstant.SUPPORT_TYPE_COLLECTION);
+            add(CommonConstant.SUPPORT_TYPE_ALL);
+        }})));
 
 
+    }
+
+
+    private static String safeToPaymentInfo(List<PaymentDto> paymentDtoList, List<Integer> supportTypes){
+        if (paymentDtoList == null || paymentDtoList.isEmpty()) return "";
+        return paymentDtoList.stream()
+                .filter(p-> supportTypes.contains(p.getSupportType()))
+                .map(p -> "paymentNo:" + p.getPaymentNo() + ", paymentName:" + p.getPaymentName())
+                .collect(Collectors.joining(" | "));
     }
 
     private static String safeToString(Object v) {

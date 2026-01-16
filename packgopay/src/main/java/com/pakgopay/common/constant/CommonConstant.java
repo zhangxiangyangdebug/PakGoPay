@@ -25,6 +25,9 @@ public class CommonConstant {
     // xiaoyou 支持类型，代付
     public static Integer SUPPORT_TYPE_PAY = 1;
 
+    // xiaoyou 支持类型，代付/代收
+    public static Integer SUPPORT_TYPE_ALL = 2;
+
     // xiaoyou ZERO
     public static Integer ZERO = 0;
 
