@@ -12,7 +12,7 @@
         <result column="agent_name" property="agentName" javaType="java.lang.String"/>
 
         <result column="user_id" property="userId" javaType="java.lang.String"/>
-        <result column="user_name" property="userName" javaType="java.lang.String"/>
+        <result column="account_name" property="accountName" javaType="java.lang.String"/>
 
         <result column="parent_id" property="parentId" javaType="java.lang.String"/>
         <result column="top_agent_id" property="topAgentId" javaType="java.lang.String"/>
@@ -56,7 +56,7 @@
         agent_no,
         agent_name,
         user_id,
-        user_name,
+        user_name as account_name,
         parent_id,
         top_agent_id,
         channel_ids,
@@ -100,7 +100,7 @@
         UPDATE agent_info
         <set>
             <if test="agentName != null">agent_name = #{agentName},</if>
-            <if test="userName != null">user_name = #{userName},</if>
+            <if test="userName != null">user_name = #{accountName},</if>
             <if test="parentId != null">parent_id = #{parentId},</if>
             <if test="topAgentId != null">top_agent_id = #{topAgentId},</if>
             <if test="channelIds != null">channel_ids = #{channelIds},</if>
@@ -164,7 +164,7 @@
         <where>
 
             <if test="userName != null and userName != ''">
-                AND user_name LIKE CONCAT('%', #{userName}, '%')
+                AND user_name LIKE CONCAT('%', #{accountName}, '%')
             </if>
 
             <if test="agentName != null and agentName != ''">

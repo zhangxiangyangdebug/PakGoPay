@@ -70,7 +70,7 @@ public class AgentServiceImpl implements AgentService {
         log.info("queryAgentData start");
         AgentInfoEntity entity = new AgentInfoEntity();
         entity.setAgentName(agentQueryRequest.getAgentName());
-        entity.setUserName(agentQueryRequest.getAccountName());
+        entity.setAccountName(agentQueryRequest.getAccountName());
         entity.setStatus(agentQueryRequest.getStatus());
         entity.setPageNo(agentQueryRequest.getPageNo());
         entity.setPageSize(agentQueryRequest.getPageSize());
@@ -287,7 +287,7 @@ public class AgentServiceImpl implements AgentService {
                 // 1) Identity & Account Info
                 // =====================
                 .reqStr("agentName", req::getAgentName, dto::setAgentName)
-                .reqStr("accountName", req::getAccountName, dto::setUserName)
+                .reqStr("accountName", req::getAccountName, dto::setAccountName)
                 .str(req::getParentId, dto::setParentId)
                 .str(req::getTopAgentId, dto::setTopAgentId)
                 .reqObj("level", req::getLevel, dto::setLevel)

@@ -11,9 +11,9 @@ public class AgentInfoEntity {
     private String agentName;
 
     /**
-     * user name
+     * Account name
      */
-    private String userName;
+    private String accountName;
 
     /**
      * status

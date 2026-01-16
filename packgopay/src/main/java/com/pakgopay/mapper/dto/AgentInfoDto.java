@@ -20,8 +20,8 @@ public class AgentInfoDto implements Serializable {
     /** Agent login user ID */
     private String userId;
 
-    /** User name */
-    private String userName;
+    /** Account name */
+    private String accountName;
 
     /** Parent agent ID */
     private String parentId;
