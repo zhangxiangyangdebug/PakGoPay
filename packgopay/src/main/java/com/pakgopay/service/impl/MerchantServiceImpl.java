@@ -92,7 +92,7 @@ public class MerchantServiceImpl implements MerchantService {
             response.setMerchantInfoDtoList(merchantInfoDtoList);
             response.setTotalNumber(totalNumber);
         } catch (Exception e) {
-            log.error("agentInfoMapper queryAgentData failed, message {}", e.getMessage());
+            log.error("merchantInfoMapper queryAgentData failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
