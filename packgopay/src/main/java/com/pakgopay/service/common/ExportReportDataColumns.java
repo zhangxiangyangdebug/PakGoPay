@@ -66,6 +66,9 @@ public final class ExportReportDataColumns {
     // key -> (title default value, value function)
     public static final Map<String, ColumnDef<WithdrawalAccountsDto>> AGENT_ACCOUNT_ALLOWED = new LinkedHashMap<>();
 
+    // key -> (title default value, value function)
+    public static final Map<String, ColumnDef<WithdrawalAccountsDto>> MERCHANT_ACCOUNT_ALLOWED = new LinkedHashMap<>();
+
     static {
         // merchant report, export column
         MERCHANT_REPORT_ALLOWED.put("merchantName", new ColumnDef<>("merchantName", MerchantReportDto::getMerchantName));

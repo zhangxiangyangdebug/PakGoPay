@@ -39,4 +39,10 @@ public interface WithdrawalAccountsMapper {
 
     /** Page query */
     List<WithdrawalAccountsDto> pageByQueryAgent(AgentAccountInfoEntity entity);
+
+    Integer countByQueryMerchant(AgentAccountInfoEntity entity);
+
+    List<WithdrawalAccountsDto> pageByQueryMerchant(AgentAccountInfoEntity entity);
+
+    List<String> userIdsByQueryMerchant(AgentAccountInfoEntity entity);
 }

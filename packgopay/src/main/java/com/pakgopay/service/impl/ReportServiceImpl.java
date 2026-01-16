@@ -191,12 +191,11 @@ public class ReportServiceImpl implements ReportService {
         try {
             // administrator searches for specified user by merchant name
             if (entity.getMerchantName() != null) {
-                String merchantUserId = merchantInfoMapper.findByMerchantName(entity.getMerchantName());
-                if (merchantUserId == null) {
-                    log.error("findByMerchantName user is not exists, merchantName: {}", entity.getMerchantName());
-                    throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
-                }
-                entity.setUserId(merchantUserId);
+                MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByMerchantName(entity.getMerchantName())
+                        .orElseThrow(() -> new PakGoPayException(
+                                ResultCode.USER_IS_NOT_EXIST
+                                , "agent is not exists, agentName:" + entity.getMerchantName()));
+                entity.setUserId(merchantInfoDto.getUserId());
             }
 
             Integer totalNumber = merchantReportMapper.countByQuery(entity);

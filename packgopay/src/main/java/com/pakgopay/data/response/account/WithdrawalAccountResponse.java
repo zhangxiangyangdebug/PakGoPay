@@ -1,4 +1,4 @@
-package com.pakgopay.data.response.agent;
+package com.pakgopay.data.response.account;
 
 import com.pakgopay.mapper.dto.WithdrawalAccountsDto;
 import lombok.Data;
@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 @Data
-public class AgentAccountResponse {
+public class WithdrawalAccountResponse {
 
     /**
      * card info (key: currency)

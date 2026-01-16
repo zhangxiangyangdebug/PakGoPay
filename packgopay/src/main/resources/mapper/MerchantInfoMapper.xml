@@ -169,8 +169,9 @@
     </select>
 
     <!-- 6.findByMerchantName -->
-    <select id="findByMerchantName" resultType="java.lang.String">
-        select user_id
+    <select id="findByMerchantName" resultMap="MerchantInfoDtoMap">
+        select
+        <include refid="BaseColumns"/>
         from merchant_info
         where merchant_name = #{merchantName}
         limit 1

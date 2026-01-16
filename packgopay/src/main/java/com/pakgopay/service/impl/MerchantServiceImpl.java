@@ -3,29 +3,34 @@ package com.pakgopay.service.impl;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.entity.agent.AgentAccountInfoEntity;
 import com.pakgopay.data.entity.merchant.MerchantEntity;
 import com.pakgopay.data.reqeust.CreateUserRequest;
+import com.pakgopay.data.reqeust.account.AccountAddRequest;
+import com.pakgopay.data.reqeust.account.AccountEditRequest;
+import com.pakgopay.data.reqeust.account.AccountQueryRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.data.response.account.WithdrawalAccountResponse;
 import com.pakgopay.data.response.merchant.MerchantResponse;
-import com.pakgopay.mapper.AgentInfoMapper;
-import com.pakgopay.mapper.ChannelMapper;
-import com.pakgopay.mapper.MerchantInfoMapper;
-import com.pakgopay.mapper.PaymentMapper;
-import com.pakgopay.mapper.dto.AgentInfoDto;
-import com.pakgopay.mapper.dto.ChannelDto;
-import com.pakgopay.mapper.dto.MerchantInfoDto;
-import com.pakgopay.mapper.dto.PaymentDto;
+import com.pakgopay.mapper.*;
+import com.pakgopay.mapper.dto.*;
+import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
+import com.pakgopay.service.common.ExportReportDataColumns;
 import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.TransactionUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -47,7 +52,13 @@ public class MerchantServiceImpl implements MerchantService {
     private AgentInfoMapper agentInfoMapper;
 
     @Autowired
+    private WithdrawalAccountsMapper withdrawalAccountsMapper;
+
+    @Autowired
     private UserService userService;
+
+    @Autowired
+    private BalanceService balanceService;
 
     @Autowired
     private TransactionUtil transactionUtil;
@@ -357,5 +368,152 @@ public class MerchantServiceImpl implements MerchantService {
                 .obj(merchantAddRequest::getStatus, dto::setStatus);
 
         return builder.build();
+    }
+
+    @Override
+    public CommonResponse queryMerchantAccount(AccountQueryRequest accountQueryRequest) {
+        log.info("queryMerchantAccount start");
+        WithdrawalAccountResponse response = queryMerchantAccountData(accountQueryRequest);
+        log.info("queryMerchantAccount end");
+        return CommonResponse.success(response);
+    }
+
+    private WithdrawalAccountResponse queryMerchantAccountData(AccountQueryRequest accountQueryRequest) {
+        log.info("queryMerchantAccountData start");
+        AgentAccountInfoEntity entity = new AgentAccountInfoEntity();
+        entity.setName(accountQueryRequest.getName());
+        entity.setWalletAddr(accountQueryRequest.getWalletAddr());
+        entity.setStartTime(accountQueryRequest.getStartTime());
+        entity.setEndTime(accountQueryRequest.getEndTime());
+        entity.setPageSize(accountQueryRequest.getPageSize());
+        entity.setPageNo(accountQueryRequest.getPageNo());
+
+        WithdrawalAccountResponse response = new WithdrawalAccountResponse();
+        try {
+            Integer totalNumber = withdrawalAccountsMapper.countByQueryMerchant(entity);
+            List<WithdrawalAccountsDto> withdrawalAccountsDtoList = withdrawalAccountsMapper.pageByQueryMerchant(entity);
+
+            if (accountQueryRequest.getIsNeedCardData()) {
+                List<String> userIds = withdrawalAccountsMapper.userIdsByQueryMerchant(entity);
+                if (userIds != null && userIds.isEmpty()) {
+                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
+                    response.setCardInfo(cardInfo);
+                }
+            }
+
+            response.setWithdrawalAccountsDtoList(withdrawalAccountsDtoList);
+            response.setTotalNumber(totalNumber);
+        } catch (Exception e) {
+            log.error("withdrawalAccountsMapper pageByQuery failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        response.setPageNo(entity.getPageNo());
+        response.setPageSize(entity.getPageSize());
+        log.info("queryMerchantAccountData end");
+        return response;
+    }
+
+    @Override
+    public void exportMerchantAccount(
+            AccountQueryRequest accountQueryRequest, HttpServletResponse response) throws IOException {
+        log.info("exportMerchantAccount start");
+
+        // 1) Parse and validate export columns (must go through whitelist)
+        ExportFileUtils.ColumnParseResult<WithdrawalAccountsDto> colRes =
+                ExportFileUtils.parseColumns(accountQueryRequest, ExportReportDataColumns.MERCHANT_ACCOUNT_ALLOWED);
+
+        // 2) Init paging params
+        accountQueryRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
+        accountQueryRequest.setPageNo(1);
+
+        // 3) Export by paging and multi-sheet writing
+        ExportFileUtils.exportByPagingAndSheets(
+                response,
+                colRes.getHead(),
+                accountQueryRequest,
+                (req) -> queryMerchantAccountData(req).getWithdrawalAccountsDtoList(),
+                colRes.getDefs(),
+                ExportReportDataColumns.CHANNEL_EXPORT_FILE_NAME);
+
+        log.info("exportMerchantAccount end");
+    }
+
+    @Override
+    public CommonResponse editMerchantAccount(AccountEditRequest accountEditRequest) {
+        log.info("editMerchantAccount start, withdrawalId={}", accountEditRequest.getId());
+
+        WithdrawalAccountsDto withdrawalAccountsDto = generateAccountsDto(accountEditRequest);
+        try {
+            int ret = withdrawalAccountsMapper.updateById(withdrawalAccountsDto);
+            log.info("editMerchantAccount updateByChannelId done, withdrawalId={}, ret={}", accountEditRequest.getId(), ret);
+
+            if (ret <= 0) {
+                return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
+            }
+        } catch (Exception e) {
+            log.error("editMerchantAccount updateByChannelId failed, withdrawalId={}", accountEditRequest.getId(), e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("editMerchantAccount end, withdrawalId={}", accountEditRequest.getId());
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private WithdrawalAccountsDto generateAccountsDto(AccountEditRequest accountEditRequest) {
+        WithdrawalAccountsDto dto = new WithdrawalAccountsDto();
+        dto.setId(PatchBuilderUtil.parseRequiredLong(accountEditRequest.getId(), "id"));
+        dto.setUpdateTime(System.currentTimeMillis() / 1000);
+
+        return PatchBuilderUtil.from(accountEditRequest).to(dto)
+                .str(accountEditRequest::getWalletAddr, dto::setWalletAddr)
+                .obj(accountEditRequest::getStatus, dto::setStatus)
+                .str(accountEditRequest::getUserName, dto::setUpdateBy)
+                .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
+    }
+
+    @Override
+    public CommonResponse addMerchantAccount(AccountAddRequest accountAddRequest) {
+        log.info("addMerchantAccount start");
+
+        try {
+            WithdrawalAccountsDto withdrawalAccountsDto = generateAccountInfoDtoForAdd(accountAddRequest);
+            int ret = withdrawalAccountsMapper.insert(withdrawalAccountsDto);
+            log.info("addMerchantAccount insert done, ret={}", ret);
+        } catch (PakGoPayException e) {
+            log.error("addMerchantAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "addMerchantAccount failed: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("addMerchantAccount insert failed", e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("addMerchantAccount end");
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private WithdrawalAccountsDto generateAccountInfoDtoForAdd(AccountAddRequest req) throws PakGoPayException {
+        WithdrawalAccountsDto dto = new WithdrawalAccountsDto();
+        long now = System.currentTimeMillis() / 1000;
+
+        PatchBuilderUtil<AccountAddRequest, WithdrawalAccountsDto> b = PatchBuilderUtil.from(req).to(dto)
+                .str(req::getWalletName, dto::setWalletName)
+                .str(req::getWalletAddr, dto::setWalletAddr)
+                .obj(req::getStatus, dto::setStatus)
+                .str(req::getRemark, dto::setRemark);
+
+        // 4) meta
+        dto.setCreateTime(now);
+        dto.setUpdateTime(now);
+        dto.setCreateBy(req.getUserName());
+        dto.setUpdateBy(req.getUserName());
+
+        MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByMerchantName(req.getName())
+                .orElseThrow(() -> new PakGoPayException(
+                        ResultCode.USER_IS_NOT_EXIST
+                        , "agent is not exists, agentName:" + req.getName()));
+        dto.setMerchantAgentId(merchantInfoDto.getUserId());
+
+        return b.build();
     }
 }

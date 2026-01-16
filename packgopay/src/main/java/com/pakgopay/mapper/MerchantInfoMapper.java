@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 @Mapper
 public interface MerchantInfoMapper {
@@ -36,9 +37,9 @@ public interface MerchantInfoMapper {
 
 
     /**
-     * find userId by merchant name
+     * find MerchantInfoDto by merchant name
      */
-    String findByMerchantName(@Param("merchantName") String merchantName);
+    Optional<MerchantInfoDto> findByMerchantName(@Param("merchantName") String merchantName);
 
     Integer countByQuery(MerchantEntity entity);
 

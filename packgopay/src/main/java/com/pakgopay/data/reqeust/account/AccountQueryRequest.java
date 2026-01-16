@@ -1,15 +1,15 @@
-package com.pakgopay.data.reqeust.agent;
+package com.pakgopay.data.reqeust.account;
 
 import com.pakgopay.data.reqeust.ExportBaseRequest;
 import lombok.Data;
 
 @Data
-public class AgentAccountQueryRequest extends ExportBaseRequest {
+public class AccountQueryRequest extends ExportBaseRequest {
 
     /**
      * Agent name
      */
-    private String agentName;
+    private String name;
 
     /**
      * account name

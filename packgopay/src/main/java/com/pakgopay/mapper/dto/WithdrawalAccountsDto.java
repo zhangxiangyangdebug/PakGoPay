@@ -18,8 +18,8 @@ public class WithdrawalAccountsDto implements Serializable {
     /** user name */
     private String userName;
 
-    /** Agent name */
-    private String agentName;
+    /** Agent/Merchant name */
+    private String name;
 
     /** Wallet address */
     private String walletAddr;

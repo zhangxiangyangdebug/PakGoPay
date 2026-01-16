@@ -6,9 +6,12 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.agent.AgentAccountInfoEntity;
 import com.pakgopay.data.entity.agent.AgentInfoEntity;
 import com.pakgopay.data.reqeust.CreateUserRequest;
+import com.pakgopay.data.reqeust.account.AccountAddRequest;
+import com.pakgopay.data.reqeust.account.AccountEditRequest;
+import com.pakgopay.data.reqeust.account.AccountQueryRequest;
 import com.pakgopay.data.reqeust.agent.*;
 import com.pakgopay.data.response.CommonResponse;
-import com.pakgopay.data.response.agent.AgentAccountResponse;
+import com.pakgopay.data.response.account.WithdrawalAccountResponse;
 import com.pakgopay.data.response.agent.AgentResponse;
 import com.pakgopay.mapper.AgentInfoMapper;
 import com.pakgopay.mapper.ChannelMapper;
@@ -354,30 +357,30 @@ public class AgentServiceImpl implements AgentService {
     }
 
     @Override
-    public CommonResponse queryAgentAccount(AgentAccountQueryRequest agentAccountQueryRequest) {
+    public CommonResponse queryAgentAccount(AccountQueryRequest accountQueryRequest) {
         log.info("queryAgentAccount start");
-        AgentAccountResponse response = queryAgentAccountData(agentAccountQueryRequest);
+        WithdrawalAccountResponse response = queryAgentAccountData(accountQueryRequest);
         log.info("queryAgentAccount end");
         return CommonResponse.success(response);
     }
 
-    private AgentAccountResponse queryAgentAccountData(
-            AgentAccountQueryRequest agentAccountQueryRequest) throws PakGoPayException {
+    private WithdrawalAccountResponse queryAgentAccountData(
+            AccountQueryRequest accountQueryRequest) throws PakGoPayException {
         log.info("queryAgentAccountData start");
         AgentAccountInfoEntity entity = new AgentAccountInfoEntity();
-        entity.setAgentName(agentAccountQueryRequest.getAgentName());
-        entity.setWalletAddr(agentAccountQueryRequest.getWalletAddr());
-        entity.setStartTime(agentAccountQueryRequest.getStartTime());
-        entity.setEndTime(agentAccountQueryRequest.getEndTime());
-        entity.setPageSize(agentAccountQueryRequest.getPageSize());
-        entity.setPageNo(agentAccountQueryRequest.getPageNo());
+        entity.setName(accountQueryRequest.getName());
+        entity.setWalletAddr(accountQueryRequest.getWalletAddr());
+        entity.setStartTime(accountQueryRequest.getStartTime());
+        entity.setEndTime(accountQueryRequest.getEndTime());
+        entity.setPageSize(accountQueryRequest.getPageSize());
+        entity.setPageNo(accountQueryRequest.getPageNo());
 
-        AgentAccountResponse response = new AgentAccountResponse();
+        WithdrawalAccountResponse response = new WithdrawalAccountResponse();
         try {
             Integer totalNumber = withdrawalAccountsMapper.countByQueryAgent(entity);
             List<WithdrawalAccountsDto> withdrawalAccountsDtoList = withdrawalAccountsMapper.pageByQueryAgent(entity);
 
-            if (agentAccountQueryRequest.getIsNeedCardData()) {
+            if (accountQueryRequest.getIsNeedCardData()) {
                 List<String> userIds = withdrawalAccountsMapper.userIdsByQueryAgent(entity);
                 if (userIds != null && userIds.isEmpty()) {
                     Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
@@ -400,22 +403,22 @@ public class AgentServiceImpl implements AgentService {
 
     @Override
     public void exportAgentAccount(
-            AgentAccountQueryRequest agentQueryRequest, HttpServletResponse response) throws IOException {
+            AccountQueryRequest accountQueryRequest, HttpServletResponse response) throws IOException {
         log.info("exportAgentAccount start");
 
         // 1) Parse and validate export columns (must go through whitelist)
         ExportFileUtils.ColumnParseResult<WithdrawalAccountsDto> colRes =
-                ExportFileUtils.parseColumns(agentQueryRequest, ExportReportDataColumns.AGENT_ACCOUNT_ALLOWED);
+                ExportFileUtils.parseColumns(accountQueryRequest, ExportReportDataColumns.AGENT_ACCOUNT_ALLOWED);
 
         // 2) Init paging params
-        agentQueryRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
-        agentQueryRequest.setPageNo(1);
+        accountQueryRequest.setPageSize(ExportReportDataColumns.EXPORT_PAGE_SIZE);
+        accountQueryRequest.setPageNo(1);
 
         // 3) Export by paging and multi-sheet writing
         ExportFileUtils.exportByPagingAndSheets(
                 response,
                 colRes.getHead(),
-                agentQueryRequest,
+                accountQueryRequest,
                 (req) -> queryAgentAccountData(req).getWithdrawalAccountsDtoList(),
                 colRes.getDefs(),
                 ExportReportDataColumns.CHANNEL_EXPORT_FILE_NAME);
@@ -424,44 +427,44 @@ public class AgentServiceImpl implements AgentService {
     }
 
     @Override
-    public CommonResponse editAgentAccount(AgentAccountEditRequest agentAccountEditRequest) {
-        log.info("editAgentAccount start, withdrawalId={}", agentAccountEditRequest.getId());
+    public CommonResponse editAgentAccount(AccountEditRequest accountEditRequest) {
+        log.info("editAgentAccount start, withdrawalId={}", accountEditRequest.getId());
 
-        WithdrawalAccountsDto withdrawalAccountsDto = generateAccountsDto(agentAccountEditRequest);
+        WithdrawalAccountsDto withdrawalAccountsDto = generateAccountsDto(accountEditRequest);
         try {
             int ret = withdrawalAccountsMapper.updateById(withdrawalAccountsDto);
-            log.info("editAgentAccount updateByChannelId done, withdrawalId={}, ret={}", agentAccountEditRequest.getId(), ret);
+            log.info("editAgentAccount updateByChannelId done, withdrawalId={}, ret={}", accountEditRequest.getId(), ret);
 
             if (ret <= 0) {
                 return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
             }
         } catch (Exception e) {
-            log.error("editAgentAccount updateByChannelId failed, withdrawalId={}", agentAccountEditRequest.getId(), e);
+            log.error("editAgentAccount updateByChannelId failed, withdrawalId={}", accountEditRequest.getId(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
-        log.info("editAgentAccount end, withdrawalId={}", agentAccountEditRequest.getId());
+        log.info("editAgentAccount end, withdrawalId={}", accountEditRequest.getId());
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
-    private WithdrawalAccountsDto generateAccountsDto(AgentAccountEditRequest agentAccountEditRequest) {
+    private WithdrawalAccountsDto generateAccountsDto(AccountEditRequest accountEditRequest) {
         WithdrawalAccountsDto dto = new WithdrawalAccountsDto();
-        dto.setId(PatchBuilderUtil.parseRequiredLong(agentAccountEditRequest.getId(), "id"));
+        dto.setId(PatchBuilderUtil.parseRequiredLong(accountEditRequest.getId(), "id"));
         dto.setUpdateTime(System.currentTimeMillis() / 1000);
 
-        return PatchBuilderUtil.from(agentAccountEditRequest).to(dto)
-                .str(agentAccountEditRequest::getWalletAddr, dto::setWalletAddr)
-                .obj(agentAccountEditRequest::getStatus, dto::setStatus)
-                .str(agentAccountEditRequest::getUserName, dto::setUpdateBy)
+        return PatchBuilderUtil.from(accountEditRequest).to(dto)
+                .str(accountEditRequest::getWalletAddr, dto::setWalletAddr)
+                .obj(accountEditRequest::getStatus, dto::setStatus)
+                .str(accountEditRequest::getUserName, dto::setUpdateBy)
                 .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
     }
 
     @Override
-    public CommonResponse addAgentAccount(AgentAccountAddRequest agentAccountAddRequest) {
+    public CommonResponse addAgentAccount(AccountAddRequest accountAddRequest) {
         log.info("addAgentAccount start");
 
         try {
-            WithdrawalAccountsDto withdrawalAccountsDto = generateAccountInfoDtoForAdd(agentAccountAddRequest);
+            WithdrawalAccountsDto withdrawalAccountsDto = generateAccountInfoDtoForAdd(accountAddRequest);
             int ret = withdrawalAccountsMapper.insert(withdrawalAccountsDto);
             log.info("addAgentAccount insert done, ret={}", ret);
         } catch (PakGoPayException e) {
@@ -476,11 +479,11 @@ public class AgentServiceImpl implements AgentService {
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
-    private WithdrawalAccountsDto generateAccountInfoDtoForAdd(AgentAccountAddRequest req) throws PakGoPayException {
+    private WithdrawalAccountsDto generateAccountInfoDtoForAdd(AccountAddRequest req) throws PakGoPayException {
         WithdrawalAccountsDto dto = new WithdrawalAccountsDto();
         long now = System.currentTimeMillis() / 1000;
 
-        PatchBuilderUtil<AgentAccountAddRequest, WithdrawalAccountsDto> b = PatchBuilderUtil.from(req).to(dto)
+        PatchBuilderUtil<AccountAddRequest, WithdrawalAccountsDto> b = PatchBuilderUtil.from(req).to(dto)
                 .str(req::getWalletName, dto::setWalletName)
                 .str(req::getWalletAddr, dto::setWalletAddr)
                 .obj(req::getStatus, dto::setStatus)
@@ -492,10 +495,10 @@ public class AgentServiceImpl implements AgentService {
         dto.setCreateBy(req.getUserName());
         dto.setUpdateBy(req.getUserName());
 
-        AgentInfoDto agentInfoDto = agentInfoMapper.findByAgentName(req.getAgentName())
+        AgentInfoDto agentInfoDto = agentInfoMapper.findByAgentName(req.getName())
                 .orElseThrow(() -> new PakGoPayException(
                         ResultCode.USER_IS_NOT_EXIST
-                        , "agent is not exists, agentName:" + req.getAgentName()));
+                        , "agent is not exists, agentName:" + req.getName()));
         dto.setMerchantAgentId(agentInfoDto.getUserId());
 
         return b.build();

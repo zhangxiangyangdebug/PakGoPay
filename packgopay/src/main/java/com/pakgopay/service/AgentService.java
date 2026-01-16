@@ -1,6 +1,9 @@
 package com.pakgopay.service;
 
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.reqeust.account.AccountAddRequest;
+import com.pakgopay.data.reqeust.account.AccountEditRequest;
+import com.pakgopay.data.reqeust.account.AccountQueryRequest;
 import com.pakgopay.data.reqeust.agent.*;
 import com.pakgopay.data.response.CommonResponse;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,11 +20,11 @@ public interface AgentService {
 
     CommonResponse addAgent(@Valid AgentAddRequest agentAddRequest) throws PakGoPayException;
 
-    CommonResponse queryAgentAccount(@Valid AgentAccountQueryRequest agentAccountQueryRequest);
+    CommonResponse queryAgentAccount(@Valid AccountQueryRequest accountQueryRequest);
 
-    void exportAgentAccount(@Valid AgentAccountQueryRequest agentQueryRequest, HttpServletResponse response) throws IOException;
+    void exportAgentAccount(@Valid AccountQueryRequest agentQueryRequest, HttpServletResponse response) throws IOException;
 
-    CommonResponse editAgentAccount(@Valid AgentAccountEditRequest agentAccountEditRequest);
+    CommonResponse editAgentAccount(@Valid AccountEditRequest accountEditRequest);
 
-    CommonResponse addAgentAccount(@Valid AgentAccountAddRequest agentAccountAddRequest);
+    CommonResponse addAgentAccount(@Valid AccountAddRequest accountAddRequest);
 }

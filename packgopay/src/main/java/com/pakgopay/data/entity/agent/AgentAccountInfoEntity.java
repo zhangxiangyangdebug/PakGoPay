@@ -6,9 +6,9 @@ import lombok.Data;
 public class AgentAccountInfoEntity {
 
     /**
-     * Agent name
+     * Agent/Merchant name
      */
-    private String agentName;
+    private String name;
 
     /**
      * account name

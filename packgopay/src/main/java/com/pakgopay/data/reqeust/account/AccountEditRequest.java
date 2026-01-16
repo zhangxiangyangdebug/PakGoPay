@@ -1,10 +1,10 @@
-package com.pakgopay.data.reqeust.agent;
+package com.pakgopay.data.reqeust.account;
 
 import com.pakgopay.data.reqeust.BaseRequest;
 import lombok.Data;
 
 @Data
-public class AgentAccountEditRequest extends BaseRequest {
+public class AccountEditRequest extends BaseRequest {
 
     /**
      * id

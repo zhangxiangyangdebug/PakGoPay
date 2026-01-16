@@ -10,7 +10,7 @@
         <id column="id" property="id" javaType="java.lang.Long"/>
         <result column="merchant_agent_id" property="merchantAgentId" javaType="java.lang.String"/>
         <result column="user_name" property="userName" javaType="java.lang.String"/>
-        <result column="agent_name" property="agentName" javaType="java.lang.String"/>
+        <result column="name" property="name" javaType="java.lang.String"/>
         <result column="wallet_addr" property="walletAddr" javaType="java.lang.String"/>
         <result column="wallet_name" property="walletName" javaType="java.lang.String"/>
         <result column="status" property="status" javaType="java.lang.Integer"/>
@@ -104,7 +104,7 @@
     <sql id="AgentAccountQueryWhere">
         <where>
             <if test="walletAddr != null and walletAddr != ''">AND wa.wallet_addr LIKE CONCAT('%', #{walletAddr}, '%')</if>
-            <if test="agentName != null and agentName != ''">AND ai.agent_name LIKE CONCAT('%', #{agentName}, '%')</if>
+            <if test="name != null and name != ''">AND ai.name LIKE CONCAT('%', #{name}, '%')</if>
             <if test="startTime != null">AND wa.create_time <![CDATA[>=]]> #{startTime}</if>
             <if test="endTime != null">AND wa.create_time <![CDATA[<=]]> #{endTime}</if>
         </where>
@@ -143,10 +143,61 @@
         wa.update_by,
         wa.remark,
         ai.user_name,
-        ai.agent_name
+        ai.agent_name as name
         FROM withdrawal_accounts wa
         LEFT JOIN agent_info ai ON ai.user_id = wa.merchant_agent_id
         <include refid="AgentAccountQueryWhere"/>
+        ORDER BY wa.id DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <sql id="MerchantAccountQueryWhere">
+        <where>
+            <if test="walletAddr != null and walletAddr != ''">AND wa.wallet_addr LIKE CONCAT('%', #{walletAddr}, '%')</if>
+            <if test="name != null and name != ''">AND mi.merchant_name LIKE CONCAT('%', #{name}, '%')</if>
+            <if test="startTime != null">AND wa.create_time <![CDATA[>=]]> #{startTime}</if>
+            <if test="endTime != null">AND wa.create_time <![CDATA[<=]]> #{endTime}</if>
+        </where>
+    </sql>
+
+    <select id="countByQueryMerchant"
+            parameterType="com.pakgopay.data.entity.agent.AgentAccountInfoEntity"
+            resultType="int">
+        SELECT COUNT(1)
+        FROM withdrawal_accounts wa
+        LEFT JOIN merchant_info mi ON mi.user_id = wa.merchant_agent_id
+        <include refid="MerchantAccountQueryWhere"/>
+    </select>
+
+    <select id="userIdsByQueryMerchant"
+            parameterType="com.pakgopay.data.entity.agent.AgentAccountInfoEntity"
+            resultType="java.lang.String">
+        SELECT DISTINCT wa.merchant_agent_id
+        FROM withdrawal_accounts wa
+        LEFT JOIN merchant_info mi ON mi.user_id = wa.merchant_agent_id
+        <include refid="MerchantAccountQueryWhere"/>
+    </select>
+
+    <select id="pageByQueryMerchant"
+            parameterType="com.pakgopay.data.entity.agent.AgentAccountInfoEntity"
+            resultMap="WithdrawalAccountsResultMap">
+        SELECT
+        wa.id,
+        wa.merchant_agent_id,
+        wa.wallet_addr,
+        wa.wallet_name,
+        wa.status,
+        wa.create_time,
+        wa.create_by,
+        wa.update_time,
+        wa.update_by,
+        wa.remark,
+        ui.login_name as user_name,
+        mi.merchant_name as name
+        FROM withdrawal_accounts wa
+        LEFT JOIN merchant_info mi ON mi.user_id = wa.merchant_agent_id
+        LEFT JOIN user_info ui ON ui.user_id = wa.merchant_agent_id
+        <include refid="MerchantAccountQueryWhere"/>
         ORDER BY wa.id DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>

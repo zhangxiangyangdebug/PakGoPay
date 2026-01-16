@@ -1,4 +1,4 @@
-package com.pakgopay.data.reqeust.agent;
+package com.pakgopay.data.reqeust.account;
 
 import com.pakgopay.data.reqeust.BaseRequest;
 import jakarta.validation.constraints.NotBlank;
@@ -6,11 +6,11 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
-public class AgentAccountAddRequest extends BaseRequest {
+public class AccountAddRequest extends BaseRequest {
 
     /** agent name */
-    @NotBlank(message = "agentName is empty")
-    private String agentName;
+    @NotBlank(message = "name is empty")
+    private String name;
 
     /** Wallet addr */
     @NotBlank(message = "walletAddr is empty")
