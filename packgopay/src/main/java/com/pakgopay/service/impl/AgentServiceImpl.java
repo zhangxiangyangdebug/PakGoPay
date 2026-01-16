@@ -9,7 +9,9 @@ import com.pakgopay.data.reqeust.CreateUserRequest;
 import com.pakgopay.data.reqeust.account.AccountAddRequest;
 import com.pakgopay.data.reqeust.account.AccountEditRequest;
 import com.pakgopay.data.reqeust.account.AccountQueryRequest;
-import com.pakgopay.data.reqeust.agent.*;
+import com.pakgopay.data.reqeust.agent.AgentAddRequest;
+import com.pakgopay.data.reqeust.agent.AgentEditRequest;
+import com.pakgopay.data.reqeust.agent.AgentQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.account.WithdrawalAccountResponse;
 import com.pakgopay.data.response.agent.AgentResponse;
@@ -28,6 +30,7 @@ import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.TransactionUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -175,7 +178,9 @@ public class AgentServiceImpl implements AgentService {
             if (id == null) continue;
             ChannelDto c = channelMap.get(id);
             if (c != null) {
-                list.add(c);
+                ChannelDto dto = new ChannelDto();
+                BeanUtils.copyProperties(c, dto);
+                list.add(dto);
             }
         }
         return list;
