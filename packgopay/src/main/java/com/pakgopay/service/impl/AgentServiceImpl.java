@@ -234,7 +234,7 @@ public class AgentServiceImpl implements AgentService {
 
     private AgentInfoDto checkAndGenerateAgentInfoDto(AgentEditRequest agentEditRequest) throws PakGoPayException {
         AgentInfoDto dto = new AgentInfoDto();
-        dto.setAgentNo(PatchBuilderUtil.parseRequiredLong("agentNo",agentEditRequest.getAgentNo()));
+        dto.setAgentNo(PatchBuilderUtil.parseRequiredLong(agentEditRequest.getAgentNo(),"agentNo"));
         dto.setUpdateTime(System.currentTimeMillis() / 1000);
 
         return PatchBuilderUtil.from(agentEditRequest).to(dto)
