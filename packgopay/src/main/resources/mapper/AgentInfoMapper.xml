@@ -89,7 +89,7 @@
         INSERT INTO agent_info (
         <include refid="BaseColumns"/>
         ) VALUES (
-        #{agentNo},#{agentName},#{userId},#{userName},#{parentId},#{topAgentId},#{channelIds},#{status},#{contactName},#{contactEmail},
+        #{agentNo},#{agentName},#{userId},#{accountName},#{parentId},#{topAgentId},#{channelIds},#{status},#{contactName},#{contactEmail},
         #{contactPhone},#{level},#{collectionRate},#{collectionFixedFee},#{collectionMaxFee},#{collectionMinFee},#{payRate},
         #{payFixedFee},#{payMaxFee},#{payMinFee},#{loginIps},#{withdrawIps},#{createTime},#{createBy},#{updateTime},#{updateBy},
         #{version},#{remark}
@@ -100,7 +100,7 @@
         UPDATE agent_info
         <set>
             <if test="agentName != null">agent_name = #{agentName},</if>
-            <if test="userName != null">user_name = #{accountName},</if>
+            <if test="accountName != null">user_name = #{accountName},</if>
             <if test="parentId != null">parent_id = #{parentId},</if>
             <if test="topAgentId != null">top_agent_id = #{topAgentId},</if>
             <if test="channelIds != null">channel_ids = #{channelIds},</if>
@@ -163,7 +163,7 @@
     <sql id="AgentQueryWhere">
         <where>
 
-            <if test="userName != null and userName != ''">
+            <if test="accountName != null and accountName != ''">
                 AND user_name LIKE CONCAT('%', #{accountName}, '%')
             </if>
 
