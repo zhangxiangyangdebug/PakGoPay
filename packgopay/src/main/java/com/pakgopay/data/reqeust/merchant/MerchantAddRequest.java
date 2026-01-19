@@ -34,6 +34,19 @@ public class MerchantAddRequest extends BaseRequest {
     @Size(min = 6, max = 32, message = "accountConfirmPwd length must be 6-32")
     private String accountConfirmPwd;
 
+    /** Contact name */
+    @NotBlank(message = "contactName is empty")
+    private String contactName;
+
+    /** Contact email */
+    @NotBlank(message = "contactEmail is empty")
+    @Email(message = "contactEmail format error")
+    private String contactEmail;
+
+    /** Contact phone */
+    @NotBlank(message = "contactPhone is empty")
+    @Pattern(regexp = "^[0-9+\\-]{6,20}$", message = "contactPhone format error")
+    private String contactPhone;
 
     // =====================
     // 2) Basic Status & Capability
@@ -110,6 +123,9 @@ public class MerchantAddRequest extends BaseRequest {
     @Min(value = 0, message = "isFloat must be 0 or 1")
     @Max(value = 1, message = "isFloat must be 0 or 1")
     private Integer isFloat;
+
+    /** float range */
+    private BigDecimal floatRange;
 
     /** Login white ips (comma separated) */
     @NotBlank(message = "loginIps is empty")

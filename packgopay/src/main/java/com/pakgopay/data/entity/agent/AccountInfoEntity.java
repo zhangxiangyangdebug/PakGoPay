@@ -3,7 +3,7 @@ package com.pakgopay.data.entity.agent;
 import lombok.Data;
 
 @Data
-public class AgentAccountInfoEntity {
+public class AccountInfoEntity {
 
     /**
      * Agent/Merchant name

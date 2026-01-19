@@ -36,6 +36,7 @@
 
         <result column="version" property="version" javaType="java.lang.Integer"/>
         <result column="is_float" property="isFloat" javaType="java.lang.Integer"/>
+        <result column="float_range" property="floatRange" javaType="java.math.BigDecimal"/>
 
         <result column="col_white_ips" property="colWhiteIps" javaType="java.lang.String"/>
         <result column="pay_white_ips" property="payWhiteIps" javaType="java.lang.String"/>
@@ -65,6 +66,7 @@
         pay_min_fee,
         version,
         is_float,
+        float_range,
         col_white_ips,
         pay_white_ips,
         channel_ids
@@ -92,6 +94,7 @@
         m.pay_min_fee,
         m.version,
         m.is_float,
+        m.float_range,
         m.col_white_ips,
         m.pay_white_ips,
         m.channel_ids
@@ -130,6 +133,7 @@
         #{payMinFee},
         #{version},
         #{isFloat},
+        #{floatRange},
         #{colWhiteIps},
         #{payWhiteIps},
         #{channelIds}
@@ -162,6 +166,7 @@
             <if test="version != null">version = #{version},</if>
 
             <if test="isFloat != null">is_float = #{isFloat},</if>
+            <if test="floatRange != null">float_range = #{floatRange},</if>
 
             <if test="colWhiteIps != null and colWhiteIps != ''">col_white_ips = #{colWhiteIps},</if>
             <if test="payWhiteIps != null and payWhiteIps != ''">pay_white_ips = #{payWhiteIps},</if>

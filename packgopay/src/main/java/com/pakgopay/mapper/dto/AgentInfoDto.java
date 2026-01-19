@@ -35,15 +35,6 @@ public class AgentInfoDto implements Serializable {
     /** Status: 0-disabled, 1-enabled */
     private Integer status;
 
-    /** Contact name */
-    private String contactName;
-
-    /** Contact email */
-    private String contactEmail;
-
-    /** Contact phone */
-    private String contactPhone;
-
     /** Agent level */
     private Integer level;
 

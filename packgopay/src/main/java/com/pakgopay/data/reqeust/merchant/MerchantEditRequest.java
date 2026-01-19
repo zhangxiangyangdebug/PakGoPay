@@ -59,6 +59,9 @@ public class MerchantEditRequest extends BaseRequest {
     /** Whether floating is enabled (0 = No, 1 = Yes) */
     private Integer isFloat;
 
+    /** float range */
+    private BigDecimal floatRange;
+
     /** Collection IP whitelist (comma-separated) */
     private String colWhiteIps;
 

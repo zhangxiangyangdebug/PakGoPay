@@ -3,7 +3,7 @@ package com.pakgopay.service.impl;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.data.entity.agent.AgentAccountInfoEntity;
+import com.pakgopay.data.entity.agent.AccountInfoEntity;
 import com.pakgopay.data.entity.agent.AgentInfoEntity;
 import com.pakgopay.data.reqeust.CreateUserRequest;
 import com.pakgopay.data.reqeust.account.AccountAddRequest;
@@ -241,11 +241,6 @@ public class AgentServiceImpl implements AgentService {
                 .obj(agentEditRequest::getStatus, dto::setStatus)
                 .ids(agentEditRequest::getChannelIds, dto::setChannelIds)
 
-                // contact
-                .str(agentEditRequest::getContactName, dto::setContactName)
-                .str(agentEditRequest::getContactEmail, dto::setContactEmail)
-                .str(agentEditRequest::getContactPhone, dto::setContactPhone)
-
                 // collection config
                 .obj(agentEditRequest::getCollectionRate, dto::setCollectionRate)
                 .obj(agentEditRequest::getCollectionFixedFee, dto::setCollectionFixedFee)
@@ -309,13 +304,6 @@ public class AgentServiceImpl implements AgentService {
                 .reqObj("status", req::getStatus, dto::setStatus)
 
                 // =====================
-                // 3) Contact Info
-                // =====================
-                .reqStr("contactName", req::getContactName, dto::setContactName)
-                .reqStr("contactEmail", req::getContactEmail, dto::setContactEmail)
-                .reqStr("contactPhone", req::getContactPhone, dto::setContactPhone)
-
-                // =====================
                 // 4) Collection Configuration
                 // =====================
                 .reqObj("collectionRate", req::getCollectionRate, dto::setCollectionRate)
@@ -355,6 +343,9 @@ public class AgentServiceImpl implements AgentService {
                 .str(agentAddRequest::getAccountPwd, dto::setPassword)
                 .str(agentAddRequest::getAccountConfirmPwd, dto::setConfirmPassword)
                 .str(agentAddRequest::getUserId, dto::setOperatorId)
+                .reqStr("contactName", agentAddRequest::getContactName, dto::setContactName)
+                .reqStr("contactEmail", agentAddRequest::getContactEmail, dto::setContactEmail)
+                .reqStr("contactPhone", agentAddRequest::getContactPhone, dto::setContactPhone)
                 .obj(agentAddRequest::getStatus, dto::setStatus)
                 .str(agentAddRequest::getLoginIps, dto::setLoginIps);
 
@@ -372,7 +363,7 @@ public class AgentServiceImpl implements AgentService {
     private WithdrawalAccountResponse queryAgentAccountData(
             AccountQueryRequest accountQueryRequest) throws PakGoPayException {
         log.info("queryAgentAccountData start");
-        AgentAccountInfoEntity entity = new AgentAccountInfoEntity();
+        AccountInfoEntity entity = new AccountInfoEntity();
         entity.setName(accountQueryRequest.getName());
         entity.setWalletAddr(accountQueryRequest.getWalletAddr());
         entity.setStartTime(accountQueryRequest.getStartTime());

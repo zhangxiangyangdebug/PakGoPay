@@ -29,15 +29,6 @@ public class AgentEditRequest extends BaseRequest {
      */
     private List<Integer> channelIds;
 
-    /** Contact name */
-    private String contactName;
-
-    /** Contact email */
-    private String contactEmail;
-
-    /** Contact phone */
-    private String contactPhone;
-
     /** Collection rate */
     private BigDecimal collectionRate;
 

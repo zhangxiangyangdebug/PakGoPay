@@ -1,6 +1,6 @@
 package com.pakgopay.mapper;
 
-import com.pakgopay.data.entity.agent.AgentAccountInfoEntity;
+import com.pakgopay.data.entity.agent.AccountInfoEntity;
 import com.pakgopay.mapper.dto.WithdrawalAccountsDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -32,17 +32,17 @@ public interface WithdrawalAccountsMapper {
     int deleteById(@Param("id") Long id);
 
     /** Count by query */
-    Integer countByQueryAgent(AgentAccountInfoEntity entity);
+    Integer countByQueryAgent(AccountInfoEntity entity);
 
     /** UserIds by query */
-    List<String> userIdsByQueryAgent(AgentAccountInfoEntity entity);
+    List<String> userIdsByQueryAgent(AccountInfoEntity entity);
 
     /** Page query */
-    List<WithdrawalAccountsDto> pageByQueryAgent(AgentAccountInfoEntity entity);
+    List<WithdrawalAccountsDto> pageByQueryAgent(AccountInfoEntity entity);
 
-    Integer countByQueryMerchant(AgentAccountInfoEntity entity);
+    Integer countByQueryMerchant(AccountInfoEntity entity);
 
-    List<WithdrawalAccountsDto> pageByQueryMerchant(AgentAccountInfoEntity entity);
+    List<WithdrawalAccountsDto> pageByQueryMerchant(AccountInfoEntity entity);
 
-    List<String> userIdsByQueryMerchant(AgentAccountInfoEntity entity);
+    List<String> userIdsByQueryMerchant(AccountInfoEntity entity);
 }

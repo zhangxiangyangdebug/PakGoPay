@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.WithdrawalOrderMapper">
+
+    <!-- ResultMap with explicit javaType for each column -->
+    <resultMap id="WithdrawalOrderResultMap" type="com.pakgopay.mapper.dto.WithdrawalOrderDto">
+        <id     column="id"            property="id"           javaType="java.lang.Long"/>
+        <result column="merchant_id" property="merchantId" javaType="java.lang.String"/>
+        <result column="merchant_name" property="merchantName" javaType="java.lang.String"/>
+
+        <result column="before_amount" property="beforeAmount" javaType="java.math.BigDecimal"/>
+        <result column="amount"        property="amount"       javaType="java.math.BigDecimal"/>
+        <result column="after_amount"  property="afterAmount"  javaType="java.math.BigDecimal"/>
+
+        <result column="currency"      property="currency"     javaType="java.lang.String"/>
+        <result column="status"        property="status"       javaType="java.lang.String"/>
+        <result column="wallet_addr"   property="walletAddr"   javaType="java.lang.String"/>
+
+        <result column="create_time"   property="createTime"   javaType="java.lang.Long"/>
+        <result column="create_by"     property="createBy"     javaType="java.lang.String"/>
+
+        <result column="update_time"   property="updateTime"   javaType="java.lang.Long"/>
+        <result column="update_by"     property="updateBy"     javaType="java.lang.Long"/>
+
+        <result column="remark"        property="remark"       javaType="java.lang.String"/>
+        <result column="operate_by"    property="operateBy"    javaType="java.lang.String"/>
+    </resultMap>
+
+    <!-- Base column list -->
+    <sql id="BaseColumns">
+        id,
+        merchant_id,
+        merchant_name,
+        before_amount,
+        amount,
+        after_amount,
+        currency,
+        status,
+        wallet_addr,
+        create_time,
+        create_by,
+        update_time,
+        update_by,
+        remark,
+        operate_by
+    </sql>
+
+    <!-- Dynamic query conditions -->
+    <sql id="WhereQuery">
+        <where>
+            <if test="q != null">
+                <if test="q.id != null">AND id = #{q.id}</if>
+                <if test="q.merchantId != null">AND merchant_id = #{q.merchantId}</if>
+                <if test="q.merchantName != null">AND merchant_name = #{merchantName}</if>
+
+                <if test="q.currency != null and q.currency != ''">AND currency = #{q.currency}</if>
+                <if test="q.status != null and q.status != ''">AND status = #{q.status}</if>
+
+                <if test="q.walletAddr != null and q.walletAddr != ''">
+                    AND wallet_addr LIKE CONCAT('%', #{q.walletAddr}, '%')
+                </if>
+
+                <if test="q.createBy != null and q.createBy != ''">AND create_by = #{q.createBy}</if>
+                <if test="q.operateBy != null and q.operateBy != ''">AND operate_by = #{q.operateBy}</if>
+
+                <!-- Time conditions (can be extended to time range fields) -->
+                <if test="q.createTime != null">AND create_time <![CDATA[>=]]> #{q.createTime}</if>
+                <if test="q.updateTime != null">AND update_time <![CDATA[>=]]> #{q.updateTime}</if>
+            </if>
+        </where>
+    </sql>
+
+    <!-- Insert -->
+    <insert id="insert"
+            parameterType="com.pakgopay.mapper.dto.WithdrawalOrderDto"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO withdrawal_order
+        (
+            merchant_id,
+            merchant_name,
+            before_amount,
+            amount,
+            after_amount,
+            currency,
+            status,
+            wallet_addr,
+            create_time,
+            create_by,
+            update_time,
+            update_by,
+            remark,
+            operate_by
+        )
+        VALUES
+            (
+                #{merchantId},
+                #{merchantName},
+                #{beforeAmount},
+                #{amount},
+                #{afterAmount},
+                #{currency},
+                #{status},
+                #{walletAddr},
+                #{createTime},
+                #{createBy},
+                #{updateTime},
+                #{updateBy},
+                #{remark},
+                #{operateBy}
+            )
+    </insert>
+
+    <!-- Update by primary key -->
+    <update id="updateById" parameterType="com.pakgopay.mapper.dto.WithdrawalOrderDto">
+        UPDATE withdrawal_order
+        <set>
+            <if test="merchantId != null">merchant_id = #{merchantId},</if>
+            <if test="merchantName != null">merchant_name = #{merchantName},</if>
+            <if test="beforeAmount != null">before_amount = #{beforeAmount},</if>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="afterAmount != null">after_amount = #{afterAmount},</if>
+
+            <if test="currency != null and currency != ''">currency = #{currency},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="walletAddr != null and walletAddr != ''">wallet_addr = #{walletAddr},</if>
+
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
+
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+            <if test="operateBy != null and operateBy != ''">operate_by = #{operateBy},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- Delete by primary key -->
+    <delete id="deleteById">
+        DELETE FROM withdrawal_order WHERE id = #{id}
+    </delete>
+
+    <!-- Select by primary key -->
+    <select id="selectById" resultMap="WithdrawalOrderResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM withdrawal_order
+        WHERE id = #{id}
+    </select>
+
+    <!-- Select list -->
+    <select id="selectList" resultMap="WithdrawalOrderResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM withdrawal_order
+        <include refid="WhereQuery"/>
+        ORDER BY id DESC
+    </select>
+
+    <!-- Count -->
+    <select id="count" resultType="int">
+        SELECT COUNT(1)
+        FROM withdrawal_order
+        <include refid="WhereQuery"/>
+    </select>
+
+    <sql id="PageQueryWhere">
+        <where>
+            <if test="name != null and name != ''">AND mmerchant_name LIKE CONCAT('%', #{name}, '%')</if>
+            <if test="startTime != null">AND create_time <![CDATA[>=]]> #{startTime}</if>
+            <if test="endTime != null">AND create_time <![CDATA[<=]]> #{endTime}</if>
+        </where>
+    </sql>
+
+    <select id="countByQuery"
+            parameterType="com.pakgopay.data.entity.agent.AccountInfoEntity"
+            resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM withdrawal_order wo
+        LEFT JOIN merchant_info mi ON mi.user_id = wo.merchant_id
+        <include refid="PageQueryWhere"/>
+    </select>
+
+    <select id="pageByQuery"
+            parameterType="com.pakgopay.data.entity.agent.AccountInfoEntity"
+            resultMap="WithdrawalOrderResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM withdrawal_order
+        <include refid="PageQueryWhere"/>
+        ORDER BY id DESC
+        LIMIT #{pageNo}, #{offset}
+    </select>
+
+</mapper>

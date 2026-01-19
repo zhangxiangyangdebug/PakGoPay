@@ -226,9 +226,6 @@ public final class ExportReportDataColumns {
         AGENT_ALLOWED.put("collectionFixedFee", new ColumnDef<>("collectionFixedFee", r -> safeToString(r.getCollectionFixedFee())));
         AGENT_ALLOWED.put("collectionMaxFee", new ColumnDef<>("collectionMaxFee", r -> safeToString(r.getCollectionMaxFee())));
         AGENT_ALLOWED.put("collectionMinFee", new ColumnDef<>("collectionMinFee", r -> safeToString(r.getCollectionMinFee())));
-        AGENT_ALLOWED.put("contactName", new ColumnDef<>("contactName", r -> safeToString(r.getContactName())));
-        AGENT_ALLOWED.put("contactEmail", new ColumnDef<>("contactEmail", r -> safeToString(r.getContactEmail())));
-        AGENT_ALLOWED.put("contactPhone", new ColumnDef<>("contactPhone", r -> safeToString(r.getContactPhone())));
 
         // agent withdrawal account, export column
         AGENT_ACCOUNT_ALLOWED.put("agentName", new ColumnDef<>("agentName", WithdrawalAccountsDto::getName));
