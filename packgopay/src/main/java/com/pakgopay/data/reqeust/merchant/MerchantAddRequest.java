@@ -68,23 +68,15 @@ public class MerchantAddRequest extends BaseRequest {
     // =====================
 
     /** Collection rate */
-    @NotNull(message = "collectionRate is null")
-    @DecimalMin(value = "0", inclusive = true, message = "collectionRate must be >= 0")
     private BigDecimal collectionRate;
 
     /** Collection fixed fee */
-    @NotNull(message = "collectionFixedFee is null")
-    @DecimalMin(value = "0", inclusive = true, message = "collectionFixedFee must be >= 0")
     private BigDecimal collectionFixedFee;
 
     /** Collection maximum fee */
-    @NotNull(message = "collectionMaxFee is null")
-    @DecimalMin(value = "0", inclusive = true, message = "collectionMaxFee must be >= 0")
     private BigDecimal collectionMaxFee;
 
     /** Collection minimum fee */
-    @NotNull(message = "collectionMinFee is null")
-    @DecimalMin(value = "0", inclusive = true, message = "collectionMinFee must be >= 0")
     private BigDecimal collectionMinFee;
 
 
@@ -93,23 +85,15 @@ public class MerchantAddRequest extends BaseRequest {
     // =====================
 
     /** Payout rate */
-    @NotNull(message = "payRate is null")
-    @DecimalMin(value = "0", inclusive = true, message = "payRate must be >= 0")
     private BigDecimal payRate;
 
     /** Payout fixed fee */
-    @NotNull(message = "payFixedFee is null")
-    @DecimalMin(value = "0", inclusive = true, message = "payFixedFee must be >= 0")
     private BigDecimal payFixedFee;
 
     /** Payout maximum fee */
-    @NotNull(message = "payMaxFee is null")
-    @DecimalMin(value = "0", inclusive = true, message = "payMaxFee must be >= 0")
     private BigDecimal payMaxFee;
 
     /** Payout minimum fee */
-    @NotNull(message = "payMinFee is null")
-    @DecimalMin(value = "0", inclusive = true, message = "payMinFee must be >= 0")
     private BigDecimal payMinFee;
 
 

@@ -321,18 +321,24 @@ public class MerchantServiceImpl implements MerchantService {
                 // =====================
                 // 4) Collection Fee Configuration
                 // =====================
+                .ifTrue(CommonConstant.SUPPORT_TYPE_COLLECTION.equals(req.getSupportType())
+                        || CommonConstant.SUPPORT_TYPE_ALL.equals(req.getSupportType()))
                 .reqObj("collectionRate", req::getCollectionRate, dto::setCollectionRate)
                 .reqObj("collectionFixedFee", req::getCollectionFixedFee, dto::setCollectionFixedFee)
                 .reqObj("collectionMaxFee", req::getCollectionMaxFee, dto::setCollectionMaxFee)
                 .reqObj("collectionMinFee", req::getCollectionMinFee, dto::setCollectionMinFee)
+                .endSkip()
 
                 // =====================
                 // 5) Payout Fee Configuration
                 // =====================
+                .ifTrue(CommonConstant.SUPPORT_TYPE_PAY.equals(req.getSupportType())
+                        || CommonConstant.SUPPORT_TYPE_ALL.equals(req.getSupportType()))
                 .reqObj("payRate", req::getPayRate, dto::setPayRate)
                 .reqObj("payFixedFee", req::getPayFixedFee, dto::setPayFixedFee)
                 .reqObj("payMaxFee", req::getPayMaxFee, dto::setPayMaxFee)
                 .reqObj("payMinFee", req::getPayMinFee, dto::setPayMinFee)
+                .endSkip()
 
                 // =====================
                 // 6) Floating & Security
