@@ -47,6 +47,7 @@
         <result column="icon" property="icon" javaType="java.lang.String"/>
         <result column="role_id" property="roleId" javaType="java.lang.Integer"/>
         <result column="status" property="status" javaType="java.lang.Integer"/>
+        <result column="login_ips" property="loginIps" javaType="java.lang.String"/>
     </resultMap>
     <select id="selectAllUser" resultMap="userResultMap">
         SELECT * FROM user_info
@@ -76,7 +77,7 @@
     </select>
 
     <insert id="createUser" parameterType="com.pakgopay.mapper.dto.UserDTO">
-        INSERT INTO user_info (user_id, login_name, password, role_id, status) VALUES ( #{user.userId}, #{user.loginName}, #{user.password}, #{user.roleId}, #{user.status} )
+        INSERT INTO user_info (user_id, login_name, password, role_id, status, login_ips) VALUES ( #{user.userId}, #{user.loginName}, #{user.password}, #{user.roleId}, #{user.status}, #{user.loginIps} )
     </insert>
 
     <update id="stopLoginUser">

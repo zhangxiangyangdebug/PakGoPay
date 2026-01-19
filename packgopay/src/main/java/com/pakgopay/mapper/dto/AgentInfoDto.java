@@ -71,12 +71,6 @@ public class AgentInfoDto implements Serializable {
     /** Payout min fee */
     private BigDecimal payMinFee;
 
-    /** Login white ips */
-    private String loginIps;
-
-    /** withdraw ips */
-    private String withdrawIps;
-
     /** Create time */
     private Long createTime;
 

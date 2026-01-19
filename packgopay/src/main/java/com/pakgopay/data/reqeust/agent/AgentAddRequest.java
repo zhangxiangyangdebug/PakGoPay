@@ -135,10 +135,6 @@ public class AgentAddRequest extends BaseRequest {
     @NotBlank(message = "loginIps is empty")
     private String loginIps;
 
-    /** Withdraw ips (comma separated) */
-    @NotBlank(message = "withdrawIps is empty")
-    private String withdrawIps;
-
 
     // =====================
     // 7) Other

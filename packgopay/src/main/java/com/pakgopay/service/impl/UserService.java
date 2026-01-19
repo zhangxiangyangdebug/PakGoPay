@@ -63,6 +63,7 @@ public class UserService {
         newUser.setStatus(user.getStatus());
         newUser.setLoginName(user.getLoginName());
         newUser.setRoleId(user.getRoleId());
+        newUser.setLoginIps(user.getLoginIps());
         int result = 0;
         /*try {*/
         result = userMapper.createUser(newUser);

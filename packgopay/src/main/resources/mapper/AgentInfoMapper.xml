@@ -35,9 +35,6 @@
         <result column="pay_max_fee" property="payMaxFee" javaType="java.math.BigDecimal"/>
         <result column="pay_min_fee" property="payMinFee" javaType="java.math.BigDecimal"/>
 
-        <result column="login_ips" property="loginIps" javaType="java.lang.String"/>
-        <result column="withdraw_ips" property="withdrawIps" javaType="java.lang.String"/>
-
         <result column="create_time" property="createTime" javaType="java.lang.Long"/>
         <result column="create_by" property="createBy" javaType="java.lang.String"/>
 
@@ -73,8 +70,6 @@
         pay_fixed_fee,
         pay_max_fee,
         pay_min_fee,
-        login_ips,
-        withdraw_ips,
         create_time,
         create_by,
         update_time,
@@ -91,7 +86,7 @@
         ) VALUES (
         #{agentNo},#{agentName},#{userId},#{accountName},#{parentId},#{topAgentId},#{channelIds},#{status},#{contactName},#{contactEmail},
         #{contactPhone},#{level},#{collectionRate},#{collectionFixedFee},#{collectionMaxFee},#{collectionMinFee},#{payRate},
-        #{payFixedFee},#{payMaxFee},#{payMinFee},#{loginIps},#{withdrawIps},#{createTime},#{createBy},#{updateTime},#{updateBy},
+        #{payFixedFee},#{payMaxFee},#{payMinFee},#{createTime},#{createBy},#{updateTime},#{updateBy},
         #{version},#{remark}
         )
     </insert>
@@ -117,8 +112,6 @@
             <if test="payFixedFee != null">pay_fixed_fee = #{payFixedFee},</if>
             <if test="payMaxFee != null">pay_max_fee = #{payMaxFee},</if>
             <if test="payMinFee != null">pay_min_fee = #{payMinFee},</if>
-            <if test="loginIps != null">login_ips = #{loginIps},</if>
-            <if test="withdrawIps != null">withdraw_ips = #{withdrawIps},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="updateBy != null">upeate_by = #{updateBy},</if>
             <if test="version != null">version = #{version},</if>

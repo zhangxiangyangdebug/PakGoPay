@@ -102,7 +102,7 @@ public class MerchantAddRequest extends BaseRequest {
     private String payWhiteIps;
 
     // =====================
-    // 6) Floating
+    // 6) Floating / Security
     // =====================
 
     /** Whether floating is enabled (0 = No, 1 = Yes) */
@@ -110,6 +110,10 @@ public class MerchantAddRequest extends BaseRequest {
     @Min(value = 0, message = "isFloat must be 0 or 1")
     @Max(value = 1, message = "isFloat must be 0 or 1")
     private Integer isFloat;
+
+    /** Login white ips (comma separated) */
+    @NotBlank(message = "loginIps is empty")
+    private String loginIps;
 
     // =====================
     // 7) Channel Configuration

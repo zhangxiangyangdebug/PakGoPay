@@ -258,10 +258,6 @@ public class AgentServiceImpl implements AgentService {
                 .obj(agentEditRequest::getPayMaxFee, dto::setPayMaxFee)
                 .obj(agentEditRequest::getPayMinFee, dto::setPayMinFee)
 
-                // ip whitelist
-                .str(agentEditRequest::getLoginIps, dto::setLoginIps)
-                .str(agentEditRequest::getWithdrawIps, dto::setWithdrawIps)
-
                 // operator
                 .str(agentEditRequest::getUserName, dto::setUpdateBy)
 
@@ -336,12 +332,6 @@ public class AgentServiceImpl implements AgentService {
                 .reqObj("payMinFee", req::getPayMinFee, dto::setPayMinFee)
 
                 // =====================
-                // 6) Security / Whitelist (optional)
-                // =====================
-                .str(req::getLoginIps, dto::setLoginIps)
-                .str(req::getWithdrawIps, dto::setWithdrawIps)
-
-                // =====================
                 // 7) Other (optional)
                 // =====================
                 .str(req::getRemark, dto::setRemark);
@@ -365,7 +355,8 @@ public class AgentServiceImpl implements AgentService {
                 .str(agentAddRequest::getAccountPwd, dto::setPassword)
                 .str(agentAddRequest::getAccountConfirmPwd, dto::setConfirmPassword)
                 .str(agentAddRequest::getUserId, dto::setOperatorId)
-                .obj(agentAddRequest::getStatus, dto::setStatus);
+                .obj(agentAddRequest::getStatus, dto::setStatus)
+                .str(agentAddRequest::getLoginIps, dto::setLoginIps);
 
         return builder.build();
     }

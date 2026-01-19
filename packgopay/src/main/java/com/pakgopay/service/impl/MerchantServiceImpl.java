@@ -371,7 +371,8 @@ public class MerchantServiceImpl implements MerchantService {
                 .str(merchantAddRequest::getAccountPwd, dto::setPassword)
                 .str(merchantAddRequest::getAccountConfirmPwd, dto::setConfirmPassword)
                 .str(merchantAddRequest::getUserId, dto::setOperatorId)
-                .obj(merchantAddRequest::getStatus, dto::setStatus);
+                .obj(merchantAddRequest::getStatus, dto::setStatus)
+                .str(merchantAddRequest::getLoginIps, dto::setLoginIps);
 
         return builder.build();
     }
@@ -526,6 +527,45 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     public CommonResponse queryMerchantRecharge(AccountQueryRequest accountQueryRequest) {
-        return null;
+        log.info("queryMerchantAccount start");
+        WithdrawalAccountResponse response = queryMerchantRechargeData(accountQueryRequest);
+        log.info("queryMerchantAccount end");
+        return CommonResponse.success(response);
+    }
+
+    private WithdrawalAccountResponse queryMerchantRechargeData(AccountQueryRequest accountQueryRequest) {
+        log.info("queryMerchantAccountData start");
+        AgentAccountInfoEntity entity = new AgentAccountInfoEntity();
+        entity.setName(accountQueryRequest.getName());
+        entity.setWalletAddr(accountQueryRequest.getWalletAddr());
+        entity.setStartTime(accountQueryRequest.getStartTime());
+        entity.setEndTime(accountQueryRequest.getEndTime());
+        entity.setPageSize(accountQueryRequest.getPageSize());
+        entity.setPageNo(accountQueryRequest.getPageNo());
+
+        WithdrawalAccountResponse response = new WithdrawalAccountResponse();
+        try {
+            Integer totalNumber = withdrawalAccountsMapper.countByQueryMerchant(entity);
+            List<WithdrawalAccountsDto> withdrawalAccountsDtoList = withdrawalAccountsMapper.pageByQueryMerchant(entity);
+
+            if (accountQueryRequest.getIsNeedCardData()) {
+                List<String> userIds = withdrawalAccountsMapper.userIdsByQueryMerchant(entity);
+                if (userIds != null && userIds.isEmpty()) {
+                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
+                    response.setCardInfo(cardInfo);
+                }
+            }
+
+            response.setWithdrawalAccountsDtoList(withdrawalAccountsDtoList);
+            response.setTotalNumber(totalNumber);
+        } catch (Exception e) {
+            log.error("withdrawalAccountsMapper pageByQuery failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        response.setPageNo(entity.getPageNo());
+        response.setPageSize(entity.getPageSize());
+        log.info("queryMerchantAccountData end");
+        return response;
     }
 }

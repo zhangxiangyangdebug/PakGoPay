@@ -61,10 +61,4 @@ public class AgentEditRequest extends BaseRequest {
 
     /** Payout min fee */
     private BigDecimal payMinFee;
-
-    /** Login white ips */
-    private String loginIps;
-
-    /** withdraw ips */
-    private String withdrawIps;
 }

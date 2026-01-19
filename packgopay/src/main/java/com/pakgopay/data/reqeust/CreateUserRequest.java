@@ -20,6 +20,8 @@ public class CreateUserRequest implements Serializable {
     private Integer status;
     @NotNull
     private Integer googleCode;
+    @NotNull
+    private String loginIps;
 
     @NotNull
     private String operatorId;
