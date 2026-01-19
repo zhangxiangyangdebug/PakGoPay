@@ -315,8 +315,8 @@ public class MerchantServiceImpl implements MerchantService {
                 // =====================
                 // 3) Risk & Notification
                 // =====================
-                .reqObj("riskLevel", req::getRiskLevel, dto::setRiskLevel)
-                .reqObj("notificationEnable", req::getNotificationEnable, dto::setNotificationEnable)
+                .obj(req::getRiskLevel, dto::setRiskLevel)
+                .obj(req::getNotificationEnable, dto::setNotificationEnable)
 
                 // =====================
                 // 4) Collection Fee Configuration

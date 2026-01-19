@@ -164,16 +164,16 @@ public final class ExportReportDataColumns {
 
         CHANNEL_ALLOWED.put("collectPayment",
                 new ColumnDef<>("collectPayment", r -> safeToPaymentInfo(r.getPaymentDtoList(), new ArrayList<>() {{
-            add(CommonConstant.SUPPORT_TYPE_COLLECTION);
-            add(CommonConstant.SUPPORT_TYPE_ALL);
-        }})));
+                    add(CommonConstant.SUPPORT_TYPE_COLLECTION);
+                    add(CommonConstant.SUPPORT_TYPE_ALL);
+                }})));
         CHANNEL_ALLOWED.put("payPayment",
                 new ColumnDef<>("collectPayment", r -> safeToPaymentInfo(r.getPaymentDtoList(), new ArrayList<>() {{
                     add(CommonConstant.SUPPORT_TYPE_COLLECTION);
                     add(CommonConstant.SUPPORT_TYPE_ALL);
                 }})));
 
-        CHANNEL_ALLOWED.put("status", new ColumnDef<>("status", r -> safeToString(r.getStatus())));
+        CHANNEL_ALLOWED.put("status", new ColumnDef<>("status", r -> safeToEnable(r.getStatus())));
         CHANNEL_ALLOWED.put("currency", new ColumnDef<>("currency", r -> safeToCurrency(r.getPaymentDtoList())));
 
         CHANNEL_ALLOWED.put("createTime", new ColumnDef<>("createTime", r -> safeToString(r.getCreateTime())));
@@ -183,36 +183,115 @@ public final class ExportReportDataColumns {
         // payment, export column
         PAYMENT_ALLOWED.put("paymentNo", new ColumnDef<>("paymentNo", PaymentDto::getPaymentNo));
         PAYMENT_ALLOWED.put("paymentName", new ColumnDef<>("paymentName", PaymentDto::getPaymentName));
-        PAYMENT_ALLOWED.put("status", new ColumnDef<>("status", r -> safeToString(r.getStatus())));
+        PAYMENT_ALLOWED.put("status", new ColumnDef<>("status", r -> safeToEnable(r.getStatus())));
         PAYMENT_ALLOWED.put("isThird", new ColumnDef<>("isThird", PaymentDto::getIsThird));
         PAYMENT_ALLOWED.put("supportType", new ColumnDef<>("supportType", r -> safeToSupportType(r.getSupportType())));
         PAYMENT_ALLOWED.put("enableTimePeriod", new ColumnDef<>("enableTimePeriod", PaymentDto::getEnableTimePeriod));
         PAYMENT_ALLOWED.put("paymentType", new ColumnDef<>("paymentType", r -> safeToPaymentType(r.getPaymentType())));
+        PAYMENT_ALLOWED.put("isCheckoutCounter", new ColumnDef<>("isCheckoutCounter", r -> safeToEnable(r.getIsCheckoutCounter())));
+        PAYMENT_ALLOWED.put("collectionDailyLimit", new ColumnDef<>("collectionDailyLimit", r -> safeToString(r.getCollectionDailyLimit())));
+        PAYMENT_ALLOWED.put("collectionMonthlyLimit", new ColumnDef<>("collectionMonthlyLimit", r -> safeToString(r.getCollectionMonthlyLimit())));
+        PAYMENT_ALLOWED.put("payDailyLimit", new ColumnDef<>("payDailyLimit", r -> safeToString(r.getPayDailyLimit())));
+        PAYMENT_ALLOWED.put("payMonthlyLimit", new ColumnDef<>("payMonthlyLimit", r -> safeToString(r.getPayMonthlyLimit())));
+        PAYMENT_ALLOWED.put("paymentRequestPayUrl", new ColumnDef<>("paymentRequestPayUrl", r -> safeToString(r.getPaymentRequestPayUrl())));
+        PAYMENT_ALLOWED.put("paymentRequestCollectionUrl", new ColumnDef<>("paymentRequestCollectionUrl", r -> safeToString(r.getPaymentRequestCollectionUrl())));
+        PAYMENT_ALLOWED.put("paymentCollectionRate", new ColumnDef<>("paymentCollectionRate", r -> safeToString(r.getPaymentCollectionRate())));
+        PAYMENT_ALLOWED.put("paymentPayRate", new ColumnDef<>("paymentPayRate", r -> safeToString(r.getPaymentPayRate())));
+        PAYMENT_ALLOWED.put("paymentCheckPayUrl", new ColumnDef<>("paymentCheckPayUrl", r -> safeToString(r.getPaymentCheckPayUrl())));
+        PAYMENT_ALLOWED.put("paymentCheckCollectionUrl", new ColumnDef<>("paymentCheckCollectionUrl", r -> safeToString(r.getPaymentCheckCollectionUrl())));
+        PAYMENT_ALLOWED.put("collectionCallbackAddr", new ColumnDef<>("collectionCallbackAddr", r -> safeToString(r.getCollectionCallbackAddr())));
+        PAYMENT_ALLOWED.put("payCallbackAddr", new ColumnDef<>("payCallbackAddr", r -> safeToString(r.getPayCallbackAddr())));
+        PAYMENT_ALLOWED.put("checkoutCounterUrl", new ColumnDef<>("checkoutCounterUrl", r -> safeToString(r.getCheckoutCounterUrl())));
+        PAYMENT_ALLOWED.put("currency", new ColumnDef<>("currency", r -> safeToString(r.getCurrency())));
+        PAYMENT_ALLOWED.put("paymentMaxAmount", new ColumnDef<>("paymentMaxAmount", r -> safeToString(r.getPaymentMaxAmount())));
+        PAYMENT_ALLOWED.put("paymentMinAmount", new ColumnDef<>("paymentMinAmount", r -> safeToString(r.getPaymentMinAmount())));
+        PAYMENT_ALLOWED.put("bankName", new ColumnDef<>("bankName", r -> safeToString(r.getBankName())));
+        PAYMENT_ALLOWED.put("bankAccount", new ColumnDef<>("bankAccount", r -> safeToString(r.getBankAccount())));
+        PAYMENT_ALLOWED.put("bankUserName", new ColumnDef<>("bankUserName", r -> safeToString(r.getBankUserName())));
+
+        // agent, export column
+        AGENT_ALLOWED.put("agentName", new ColumnDef<>("agentName", AgentInfoDto::getAgentName));
+        AGENT_ALLOWED.put("agentAccountName", new ColumnDef<>("agentAccountName", AgentInfoDto::getAccountName));
+        AGENT_ALLOWED.put("channelInfos", new ColumnDef<>("channelInfos", r -> safeToChannelInfo(r.getChannelDtoList())));
+        AGENT_ALLOWED.put("parentAgentName", new ColumnDef<>("parentAgentName", AgentInfoDto::getParentAgentName));
+        AGENT_ALLOWED.put("parentAccountName", new ColumnDef<>("parentAccountName", AgentInfoDto::getParentUserName));
+        AGENT_ALLOWED.put("parentChannelInfos", new ColumnDef<>("parentChannelInfos", r -> safeToChannelInfo(r.getParentChannelDtoList())));
+        AGENT_ALLOWED.put("level", new ColumnDef<>("level", r -> safeToString(r.getLevel())));
+        AGENT_ALLOWED.put("status", new ColumnDef<>("status", r -> safeToEnable(r.getStatus())));
+        AGENT_ALLOWED.put("payRate", new ColumnDef<>("payRate", r -> safeToString(r.getPayRate())));
+        AGENT_ALLOWED.put("payFixedFee", new ColumnDef<>("payFixedFee", r -> safeToString(r.getPayFixedFee())));
+        AGENT_ALLOWED.put("payMaxFee", new ColumnDef<>("payMaxFee", r -> safeToString(r.getPayMaxFee())));
+        AGENT_ALLOWED.put("payMinFee", new ColumnDef<>("payMinFee", r -> safeToString(r.getPayMinFee())));
+        AGENT_ALLOWED.put("collectionRate", new ColumnDef<>("collectionRate", r -> safeToString(r.getCollectionRate())));
+        AGENT_ALLOWED.put("collectionFixedFee", new ColumnDef<>("collectionFixedFee", r -> safeToString(r.getCollectionFixedFee())));
+        AGENT_ALLOWED.put("collectionMaxFee", new ColumnDef<>("collectionMaxFee", r -> safeToString(r.getCollectionMaxFee())));
+        AGENT_ALLOWED.put("collectionMinFee", new ColumnDef<>("collectionMinFee", r -> safeToString(r.getCollectionMinFee())));
+        AGENT_ALLOWED.put("loginIps", new ColumnDef<>("loginIps", r -> safeToString(r.getLoginIps())));
+        AGENT_ALLOWED.put("withdrawIps", new ColumnDef<>("withdrawIps", r -> safeToString(r.getWithdrawIps())));
+        AGENT_ALLOWED.put("contactName", new ColumnDef<>("contactName", r -> safeToString(r.getContactName())));
+        AGENT_ALLOWED.put("contactEmail", new ColumnDef<>("contactEmail", r -> safeToString(r.getContactEmail())));
+        AGENT_ALLOWED.put("contactPhone", new ColumnDef<>("contactPhone", r -> safeToString(r.getContactPhone())));
+
+        // agent withdrawal account, export column
+        AGENT_ACCOUNT_ALLOWED.put("agentName", new ColumnDef<>("agentName", WithdrawalAccountsDto::getName));
+        AGENT_ACCOUNT_ALLOWED.put("accountName", new ColumnDef<>("accountName", WithdrawalAccountsDto::getUserName));
+        AGENT_ACCOUNT_ALLOWED.put("walletAddr", new ColumnDef<>("walletAddr", WithdrawalAccountsDto::getWalletAddr));
+        AGENT_ACCOUNT_ALLOWED.put("status", new ColumnDef<>("status", r -> safeToEnable(r.getStatus())));
+        AGENT_ACCOUNT_ALLOWED.put("createTime", new ColumnDef<>("createTime", r -> safeToString(r.getCreateTime())));
+        AGENT_ACCOUNT_ALLOWED.put("createBy", new ColumnDef<>("createBy", r -> safeToString(r.getCreateBy())));
+
+        // merchant withdrawal account, export column
+        MERCHANT_ACCOUNT_ALLOWED.put("merchantName", new ColumnDef<>("merchantName", WithdrawalAccountsDto::getName));
+        MERCHANT_ACCOUNT_ALLOWED.put("accountName", new ColumnDef<>("accountName", WithdrawalAccountsDto::getUserName));
+        MERCHANT_ACCOUNT_ALLOWED.put("walletAddr", new ColumnDef<>("walletAddr", WithdrawalAccountsDto::getWalletAddr));
+        MERCHANT_ACCOUNT_ALLOWED.put("status", new ColumnDef<>("status", r -> safeToEnable(r.getStatus())));
+        MERCHANT_ACCOUNT_ALLOWED.put("createTime", new ColumnDef<>("createTime", r -> safeToString(r.getCreateTime())));
+        MERCHANT_ACCOUNT_ALLOWED.put("createBy", new ColumnDef<>("createBy", r -> safeToString(r.getCreateBy())));
     }
 
-    private static String safeToPaymentType(String paymentType){
 
-        if(CommonConstant.PAYMENT_TYPE_APP.equals(paymentType)){
+    private static String safeToChannelInfo(List<ChannelDto> channelDtoList) {
+        if (channelDtoList == null || channelDtoList.isEmpty()) return "";
+        return channelDtoList.stream()
+                .map(p -> "channelName:" + p.getChannelName())
+                .collect(Collectors.joining(" | "));
+    }
+
+    private static String safeToEnable(Integer status) {
+
+        if (CommonConstant.ENABLE_STATUS_DISABLE.equals(status)) {
+            return "false";
+        }
+
+        if (CommonConstant.ENABLE_STATUS_ENABLE.equals(status)) {
+            return "true";
+        }
+        return "";
+    }
+
+    private static String safeToPaymentType(String paymentType) {
+
+        if (CommonConstant.PAYMENT_TYPE_APP.equals(paymentType)) {
             return "App";
         }
 
-        if(CommonConstant.PAYMENT_TYPE_BANK.equals(paymentType)){
+        if (CommonConstant.PAYMENT_TYPE_BANK.equals(paymentType)) {
             return "Bank";
         }
         return "";
     }
 
-    private static String safeToSupportType(Integer supportType){
+    private static String safeToSupportType(Integer supportType) {
 
-        if(CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)){
+        if (CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)) {
             return "collection";
         }
 
-        if(CommonConstant.SUPPORT_TYPE_PAY.equals(supportType)){
+        if (CommonConstant.SUPPORT_TYPE_PAY.equals(supportType)) {
             return "pay";
         }
 
-        if(CommonConstant.SUPPORT_TYPE_ALL.equals(supportType)){
+        if (CommonConstant.SUPPORT_TYPE_ALL.equals(supportType)) {
             return "collection/pay";
         }
         return "";
@@ -223,10 +302,10 @@ public final class ExportReportDataColumns {
         return paymentDtoList.stream().map(PaymentDto::getCurrency).distinct().collect(Collectors.joining(","));
     }
 
-    private static String safeToPaymentInfo(List<PaymentDto> paymentDtoList, List<Integer> supportTypes){
+    private static String safeToPaymentInfo(List<PaymentDto> paymentDtoList, List<Integer> supportTypes) {
         if (paymentDtoList == null || paymentDtoList.isEmpty()) return "";
         return paymentDtoList.stream()
-                .filter(p-> supportTypes.contains(p.getSupportType()))
+                .filter(p -> supportTypes.contains(p.getSupportType()))
                 .map(p -> "paymentNo:" + p.getPaymentNo() + ", paymentName:" + p.getPaymentName())
                 .collect(Collectors.joining(" | "));
     }

@@ -57,14 +57,9 @@ public class MerchantAddRequest extends BaseRequest {
     // =====================
 
     /** Risk level */
-    @NotNull(message = "riskLevel is null")
-    @Min(value = 0, message = "riskLevel must be >= 0")
     private Integer riskLevel;
 
     /** Whether notification is enabled (0 = No, 1 = Yes) */
-    @NotNull(message = "notificationEnable is null")
-    @Min(value = 0, message = "notificationEnable must be 0 or 1")
-    @Max(value = 1, message = "notificationEnable must be 0 or 1")
     private Integer notificationEnable;
 
 
