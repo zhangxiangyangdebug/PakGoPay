@@ -218,7 +218,7 @@ public class AgentServiceImpl implements AgentService {
             log.info("editAgent updateByChannelId done, agentName={}, ret={}", agentEditRequest.getAgentName(), ret);
 
             if (ret <= 0) {
-                return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
+                return CommonResponse.fail(ResultCode.FAIL, "agent not found or no rows updated");
             }
         } catch (Exception e) {
             log.error("editAgent updateByChannelId failed, agentName={}", agentEditRequest.getAgentName(), e);
@@ -432,7 +432,7 @@ public class AgentServiceImpl implements AgentService {
             log.info("editAgentAccount updateByChannelId done, withdrawalId={}, ret={}", accountEditRequest.getId(), ret);
 
             if (ret <= 0) {
-                return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
+                return CommonResponse.fail(ResultCode.FAIL, "agent not found or no rows updated");
             }
         } catch (Exception e) {
             log.error("editAgentAccount updateByChannelId failed, withdrawalId={}", accountEditRequest.getId(), e);

@@ -250,7 +250,7 @@ public class MerchantServiceImpl implements MerchantService {
             log.info("editMerchant updateByChannelId done, merchantUserId={}, ret={}", merchantEditRequest.getMerchantUserId(), ret);
 
             if (ret <= 0) {
-                return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
+                return CommonResponse.fail(ResultCode.FAIL, "merchant not found or no rows updated");
             }
         } catch (Exception e) {
             log.error("editMerchant updateByChannelId failed, merchantUserId={}", merchantEditRequest.getMerchantUserId(), e);
@@ -485,7 +485,7 @@ public class MerchantServiceImpl implements MerchantService {
             log.info("editMerchantAccount updateByChannelId done, withdrawalId={}, ret={}", accountEditRequest.getId(), ret);
 
             if (ret <= 0) {
-                return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
+                return CommonResponse.fail(ResultCode.FAIL, "merchant not found or no rows updated");
             }
         } catch (Exception e) {
             log.error("editMerchantAccount updateByChannelId failed, withdrawalId={}", accountEditRequest.getId(), e);
@@ -547,7 +547,7 @@ public class MerchantServiceImpl implements MerchantService {
         MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByMerchantName(req.getName())
                 .orElseThrow(() -> new PakGoPayException(
                         ResultCode.USER_IS_NOT_EXIST
-                        , "agent is not exists, agentName:" + req.getName()));
+                        , "merchant is not exists, merchantName:" + req.getName()));
         dto.setMerchantAgentId(merchantInfoDto.getUserId());
 
         return b.build();
