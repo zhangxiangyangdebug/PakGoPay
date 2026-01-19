@@ -70,6 +70,33 @@
         channel_ids
     </sql>
 
+    <sql id="BaseColumnsForJoin">
+        m.user_id,
+        m.parent_id,
+        m.merchant_name,
+        m.support_type,
+        m.status,
+        m.risk_level,
+        m.notification_enable,
+        m.create_time,
+        m.create_by,
+        m.update_time,
+        m.update_by,
+        m.collection_rate,
+        m.collection_fixed_fee,
+        m.collection_max_fee,
+        m.collection_min_fee,
+        m.pay_rate,
+        m.pay_fixed_fee,
+        m.pay_max_fee,
+        m.pay_min_fee,
+        m.version,
+        m.is_float,
+        m.col_white_ips,
+        m.pay_white_ips,
+        m.channel_ids
+    </sql>
+
     <!-- 1.findByUserId -->
     <select id="findByUserId" resultMap="MerchantInfoDtoMap">
         select <include refid="BaseColumns"/>
