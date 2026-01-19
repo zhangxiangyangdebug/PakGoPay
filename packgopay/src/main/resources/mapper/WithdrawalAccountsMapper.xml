@@ -117,6 +117,7 @@
         SELECT COUNT(1)
         FROM withdrawal_accounts wa
         LEFT JOIN agent_info ai ON ai.user_id = wa.merchant_agent_id
+        LEFT JOIN user_info ui ON ui.user_id = wa.merchant_agent_id
         <include refid="AgentAccountQueryWhere"/>
     </select>
 
@@ -170,6 +171,7 @@
         SELECT COUNT(1)
         FROM withdrawal_accounts wa
         LEFT JOIN merchant_info mi ON mi.user_id = wa.merchant_agent_id
+        LEFT JOIN user_info ui ON ui.user_id = wa.merchant_agent_id
         <include refid="MerchantAccountQueryWhere"/>
     </select>
 

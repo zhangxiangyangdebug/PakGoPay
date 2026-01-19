@@ -89,6 +89,12 @@ public class BalanceServiceImpl implements BalanceService {
     public Map<String, Map<String, BigDecimal>> getBalanceInfos(List<String> userIds) throws PakGoPayException {
         log.info("getBalanceInfos start");
         Map<String, Map<String, BigDecimal>> result = new HashMap<>();
+
+        if (userIds == null || userIds.isEmpty()) {
+            log.info("userIds is empty");
+            return null;
+        }
+
         List<BalanceDto> balanceDtoList;
         try {
             balanceDtoList = balanceMapper.listByUserIds(userIds);
