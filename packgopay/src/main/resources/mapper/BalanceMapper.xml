@@ -108,10 +108,12 @@
         SELECT
         <include refid="BaseColumns"/>
         FROM balance
-        WHERE user_id IN
-        <foreach collection="userIds" item="uid" open="(" close=")" separator=",">
-            #{uid}
-        </foreach>
+        <if test="userIds != null and userIds.size() > 0">
+            WHERE user_id IN
+            <foreach collection="userIds" item="uid" open="(" close=")" separator=",">
+                #{uid}
+            </foreach>
+        </if>
     </select>
 
 </mapper>

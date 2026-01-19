@@ -527,9 +527,9 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     public CommonResponse queryMerchantRecharge(AccountQueryRequest accountQueryRequest) {
-        log.info("queryMerchantAccount start");
+        log.info("queryMerchantRecharge start");
         WithdrawalAccountResponse response = queryMerchantRechargeData(accountQueryRequest);
-        log.info("queryMerchantAccount end");
+        log.info("queryMerchantRecharge end");
         return CommonResponse.success(response);
     }
 

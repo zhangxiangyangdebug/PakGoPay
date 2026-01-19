@@ -190,7 +190,7 @@ public class ReportServiceImpl implements ReportService {
         MerchantReportResponse response = new MerchantReportResponse();
         try {
             // administrator searches for specified user by merchant name
-            if (entity.getMerchantName() != null) {
+            if (entity.getMerchantName() != null && !entity.getMerchantName().isEmpty()) {
                 MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByMerchantName(entity.getMerchantName())
                         .orElseThrow(() -> new PakGoPayException(
                                 ResultCode.USER_IS_NOT_EXIST
@@ -205,13 +205,20 @@ public class ReportServiceImpl implements ReportService {
             response.setPageNo(entity.getPageNo());
             response.setPageSize(entity.getPageSize());
             response.setTotalNumber(totalNumber);
+        } catch (PakGoPayException e) {
+            log.error("queryMerchantReportData failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("merchantReportMapper queryMerchantReportData failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
         if (isNeedCardData) {
-            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(new ArrayList<String>(){{add(entity.getUserId());}});
+            List<String> userIds = new ArrayList<>();
+            if(entity.getUserId() != null){
+                userIds.add(entity.getUserId());
+            }
+            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
             response.setCardInfo(cardInfo);
         }
 

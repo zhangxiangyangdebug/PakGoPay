@@ -90,10 +90,10 @@ public class BalanceServiceImpl implements BalanceService {
         log.info("getBalanceInfos start");
         Map<String, Map<String, BigDecimal>> result = new HashMap<>();
 
-        if (userIds == null || userIds.isEmpty()) {
-            log.info("userIds is empty");
-            return null;
-        }
+//        if (userIds == null || userIds.isEmpty()) {
+//            log.info("userIds is empty");
+//            return null;
+//        }
 
         List<BalanceDto> balanceDtoList;
         try {
