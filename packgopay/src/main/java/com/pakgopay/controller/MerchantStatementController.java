@@ -154,4 +154,18 @@ public class MerchantStatementController {
             return CommonResponse.fail(e.getCode(), "addMerchantAccount failed: " + e.getMessage());
         }
     }
+
+    @PostMapping("/queryMerchantRecharge")
+    public CommonResponse queryMerchantRecharge(
+            @RequestBody @Valid AccountQueryRequest accountQueryRequest) {
+        log.info("queryMerchantRecharge start");
+        try {
+            return merchantService.queryMerchantRecharge(accountQueryRequest);
+        } catch (PakGoPayException e) {
+            log.error("queryMerchantRecharge failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryMerchantRecharge failed: " + e.getMessage());
+        }
+    }
+
+
 }
