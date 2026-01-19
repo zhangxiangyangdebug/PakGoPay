@@ -227,7 +227,7 @@
             parameterType="com.pakgopay.data.entity.merchant.MerchantEntity"
             resultMap="MerchantInfoDtoMap">
         SELECT
-        <include refid="BaseColumns"/>
+        <include refid="BaseColumnsForJoin"/>
         FROM merchant_info m
         LEFT JOIN user_info ui ON ui.user_id = m.user_id
         <include refid="MerchantQueryWhere"/>
