@@ -122,7 +122,6 @@ public class ReportServiceImpl implements ReportService {
 
     private AgentReportResponse getAgentReportResponse(AgentReportRequest agentReportRequest) throws PakGoPayException {
         AgentReportEntity entity = new AgentReportEntity();
-        entity.setUserId(agentReportRequest.getUserId());
         entity.setOrderType(agentReportRequest.getOrderType());
         entity.setCurrency(agentReportRequest.getCurrency());
         entity.setStartTime(Long.valueOf(agentReportRequest.getStartTime()));
