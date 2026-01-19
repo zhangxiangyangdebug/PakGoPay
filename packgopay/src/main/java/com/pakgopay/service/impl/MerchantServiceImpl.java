@@ -130,17 +130,18 @@ public class MerchantServiceImpl implements MerchantService {
             // -------------------------
             // 1) Build agent chain list
             // -------------------------
-            List<AgentInfoDto> agentChain = buildAgentChain(agentByUserIdMap, merchant.getParentId());
-            merchant.setAgentInfos(agentChain);
-
             List<Long> channelIds;
             if (merchant.getParentId() != null && !merchant.getParentId().isBlank()) {
                 // Merchant has an agent, use agent's channelIds
                 AgentInfoDto parentAgent = agentByUserIdMap.get(merchant.getParentId());
                 channelIds = CommontUtil.parseIds(parentAgent == null ? null : parentAgent.getChannelIds());
+                List<AgentInfoDto> agentChain = buildAgentChain(agentByUserIdMap, merchant.getParentId());
+                merchant.setAgentInfos(agentChain);
             } else {
                 // No agent, use merchant's own channelIds
                 channelIds = CommontUtil.parseIds(merchant.getChannelIds());
+                List<ChannelDto> channelInfos = buildAgentChain(channelByIdMap, channelIds);
+                merchant.setChannelDtoList(channelInfos);
             }
 
             List<String> currencies = resolveCurrenciesByChannelIds(channelIds, channelByIdMap, paymentByIdMap);
@@ -148,6 +149,23 @@ public class MerchantServiceImpl implements MerchantService {
         }
     }
 
+    /**
+     * Build agent chain list: [parentAgent, upperAgent]
+     * Upper agent is defined as parentAgent.parentId (one level up).
+     */
+    private static List<ChannelDto> buildAgentChain(Map<Long, ChannelDto> channelByIdMap, List<Long> channelIds){
+        if (channelIds == null || channelIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<ChannelDto> result = new ArrayList<>();
+        for (Long channelId : channelIds){
+            ChannelDto dto = channelByIdMap.get(channelId);
+            if(dto == null) continue;
+            result.add(dto);
+        }
+        return result;
+    }
     /**
      * Build agent chain list: [parentAgent, upperAgent]
      * Upper agent is defined as parentAgent.parentId (one level up).

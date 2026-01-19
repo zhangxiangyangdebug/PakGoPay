@@ -9,6 +9,7 @@
     <resultMap id="MerchantInfoDtoMap" type="com.pakgopay.mapper.dto.MerchantInfoDto">
 
         <result column="user_id" property="userId" javaType="java.lang.String"/>
+        <result column="login_name" property="accountName" javaType="java.lang.String"/>
         <result column="parent_id" property="parentId" javaType="java.lang.String"/>
 
         <result column="merchant_name" property="merchantName" javaType="java.lang.String"/>
@@ -74,6 +75,7 @@
 
     <sql id="BaseColumnsForJoin">
         m.user_id,
+        ui.login_name,
         m.parent_id,
         m.merchant_name,
         m.support_type,

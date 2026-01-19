@@ -14,6 +14,9 @@ public class MerchantInfoDto implements Serializable {
     /** User ID */
     private String userId;
 
+    /** User account name */
+    private String accountName;
+
     /** Parent ID (upper-level ID) */
     private String parentId;
 
@@ -90,6 +93,9 @@ public class MerchantInfoDto implements Serializable {
 
     /** Merchant's agent infos */
     List<AgentInfoDto> agentInfos;
+
+    /** Merchant's agent infos */
+    List<ChannelDto> channelDtoList;
 
     /** Merchant's support currency */
     List<String> currencyList;
