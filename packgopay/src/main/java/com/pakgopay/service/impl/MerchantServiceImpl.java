@@ -327,6 +327,7 @@ public class MerchantServiceImpl implements MerchantService {
                 .reqObj("collectionFixedFee", req::getCollectionFixedFee, dto::setCollectionFixedFee)
                 .reqObj("collectionMaxFee", req::getCollectionMaxFee, dto::setCollectionMaxFee)
                 .reqObj("collectionMinFee", req::getCollectionMinFee, dto::setCollectionMinFee)
+                .reqStr("colWhiteIps", req::getColWhiteIps, dto::setColWhiteIps)
                 .endSkip()
 
                 // =====================
@@ -338,14 +339,13 @@ public class MerchantServiceImpl implements MerchantService {
                 .reqObj("payFixedFee", req::getPayFixedFee, dto::setPayFixedFee)
                 .reqObj("payMaxFee", req::getPayMaxFee, dto::setPayMaxFee)
                 .reqObj("payMinFee", req::getPayMinFee, dto::setPayMinFee)
+                .reqStr("payWhiteIps", req::getPayWhiteIps, dto::setPayWhiteIps)
                 .endSkip()
 
                 // =====================
                 // 6) Floating & Security
                 // =====================
                 .reqObj("isFloat", req::getIsFloat, dto::setIsFloat)
-                .reqStr("colWhiteIps", req::getColWhiteIps, dto::setColWhiteIps)
-                .reqStr("payWhiteIps", req::getPayWhiteIps, dto::setPayWhiteIps)
 
                 // =====================
                 // 7) Channel Configuration
@@ -521,5 +521,11 @@ public class MerchantServiceImpl implements MerchantService {
         dto.setMerchantAgentId(merchantInfoDto.getUserId());
 
         return b.build();
+    }
+
+
+    @Override
+    public CommonResponse queryMerchantRecharge(AccountQueryRequest accountQueryRequest) {
+        return null;
     }
 }

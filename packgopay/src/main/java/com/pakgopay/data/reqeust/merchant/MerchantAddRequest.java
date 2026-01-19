@@ -79,6 +79,8 @@ public class MerchantAddRequest extends BaseRequest {
     /** Collection minimum fee */
     private BigDecimal collectionMinFee;
 
+    /** Collection IP whitelist (comma-separated) */
+    private String colWhiteIps;
 
     // =====================
     // 5) Payout Fee Configuration
@@ -96,9 +98,11 @@ public class MerchantAddRequest extends BaseRequest {
     /** Payout minimum fee */
     private BigDecimal payMinFee;
 
+    /** Payout IP whitelist (comma-separated) */
+    private String payWhiteIps;
 
     // =====================
-    // 6) Floating & Security
+    // 6) Floating
     // =====================
 
     /** Whether floating is enabled (0 = No, 1 = Yes) */
@@ -106,15 +110,6 @@ public class MerchantAddRequest extends BaseRequest {
     @Min(value = 0, message = "isFloat must be 0 or 1")
     @Max(value = 1, message = "isFloat must be 0 or 1")
     private Integer isFloat;
-
-    /** Collection IP whitelist (comma-separated) */
-    @NotBlank(message = "colWhiteIps is empty")
-    private String colWhiteIps;
-
-    /** Payout IP whitelist (comma-separated) */
-    @NotBlank(message = "payWhiteIps is empty")
-    private String payWhiteIps;
-
 
     // =====================
     // 7) Channel Configuration

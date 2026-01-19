@@ -26,4 +26,6 @@ public interface MerchantService {
     CommonResponse editMerchantAccount(@Valid AccountEditRequest accountEditRequest);
 
     CommonResponse addMerchantAccount(@Valid AccountAddRequest accountAddRequest);
+
+    CommonResponse queryMerchantRecharge(@Valid AccountQueryRequest accountQueryRequest);
 }
