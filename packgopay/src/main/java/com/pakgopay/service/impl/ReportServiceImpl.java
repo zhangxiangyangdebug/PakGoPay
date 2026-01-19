@@ -172,7 +172,9 @@ public class ReportServiceImpl implements ReportService {
     private PaymentReportResponse getPaymentReportResponse(
             PaymentReportRequest paymentReportRequest) throws PakGoPayException {
         PaymentReportEntity entity = new PaymentReportEntity();
-        entity.setPaymentId(Long.valueOf(paymentReportRequest.getPaymentId()));
+        if (paymentReportRequest.getPaymentId() != null && !paymentReportRequest.getPaymentId().isEmpty()) {
+            entity.setPaymentId(Long.valueOf(paymentReportRequest.getPaymentId()));
+        }
         entity.setOrderType(paymentReportRequest.getOrderType());
         entity.setCurrency(paymentReportRequest.getCurrency());
         entity.setStartTime(Long.valueOf(paymentReportRequest.getStartTime()));
