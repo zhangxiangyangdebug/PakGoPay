@@ -41,7 +41,6 @@ public class LoginServiceImpl implements LoginService {
         if (ObjectUtils.isEmpty(value)) {
             // 缓存没有用户数据，从数据库获取
             user = userMapper.getOneUser(userName, password);
-            System.out.println(user.toString());
         } else {
             //
             user = new Gson().fromJson(value, UserDTO.class);
