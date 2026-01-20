@@ -23,7 +23,7 @@
         <result column="create_by"     property="createBy"     javaType="java.lang.String"/>
 
         <result column="update_time"   property="updateTime"   javaType="java.lang.Long"/>
-        <result column="update_by"     property="updateBy"     javaType="java.lang.Long"/>
+        <result column="update_by"     property="updateBy"     javaType="java.lang.String"/>
 
         <result column="remark"        property="remark"       javaType="java.lang.String"/>
         <result column="operate_by"    property="operateBy"    javaType="java.lang.String"/>

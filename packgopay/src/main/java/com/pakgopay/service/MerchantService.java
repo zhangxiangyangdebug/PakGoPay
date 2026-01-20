@@ -3,6 +3,7 @@ package com.pakgopay.service;
 import com.pakgopay.data.reqeust.account.AccountAddRequest;
 import com.pakgopay.data.reqeust.account.AccountEditRequest;
 import com.pakgopay.data.reqeust.account.AccountQueryRequest;
+import com.pakgopay.data.reqeust.account.AccountRechargeRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
@@ -28,4 +29,6 @@ public interface MerchantService {
     CommonResponse addMerchantAccount(@Valid AccountAddRequest accountAddRequest);
 
     CommonResponse queryMerchantRecharge(@Valid AccountQueryRequest accountQueryRequest);
+
+    CommonResponse addMerchantRecharge(@Valid AccountRechargeRequest accountRechargeRequest);
 }

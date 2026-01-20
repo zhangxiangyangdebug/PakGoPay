@@ -8,9 +8,9 @@ import lombok.Data;
 @Data
 public class AccountAddRequest extends BaseRequest {
 
-    /** agent name */
-    @NotBlank(message = "name is empty")
-    private String name;
+    /** merchant/agent userId */
+    @NotBlank(message = "merchantAgentId is empty")
+    private String merchantAgentId;
 
     /** Wallet addr */
     @NotBlank(message = "walletAddr is empty")

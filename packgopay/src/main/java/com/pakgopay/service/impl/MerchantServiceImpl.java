@@ -9,6 +9,7 @@ import com.pakgopay.data.reqeust.CreateUserRequest;
 import com.pakgopay.data.reqeust.account.AccountAddRequest;
 import com.pakgopay.data.reqeust.account.AccountEditRequest;
 import com.pakgopay.data.reqeust.account.AccountQueryRequest;
+import com.pakgopay.data.reqeust.account.AccountRechargeRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
@@ -153,19 +154,20 @@ public class MerchantServiceImpl implements MerchantService {
      * Build agent chain list: [parentAgent, upperAgent]
      * Upper agent is defined as parentAgent.parentId (one level up).
      */
-    private static List<ChannelDto> buildAgentChain(Map<Long, ChannelDto> channelByIdMap, List<Long> channelIds){
+    private static List<ChannelDto> buildAgentChain(Map<Long, ChannelDto> channelByIdMap, List<Long> channelIds) {
         if (channelIds == null || channelIds.isEmpty()) {
             return Collections.emptyList();
         }
 
         List<ChannelDto> result = new ArrayList<>();
-        for (Long channelId : channelIds){
+        for (Long channelId : channelIds) {
             ChannelDto dto = channelByIdMap.get(channelId);
-            if(dto == null) continue;
+            if (dto == null) continue;
             result.add(dto);
         }
         return result;
     }
+
     /**
      * Build agent chain list: [parentAgent, upperAgent]
      * Upper agent is defined as parentAgent.parentId (one level up).
@@ -544,11 +546,7 @@ public class MerchantServiceImpl implements MerchantService {
         dto.setCreateBy(req.getUserName());
         dto.setUpdateBy(req.getUserName());
 
-        MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByMerchantName(req.getName())
-                .orElseThrow(() -> new PakGoPayException(
-                        ResultCode.USER_IS_NOT_EXIST
-                        , "merchant is not exists, merchantName:" + req.getName()));
-        dto.setMerchantAgentId(merchantInfoDto.getUserId());
+        dto.setMerchantAgentId(req.getMerchantAgentId());
 
         return b.build();
     }
@@ -587,5 +585,47 @@ public class MerchantServiceImpl implements MerchantService {
         response.setPageSize(entity.getPageSize());
         log.info("queryMerchantRechargeData end");
         return response;
+    }
+
+    @Override
+    public CommonResponse addMerchantRecharge(AccountRechargeRequest accountRechargeRequest) {
+        log.info("addMerchantRecharge start");
+        WithdrawalOrderDto withdrawalOrderDto = generateWithdrawalForAdd(accountRechargeRequest);
+
+        transactionUtil.runInTransaction(() -> {
+            withdrawalOrderMapper.insert(withdrawalOrderDto);
+            balanceService.rechargeAmount(
+                    withdrawalOrderDto.getMerchantId(),
+                    withdrawalOrderDto.getCurrency(),
+                    withdrawalOrderDto.getAmount());
+        });
+
+        log.info("addMerchantRecharge end");
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private WithdrawalOrderDto generateWithdrawalForAdd(AccountRechargeRequest req) {
+        WithdrawalOrderDto dto = new WithdrawalOrderDto();
+        long now = System.currentTimeMillis() / 1000;
+
+        PatchBuilderUtil<AccountRechargeRequest, WithdrawalOrderDto> b = PatchBuilderUtil.from(req).to(dto)
+                .reqStr("merchantId", req::getMerchantId, dto::setMerchantId)
+                .reqStr("merchantName", req::getMerchantName, dto::setMerchantName)
+                .reqStr("currency", req::getCurrency, dto::setCurrency)
+                .reqObj("amount", req::getAmount, dto::setAmount)
+                .str(req::getRemark, dto::setRemark);
+
+        // 4) meta
+        dto.setCreateTime(now);
+        dto.setUpdateTime(now);
+        dto.setCreateBy(req.getUserName());
+        dto.setUpdateBy(req.getUserName());
+        dto.setOperateBy(req.getUserName());
+
+        BigDecimal beforeAmount = balanceService.getAmountByUserIdAndCurrency(req.getMerchantId(), req.getCurrency());
+        dto.setBeforeAmount(beforeAmount);
+        dto.setAfterAmount(CommontUtil.safeAdd(beforeAmount, req.getAmount()));
+
+        return b.build();
     }
 }

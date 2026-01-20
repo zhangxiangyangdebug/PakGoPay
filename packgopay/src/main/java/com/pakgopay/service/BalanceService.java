@@ -14,5 +14,9 @@ public interface BalanceService {
     void freezeBalance(
             BigDecimal freezeFee, String userId, String currency) throws PakGoPayException;
 
+    BigDecimal getAmountByUserIdAndCurrency(String userId, String currency);
+
+    void rechargeAmount(String userId, String currency, BigDecimal amount);
+
     Map<String, Map<String, BigDecimal>> getBalanceInfos(List<String> userId) throws PakGoPayException;
 }
