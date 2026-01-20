@@ -91,7 +91,7 @@ public class MerchantServiceImpl implements MerchantService {
 
             if (merchantQueryRequest.getIsNeedCardData()) {
                 List<String> userIds = merchantInfoMapper.userIdsByQueryMerchant(entity);
-                if (userIds != null && userIds.isEmpty()) {
+                if (userIds != null && !userIds.isEmpty()) {
                     Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
                     response.setCardInfo(cardInfo);
                 }
@@ -436,7 +436,7 @@ public class MerchantServiceImpl implements MerchantService {
 
             if (accountQueryRequest.getIsNeedCardData()) {
                 List<String> userIds = withdrawalAccountsMapper.userIdsByQueryMerchant(entity);
-                if (userIds != null && userIds.isEmpty()) {
+                if (userIds != null && !userIds.isEmpty()) {
                     Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
                     response.setCardInfo(cardInfo);
                 }
