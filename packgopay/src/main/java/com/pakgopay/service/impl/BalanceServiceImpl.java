@@ -208,6 +208,9 @@ public class BalanceServiceImpl implements BalanceService {
             BalanceDto dto = new BalanceDto();
             dto.setUserId(userId);
             dto.setCurrency(currency);
+            dto.setAvailableBalance(BigDecimal.ZERO);
+            dto.setFrozenBalance(BigDecimal.ZERO);
+            dto.setTotalBalance(BigDecimal.ZERO);
             long now = System.currentTimeMillis() / 1000;
             dto.setCreateTime(now);
             dto.setUpdateTime(now);

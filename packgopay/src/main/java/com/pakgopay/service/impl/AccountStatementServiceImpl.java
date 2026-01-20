@@ -101,7 +101,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                         0);
             }
             // adjust
-            if (accountStatementsDto.getOrderType() == 1) {
+            if (accountStatementsDto.getOrderType() == 3) {
                 balanceService.adjustAmount(
                         accountStatementsDto.getUserId(),
                         accountStatementsDto.getCurrency(),
@@ -136,12 +136,6 @@ public class AccountStatementServiceImpl implements AccountStatementService {
         dto.setCreateBy(req.getUserName());
         dto.setUpdateBy(req.getUserName());
 
-        if (2 == req.getOrderType()) {
-            dto.setStatus(0);
-        } else {
-            dto.setStatus(1);
-        }
-
         Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(new ArrayList<>() {{
             add(dto.getUserId());
         }});
@@ -152,10 +146,11 @@ public class AccountStatementServiceImpl implements AccountStatementService {
         BigDecimal frozenBalanceBefore = BigDecimal.ZERO;
         BigDecimal totalBalanceBefore = BigDecimal.ZERO;
         if (balanceInfo != null && !balanceInfo.isEmpty()) {
-            balanceService.createBalanceRecord(dto.getUserId(),dto.getCurrency());
             availableBalanceBefore = balanceInfo.getOrDefault("available", BigDecimal.ZERO);
             frozenBalanceBefore = balanceInfo.getOrDefault("frozen", BigDecimal.ZERO);
             totalBalanceBefore = balanceInfo.getOrDefault("total", BigDecimal.ZERO);
+        } else {
+            balanceService.createBalanceRecord(dto.getUserId(), dto.getCurrency());
         }
 
         if (req.getOrderType() == 2 && availableBalanceBefore.compareTo(req.getAmount()) < CommonConstant.ZERO) {
@@ -163,8 +158,14 @@ public class AccountStatementServiceImpl implements AccountStatementService {
             throw new PakGoPayException(ResultCode.FAIL, "insufficient available balance");
         }
 
+        if (2 == req.getOrderType()) {
+            dto.setStatus(0);
+            dto.setFrozenBalanceAfter(CommontUtil.safeAdd(frozenBalanceBefore, req.getAmount()));
+        } else {
+            dto.setStatus(1);
+            dto.setFrozenBalanceAfter(frozenBalanceBefore);
+        }
         dto.setFrozenBalanceBefore(frozenBalanceBefore);
-        dto.setFrozenBalanceAfter(CommontUtil.safeAdd(frozenBalanceBefore, req.getAmount()));
         dto.setAvailableBalanceBefore(availableBalanceBefore);
         dto.setAvailableBalanceAfter(CommontUtil.safeAdd(availableBalanceBefore, req.getAmount()));
         dto.setTotalBalanceBefore(totalBalanceBefore);

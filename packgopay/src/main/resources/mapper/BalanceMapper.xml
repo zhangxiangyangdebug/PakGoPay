@@ -61,7 +61,7 @@
         #{currency},
         #{availableBalance},
         #{frozenBalance},
-        #{withdrawAmount}.
+        #{withdrawAmount},
         #{totalBalance},
         #{createTime},
         #{updateTime},

@@ -110,7 +110,7 @@
                 #{availableBalanceAfter},
                 #{frozenBalanceBefore},
                 #{frozenBalanceAfter},
-                #{total_balance_before},
+                #{totalBalanceBefore},
                 #{totalBalanceAfter},
                 #{walletAddr},
                 #{userId},
@@ -137,7 +137,7 @@
             <if test="frozenBalanceBefore != null">frozen_balance_before = #{frozenBalanceBefore},</if>
             <if test="frozenBalanceAfter != null">frozen_balance_after = #{frozenBalanceAfter},</if>
 
-            <if test="total_balance_before != null">total_balance_before = #{total_balance_before},</if>
+            <if test="totalBalanceBefore != null">total_balance_before = #{totalBalanceBefore},</if>
             <if test="totalBalanceAfter != null">total_balance_after = #{totalBalanceAfter},</if>
 
             <if test="walletAddr != null and walletAddr != ''">wallet_addr = #{walletAddr},</if>
