@@ -20,7 +20,7 @@
         <result column="frozen_balance_after"      property="frozenBalanceAfter"     javaType="java.math.BigDecimal"/>
 
         <!-- Note: column name is total_balance_before (typo kept for compatibility) -->
-        <result column="total_balance_before"     property="total_balance_before"    javaType="java.math.BigDecimal"/>
+        <result column="total_balance_before"     property="totalBalanceBefore"    javaType="java.math.BigDecimal"/>
         <result column="total_balance_after"       property="totalBalanceAfter"      javaType="java.math.BigDecimal"/>
 
         <result column="wallet_addr"               property="walletAddr"             javaType="java.lang.String"/>
