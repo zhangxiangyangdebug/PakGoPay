@@ -89,6 +89,14 @@ public class MerchantServiceImpl implements MerchantService {
             List<MerchantInfoDto> merchantInfoDtoList = merchantInfoMapper.pageByQuery(entity);
             getMerchantDetailInfo(merchantInfoDtoList);
 
+            if (merchantQueryRequest.getIsNeedCardData()) {
+                List<String> userIds = merchantInfoMapper.userIdsByQueryMerchant(entity);
+                if (userIds != null && userIds.isEmpty()) {
+                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
+                    response.setCardInfo(cardInfo);
+                }
+            }
+
             response.setMerchantInfoDtoList(merchantInfoDtoList);
             response.setTotalNumber(totalNumber);
         } catch (Exception e) {

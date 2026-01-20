@@ -44,4 +44,6 @@ public interface MerchantInfoMapper {
     Integer countByQuery(MerchantEntity entity);
 
     List<MerchantInfoDto> pageByQuery(MerchantEntity entity);
+
+    List<String> userIdsByQueryMerchant(MerchantEntity entity);
 }

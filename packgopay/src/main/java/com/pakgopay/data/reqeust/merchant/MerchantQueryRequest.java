@@ -30,4 +30,9 @@ public class MerchantQueryRequest extends ExportBaseRequest {
      * merchant's agent userId
      */
     private String parentAgentId;
+
+    /**
+     * is need page card data
+     */
+    private Boolean isNeedCardData = false;
 }

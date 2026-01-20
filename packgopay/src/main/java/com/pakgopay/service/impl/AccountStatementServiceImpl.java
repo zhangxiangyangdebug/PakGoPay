@@ -184,7 +184,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
             balanceService.withdrawAmount(
                     accountStatementsDto.getUserId(),
                     accountStatementsDto.getCurrency(),
-                    accountStatementsDto.getAmount(),
+                    request.getAmount(),
                     request.isAgree() ? 1 : 2);
         });
 

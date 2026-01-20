@@ -242,4 +242,12 @@
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 
+    <select id="userIdsByQueryMerchant"
+            parameterType="com.pakgopay.data.entity.merchant.MerchantEntity"
+            resultType="java.lang.String">
+        SELECT DISTINCT user_id
+        FROM merchant_info
+        <include refid="MerchantQueryWhere"/>
+    </select>
+
 </mapper>
