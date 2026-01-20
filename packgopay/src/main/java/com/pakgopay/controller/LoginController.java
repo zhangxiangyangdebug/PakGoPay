@@ -44,9 +44,9 @@ public class LoginController {
         System.out.println("this is hello test");
         TestMessage testMessage = new TestMessage();
         testMessage.setContent("呦西，花姑娘");
-        testMq.send("test", testMessage);
-        testMessage.setContent("你滴，大大的良民");
-        testMq.sendDelay("test-delay-L10S", testMessage);
+        testMq.send("userNotice", testMessage);
+        /*testMessage.setContent("你滴，大大的良民");*/
+       /* testMq.sendDelay("test-delay-L10S", testMessage);*/
         return "{'zf':'test'}";
     }
 

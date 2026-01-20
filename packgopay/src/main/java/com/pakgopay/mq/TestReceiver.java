@@ -28,4 +28,11 @@ public class TestReceiver {
         notificationService.broadcastMessage(message);
         System.out.println(new Date() + "You get it" + message);
     }
+
+    @RabbitListener(queuesToDeclare = @Queue("userNotice"))
+    public void reveiveNoticeMessage(String message) throws JsonProcessingException {
+        //System.out.println("I get a test message: " + new ObjectMapper().readValue(message, TestMessage.class).getContent());
+        notificationService.broadcastMessage(message);
+        System.out.println(new Date() + "You get it" + message);
+    }
 }
