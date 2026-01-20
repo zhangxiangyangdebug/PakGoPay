@@ -4,6 +4,7 @@ import com.pakgopay.mapper.dto.BalanceDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Mapper
@@ -28,11 +29,13 @@ public interface BalanceMapper {
 
     /** Increase/decrease available balance (delta can be positive/negative) */
     int addAvailableBalance(@Param("userId") String userId,
-                            @Param("delta") java.math.BigDecimal delta,
+                            @Param("delta") BigDecimal delta,
+                            @Param("currency") String currency,
                             @Param("updateTime") Long updateTime);
 
     /** Increase/decrease frozen balance (delta can be positive/negative) */
     int addFrozenBalance(@Param("userId") String userId,
-                         @Param("delta") java.math.BigDecimal delta,
+                         @Param("delta") BigDecimal delta,
+                         @Param("currency") String currency,
                          @Param("updateTime") Long updateTime);
 }

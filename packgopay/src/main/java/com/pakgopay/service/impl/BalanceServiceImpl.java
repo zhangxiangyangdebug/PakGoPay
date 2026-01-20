@@ -11,7 +11,6 @@ import com.pakgopay.util.CommontUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -54,7 +53,6 @@ public class BalanceServiceImpl implements BalanceService {
         return CommonResponse.success(allBalanceInfo);
     }
 
-    @Transactional
     @Override
     public void freezeBalance(BigDecimal freezeFee, String userId, String currency) throws PakGoPayException {
         log.info("freezeBalance start");
@@ -84,6 +82,59 @@ public class BalanceServiceImpl implements BalanceService {
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
         log.info("freezeBalance end");
+    }
+
+
+    public BigDecimal getAmountByUserIdAndCurrency(String userId, String currency) {
+        if (userId == null || userId.isEmpty()) {
+            log.warn("userId is empty");
+            return BigDecimal.ZERO;
+        }
+
+        if (currency == null || currency.isEmpty()) {
+            log.warn("currency is empty");
+            return BigDecimal.ZERO;
+        }
+
+        try {
+            BalanceDto balanceDto = balanceMapper.findByUserIdAndCurrency(userId, currency);
+
+            if (balanceDto == null || balanceDto.getTotalBalance() == null) {
+                log.warn("no match balance info, userId:{} currency:{}", userId, currency);
+                return BigDecimal.ZERO;
+            }
+
+            return balanceDto.getTotalBalance();
+        } catch (Exception e) {
+            log.error("getAmountByUserIdAndCurrency failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+    }
+
+    @Override
+    public void rechargeAmount(String userId, String currency, BigDecimal amount) {
+        if (userId == null || userId.isEmpty()) {
+            log.warn("userId is empty");
+            return;
+        }
+
+        if (currency == null || currency.isEmpty()) {
+            log.warn("currency is empty");
+            return;
+        }
+
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) < CommonConstant.ZERO) {
+            log.warn("amount is null or 0");
+            return;
+        }
+
+        try {
+            long now = System.currentTimeMillis() / 1000;
+            balanceMapper.addAvailableBalance(userId, amount, currency, now);
+        } catch (Exception e) {
+            log.error("rechargeAmount failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
     }
 
     public Map<String, Map<String, BigDecimal>> getBalanceInfos(List<String> userIds) throws PakGoPayException {

@@ -49,7 +49,7 @@ public class WithdrawalOrderDto implements Serializable {
     private Long updateTime;
 
     /** Updated by (user id) */
-    private Long updateBy;
+    private String updateBy;
 
     /** Remark */
     private String remark;

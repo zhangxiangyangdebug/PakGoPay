@@ -6,6 +6,7 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.account.AccountAddRequest;
 import com.pakgopay.data.reqeust.account.AccountEditRequest;
 import com.pakgopay.data.reqeust.account.AccountQueryRequest;
+import com.pakgopay.data.reqeust.account.AccountRechargeRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
@@ -164,6 +165,18 @@ public class MerchantStatementController {
         } catch (PakGoPayException e) {
             log.error("queryMerchantRecharge failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryMerchantRecharge failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/addMerchantRecharge")
+    public CommonResponse addMerchantRecharge(
+            @RequestBody @Valid AccountRechargeRequest accountRechargeRequest) {
+        log.info("addMerchantRecharge start");
+        try {
+            return merchantService.addMerchantRecharge(accountRechargeRequest);
+        } catch (PakGoPayException e) {
+            log.error("addMerchantRecharge failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "addMerchantRecharge failed: " + e.getMessage());
         }
     }
 

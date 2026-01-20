@@ -93,6 +93,7 @@
             total_balance = IFNULL(total_balance, 0) + #{delta},
             update_time = #{updateTime}
         WHERE user_id = #{userId}
+            AND currency = #{currency}
     </update>
 
     <!-- Atomic add frozen balance (usually total_balance unchanged; adjust if your business differs) -->
@@ -102,6 +103,7 @@
             frozen_balance = IFNULL(frozen_balance, 0) + #{delta},
             update_time = #{updateTime}
         WHERE user_id = #{userId}
+          AND currency = #{currency}
     </update>
 
     <select id="listByUserIds" resultMap="BalanceResultMap">
