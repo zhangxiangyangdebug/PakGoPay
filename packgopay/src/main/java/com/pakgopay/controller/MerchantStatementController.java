@@ -3,10 +3,7 @@ package com.pakgopay.controller;
 import com.google.gson.Gson;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.data.reqeust.account.AccountAddRequest;
-import com.pakgopay.data.reqeust.account.AccountEditRequest;
-import com.pakgopay.data.reqeust.account.AccountQueryRequest;
-import com.pakgopay.data.reqeust.account.AccountRechargeRequest;
+import com.pakgopay.data.reqeust.account.*;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
@@ -14,6 +11,7 @@ import com.pakgopay.data.reqeust.merchant.MerchantStatementRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.merchant.MerchantStatementResponse;
 import com.pakgopay.service.MerchantService;
+import com.pakgopay.service.common.AccountStatementService;
 import com.pakgopay.util.ExportFileUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -36,6 +34,9 @@ public class MerchantStatementController {
 
     @Autowired
     private MerchantService merchantService;
+
+    @Autowired
+    private AccountStatementService accountStatementService;
 
     @RequestMapping("/merchantStatement")
     public CommonResponse merchantStatementInfo(@RequestBody MerchantStatementRequest request) {
@@ -158,10 +159,10 @@ public class MerchantStatementController {
 
     @PostMapping("/queryMerchantRecharge")
     public CommonResponse queryMerchantRecharge(
-            @RequestBody @Valid AccountQueryRequest accountQueryRequest) {
+            @RequestBody @Valid AccountStatementQueryRequest accountStatementQueryRequest) {
         log.info("queryMerchantRecharge start");
         try {
-            return merchantService.queryMerchantRecharge(accountQueryRequest);
+            return accountStatementService.queryMerchantRecharge(accountStatementQueryRequest);
         } catch (PakGoPayException e) {
             log.error("queryMerchantRecharge failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryMerchantRecharge failed: " + e.getMessage());
@@ -170,10 +171,10 @@ public class MerchantStatementController {
 
     @PostMapping("/addMerchantRecharge")
     public CommonResponse addMerchantRecharge(
-            @RequestBody @Valid AccountRechargeRequest accountRechargeRequest) {
+            @RequestBody @Valid AccountStatementAddRequest accountStatementAddRequest) {
         log.info("addMerchantRecharge start");
         try {
-            return merchantService.addMerchantRecharge(accountRechargeRequest);
+            return accountStatementService.addMerchantRecharge(accountStatementAddRequest);
         } catch (PakGoPayException e) {
             log.error("addMerchantRecharge failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "addMerchantRecharge failed: " + e.getMessage());

@@ -84,67 +84,95 @@ public class BalanceServiceImpl implements BalanceService {
         log.info("freezeBalance end");
     }
 
-
-    public BigDecimal getAmountByUserIdAndCurrency(String userId, String currency) {
-        if (userId == null || userId.isEmpty()) {
-            log.warn("userId is empty");
-            return BigDecimal.ZERO;
-        }
-
-        if (currency == null || currency.isEmpty()) {
-            log.warn("currency is empty");
-            return BigDecimal.ZERO;
-        }
-
-        try {
-            BalanceDto balanceDto = balanceMapper.findByUserIdAndCurrency(userId, currency);
-
-            if (balanceDto == null || balanceDto.getTotalBalance() == null) {
-                log.warn("no match balance info, userId:{} currency:{}", userId, currency);
-                return BigDecimal.ZERO;
-            }
-
-            return balanceDto.getTotalBalance();
-        } catch (Exception e) {
-            log.error("getAmountByUserIdAndCurrency failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
-    }
-
     @Override
     public void rechargeAmount(String userId, String currency, BigDecimal amount) {
-        if (userId == null || userId.isEmpty()) {
-            log.warn("userId is empty");
+        if (!checkParams(userId, currency, amount)) {
             return;
         }
 
-        if (currency == null || currency.isEmpty()) {
-            log.warn("currency is empty");
-            return;
-        }
-
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) < CommonConstant.ZERO) {
-            log.warn("amount is null or 0");
-            return;
-        }
-
+        int ret = 0;
         try {
             long now = System.currentTimeMillis() / 1000;
-            balanceMapper.addAvailableBalance(userId, amount, currency, now);
+            ret = balanceMapper.addAvailableBalance(userId, amount, currency, now);
         } catch (Exception e) {
             log.error("rechargeAmount failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
+        if (ret <= 0) {
+            throw new PakGoPayException(ResultCode.FAIL, "addAvailableBalance failed");
+        }
+    }
+
+    @Override
+    public void withdrawAmount(String userId, String currency, BigDecimal amount, Integer oper) {
+        if (!checkParams(userId, currency, amount)) {
+            return;
+        }
+
+        int ret = 0;
+        try {
+            long now = System.currentTimeMillis() / 1000;
+            if (oper == 0) {
+                // freeze
+                ret = balanceMapper.freezeForWithdraw(userId, amount, currency, now);
+            } else if (oper == 1) {
+                // confirm
+                ret = balanceMapper.confirmWithdraw(userId, amount, currency, now);
+            } else {
+                // cancel
+                ret = balanceMapper.cancelWithdraw(userId, amount, currency, now);
+            }
+        } catch (Exception e) {
+            log.error("withdrawAmount failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        if (ret <= 0) {
+            throw new PakGoPayException(ResultCode.FAIL, "withdrawBalance failed");
+        }
+    }
+
+    @Override
+    public void adjustAmount(String userId, String currency, BigDecimal amount) {
+        if (!checkParams(userId, currency, amount)) {
+            return;
+        }
+
+        int ret = 0;
+        try {
+            long now = System.currentTimeMillis() / 1000;
+            ret = balanceMapper.adjustBalance(userId, amount, currency, now);
+        } catch (Exception e) {
+            log.error("adjustAmount failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        if (ret <= 0) {
+            throw new PakGoPayException(ResultCode.FAIL, "adjustBalance failed");
+        }
+    }
+
+    private boolean checkParams(String userId, String currency, BigDecimal amount) {
+        if (userId == null || userId.isEmpty()) {
+            log.warn("userId is empty");
+            return false;
+        }
+
+        if (currency == null || currency.isEmpty()) {
+            log.warn("currency is empty");
+            return false;
+        }
+
+        if (amount == null) {
+            log.warn("amount is null");
+            return false;
+        }
+        return true;
     }
 
     public Map<String, Map<String, BigDecimal>> getBalanceInfos(List<String> userIds) throws PakGoPayException {
         log.info("getBalanceInfos start");
         Map<String, Map<String, BigDecimal>> result = new HashMap<>();
-
-//        if (userIds == null || userIds.isEmpty()) {
-//            log.info("userIds is empty");
-//            return null;
-//        }
 
         List<BalanceDto> balanceDtoList;
         try {
@@ -166,11 +194,30 @@ public class BalanceServiceImpl implements BalanceService {
                     result.computeIfAbsent(currency, k -> new HashMap<>());
 
             currencyMap.merge("total", amountDefaultValue(info.getTotalBalance()), BigDecimal::add);
+            currencyMap.merge("available", amountDefaultValue(info.getAvailableBalance()), BigDecimal::add);
             currencyMap.merge("withdraw", amountDefaultValue(info.getWithdrawAmount()), BigDecimal::add);
             currencyMap.merge("frozen", amountDefaultValue(info.getFrozenBalance()), BigDecimal::add);
         }
         log.info("getBalanceInfos end");
         return result;
+    }
+
+    @Override
+    public void createBalanceRecord(String userId, String currency) {
+        try {
+            BalanceDto dto = new BalanceDto();
+            dto.setUserId(userId);
+            dto.setCurrency(currency);
+            long now = System.currentTimeMillis() / 1000;
+            dto.setCreateTime(now);
+            dto.setUpdateTime(now);
+
+            int ret = balanceMapper.insert(dto);
+            log.info("balanceMapper insert done, ret={}", ret);
+        } catch (Exception e) {
+            log.error("createBalanceRecord failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
     }
 
     private static BigDecimal amountDefaultValue(BigDecimal value) {

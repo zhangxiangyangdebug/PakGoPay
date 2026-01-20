@@ -4,6 +4,7 @@ import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.CreateUserRequest;
 import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.mapper.BalanceMapper;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.util.SnowflakeIdGenerator;
@@ -18,6 +19,9 @@ import java.util.List;
 public class UserService {
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private BalanceMapper balanceMapper;
 
     public List<UserDTO> selectAllUser() {
         return userMapper.selectAllUser();

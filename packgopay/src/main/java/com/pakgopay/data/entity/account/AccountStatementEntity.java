@@ -1,19 +1,30 @@
-package com.pakgopay.data.entity.agent;
+package com.pakgopay.data.entity.account;
 
 import lombok.Data;
 
 @Data
-public class AccountInfoEntity {
+public class AccountStatementEntity {
 
     /**
-     * Agent/Merchant name
+     * system transaction id
      */
-    private String name;
+    private String id;
 
     /**
-     * account name
+     * merchant/agent user Id
      */
-    private String walletAddr;
+    private String userId;
+
+    /**
+     * order type
+     */
+    private Integer orderType;
+
+
+    /**
+     * currency
+     */
+    private String currency;
 
     /** Optional: create_time >= startTime (unix seconds) */
     private Long startTime;

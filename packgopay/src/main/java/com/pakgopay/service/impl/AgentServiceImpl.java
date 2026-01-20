@@ -3,7 +3,7 @@ package com.pakgopay.service.impl;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.data.entity.agent.AccountInfoEntity;
+import com.pakgopay.data.entity.account.AccountInfoEntity;
 import com.pakgopay.data.entity.agent.AgentInfoEntity;
 import com.pakgopay.data.reqeust.CreateUserRequest;
 import com.pakgopay.data.reqeust.account.AccountAddRequest;

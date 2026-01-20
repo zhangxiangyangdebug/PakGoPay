@@ -3,19 +3,17 @@ package com.pakgopay.service.impl;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.data.entity.agent.AccountInfoEntity;
+import com.pakgopay.data.entity.account.AccountInfoEntity;
 import com.pakgopay.data.entity.merchant.MerchantEntity;
 import com.pakgopay.data.reqeust.CreateUserRequest;
 import com.pakgopay.data.reqeust.account.AccountAddRequest;
 import com.pakgopay.data.reqeust.account.AccountEditRequest;
 import com.pakgopay.data.reqeust.account.AccountQueryRequest;
-import com.pakgopay.data.reqeust.account.AccountRechargeRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.account.WithdrawalAccountResponse;
-import com.pakgopay.data.response.account.WithdrawalOrderResponse;
 import com.pakgopay.data.response.merchant.MerchantResponse;
 import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
@@ -55,9 +53,6 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Autowired
     private WithdrawalAccountsMapper withdrawalAccountsMapper;
-
-    @Autowired
-    private WithdrawalOrderMapper withdrawalOrderMapper;
 
     @Autowired
     private UserService userService;
@@ -547,84 +542,6 @@ public class MerchantServiceImpl implements MerchantService {
         dto.setUpdateBy(req.getUserName());
 
         dto.setMerchantAgentId(req.getMerchantAgentId());
-
-        return b.build();
-    }
-
-
-    @Override
-    public CommonResponse queryMerchantRecharge(AccountQueryRequest accountQueryRequest) {
-        log.info("queryMerchantRecharge start");
-        WithdrawalOrderResponse response = queryMerchantRechargeData(accountQueryRequest);
-        log.info("queryMerchantRecharge end");
-        return CommonResponse.success(response);
-    }
-
-    private WithdrawalOrderResponse queryMerchantRechargeData(AccountQueryRequest accountQueryRequest) {
-        log.info("queryMerchantRechargeData start");
-        AccountInfoEntity entity = new AccountInfoEntity();
-        entity.setName(accountQueryRequest.getName());
-        entity.setStartTime(accountQueryRequest.getStartTime());
-        entity.setEndTime(accountQueryRequest.getEndTime());
-        entity.setPageSize(accountQueryRequest.getPageSize());
-        entity.setPageNo(accountQueryRequest.getPageNo());
-
-        WithdrawalOrderResponse response = new WithdrawalOrderResponse();
-        try {
-            Integer totalNumber = withdrawalOrderMapper.countByQuery(entity);
-            List<WithdrawalOrderDto> withdrawalOrderDtoList = withdrawalOrderMapper.pageByQuery(entity);
-
-            response.setWithdrawalOrderDtoList(withdrawalOrderDtoList);
-            response.setTotalNumber(totalNumber);
-        } catch (Exception e) {
-            log.error("withdrawalOrderMapper pageByQuery failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
-
-        response.setPageNo(entity.getPageNo());
-        response.setPageSize(entity.getPageSize());
-        log.info("queryMerchantRechargeData end");
-        return response;
-    }
-
-    @Override
-    public CommonResponse addMerchantRecharge(AccountRechargeRequest accountRechargeRequest) {
-        log.info("addMerchantRecharge start");
-        WithdrawalOrderDto withdrawalOrderDto = generateWithdrawalForAdd(accountRechargeRequest);
-
-        transactionUtil.runInTransaction(() -> {
-            withdrawalOrderMapper.insert(withdrawalOrderDto);
-            balanceService.rechargeAmount(
-                    withdrawalOrderDto.getMerchantId(),
-                    withdrawalOrderDto.getCurrency(),
-                    withdrawalOrderDto.getAmount());
-        });
-
-        log.info("addMerchantRecharge end");
-        return CommonResponse.success(ResultCode.SUCCESS);
-    }
-
-    private WithdrawalOrderDto generateWithdrawalForAdd(AccountRechargeRequest req) {
-        WithdrawalOrderDto dto = new WithdrawalOrderDto();
-        long now = System.currentTimeMillis() / 1000;
-
-        PatchBuilderUtil<AccountRechargeRequest, WithdrawalOrderDto> b = PatchBuilderUtil.from(req).to(dto)
-                .reqStr("merchantId", req::getMerchantId, dto::setMerchantId)
-                .reqStr("merchantName", req::getMerchantName, dto::setMerchantName)
-                .reqStr("currency", req::getCurrency, dto::setCurrency)
-                .reqObj("amount", req::getAmount, dto::setAmount)
-                .str(req::getRemark, dto::setRemark);
-
-        // 4) meta
-        dto.setCreateTime(now);
-        dto.setUpdateTime(now);
-        dto.setCreateBy(req.getUserName());
-        dto.setUpdateBy(req.getUserName());
-        dto.setOperateBy(req.getUserName());
-
-        BigDecimal beforeAmount = balanceService.getAmountByUserIdAndCurrency(req.getMerchantId(), req.getCurrency());
-        dto.setBeforeAmount(beforeAmount);
-        dto.setAfterAmount(CommontUtil.safeAdd(beforeAmount, req.getAmount()));
 
         return b.build();
     }

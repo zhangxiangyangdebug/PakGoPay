@@ -38,4 +38,26 @@ public interface BalanceMapper {
                          @Param("delta") BigDecimal delta,
                          @Param("currency") String currency,
                          @Param("updateTime") Long updateTime);
+
+    int adjustBalance(@Param("userId") String userId,
+                      @Param("amount") BigDecimal amount,
+                      @Param("currency") String currency,
+                      @Param("now") long now);
+
+    int freezeForWithdraw(@Param("userId") String userId,
+                          @Param("amount") BigDecimal amount,
+                          @Param("currency") String currency,
+                          @Param("now") long now);
+
+    /** Callback success: confirm deduct */
+    int confirmWithdraw(@Param("userId") String userId,
+                        @Param("amount") BigDecimal amount,
+                        @Param("currency") String currency,
+                        @Param("now") long now);
+
+    /** Callback failed: unfreeze */
+    int cancelWithdraw(@Param("userId") String userId,
+                       @Param("amount") BigDecimal amount,
+                       @Param("currency") String currency,
+                       @Param("now") long now);
 }

@@ -1,15 +1,15 @@
 package com.pakgopay.data.response.account;
 
-import com.pakgopay.mapper.dto.WithdrawalOrderDto;
+import com.pakgopay.mapper.dto.AccountStatementsDto;
 import lombok.Data;
 
 import java.util.List;
 
 @Data
-public class WithdrawalOrderResponse {
+public class AccountStatementsResponse {
 
 
-    private List<WithdrawalOrderDto> withdrawalOrderDtoList;
+    private List<AccountStatementsDto> accountStatementsDtoList;
 
     /**
      * page no

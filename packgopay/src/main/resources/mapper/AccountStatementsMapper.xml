@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.AccountStatementsMapper">
+
+    <!-- ResultMap with explicit javaType for each column -->
+    <resultMap id="AccountStatementsResultMap" type="com.pakgopay.mapper.dto.AccountStatementsDto">
+        <id     column="id"                        property="id"                     javaType="java.lang.String"/>
+
+        <result column="order_type"                property="orderType"              javaType="java.lang.Integer"/>
+        <result column="amount"                    property="amount"                 javaType="java.math.BigDecimal"/>
+        <result column="status"                    property="status"                 javaType="java.lang.Integer"/>
+
+        <result column="available_balance_before"  property="availableBalanceBefore" javaType="java.math.BigDecimal"/>
+        <result column="available_balance_after"   property="availableBalanceAfter"  javaType="java.math.BigDecimal"/>
+
+        <result column="frozen_balance_before"     property="frozenBalanceBefore"    javaType="java.math.BigDecimal"/>
+        <result column="frozen_balance_after"      property="frozenBalanceAfter"     javaType="java.math.BigDecimal"/>
+
+        <!-- Note: column name is total_balance_before (typo kept for compatibility) -->
+        <result column="total_balance_before"     property="total_balance_before"    javaType="java.math.BigDecimal"/>
+        <result column="total_balance_after"       property="totalBalanceAfter"      javaType="java.math.BigDecimal"/>
+
+        <result column="wallet_addr"               property="walletAddr"             javaType="java.lang.String"/>
+        <result column="user_id"                   property="userId"                 javaType="java.lang.String"/>
+        <result column="name"                      property="name"                   javaType="java.lang.String"/>
+        <result column="currency"                  property="currency"               javaType="java.lang.String"/>
+
+        <result column="create_time"               property="createTime"             javaType="java.lang.Long"/>
+        <result column="create_by"                 property="createBy"               javaType="java.lang.String"/>
+        <result column="update_time"               property="updateTime"             javaType="java.lang.Long"/>
+        <result column="update_by"                 property="updateBy"               javaType="java.lang.String"/>
+
+        <result column="remark"                    property="remark"                 javaType="java.lang.String"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        id,
+        order_type,
+        amount,
+        status,
+        available_balance_before,
+        available_balance_after,
+        frozen_balance_before,
+        frozen_balance_after,
+        total_balance_before,
+        total_balance_after,
+        wallet_addr,
+        user_id,
+        name,
+        currency,
+        create_time,
+        create_by,
+        update_time,
+        update_by,
+        remark
+    </sql>
+
+    <!-- Dynamic query conditions (single-line if style) -->
+    <sql id="QueryWhere">
+        <where>
+            <if test="q != null">
+                <if test="q.id != null and q.id != ''">AND id = #{q.id}</if>
+                <if test="q.orderType != null">AND order_type = #{q.orderType}</if>
+                <if test="q.status != null">AND status = #{q.status}</if>
+                <if test="q.currency != null and q.currency != ''">AND currency = #{q.currency}</if>
+                <if test="q.walletAddr != null and q.walletAddr != ''">AND wallet_addr LIKE CONCAT('%', #{q.walletAddr}, '%')</if>
+                <if test="q.userId != null and q.userId != ''">AND user_id = #{q.userId}</if>
+                <if test="q.name != null and q.name != ''">AND name LIKE CONCAT('%', #{q.name}, '%')</if>
+                <if test="q.createBy != null and q.createBy != ''">AND create_by = #{q.createBy}</if>
+                <if test="q.createTime != null">AND create_time <![CDATA[>=]]> #{q.createTime}</if>
+                <if test="q.updateTime != null">AND update_time <![CDATA[>=]]> #{q.updateTime}</if>
+            </if>
+        </where>
+    </sql>
+
+    <insert id="insert"
+            parameterType="com.pakgopay.mapper.dto.AccountStatementsDto">
+        INSERT INTO account_statements
+        (
+            id,
+            order_type,
+            amount,
+            status,
+            available_balance_before,
+            available_balance_after,
+            frozen_balance_before,
+            frozen_balance_after,
+            total_balance_before,
+            total_balance_after,
+            wallet_addr,
+            user_id,
+            name,
+            currency,
+            create_time,
+            create_by,
+            update_time,
+            update_by,
+            remark
+        )
+        VALUES
+            (
+                #{id},
+                #{orderType},
+                #{amount},
+                #{status},
+                #{availableBalanceBefore},
+                #{availableBalanceAfter},
+                #{frozenBalanceBefore},
+                #{frozenBalanceAfter},
+                #{total_balance_before},
+                #{totalBalanceAfter},
+                #{walletAddr},
+                #{userId},
+                #{name},
+                #{currency},
+                #{createTime},
+                #{createBy},
+                #{updateTime},
+                #{updateBy},
+                #{remark}
+            )
+    </insert>
+
+    <update id="updateById" parameterType="com.pakgopay.mapper.dto.AccountStatementsDto">
+        UPDATE account_statements
+        <set>
+            <if test="orderType != null">order_type = #{orderType},</if>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="status != null">status = #{status},</if>
+
+            <if test="availableBalanceBefore != null">available_balance_before = #{availableBalanceBefore},</if>
+            <if test="availableBalanceAfter != null">available_balance_after = #{availableBalanceAfter},</if>
+
+            <if test="frozenBalanceBefore != null">frozen_balance_before = #{frozenBalanceBefore},</if>
+            <if test="frozenBalanceAfter != null">frozen_balance_after = #{frozenBalanceAfter},</if>
+
+            <if test="total_balance_before != null">total_balance_before = #{total_balance_before},</if>
+            <if test="totalBalanceAfter != null">total_balance_after = #{totalBalanceAfter},</if>
+
+            <if test="walletAddr != null and walletAddr != ''">wallet_addr = #{walletAddr},</if>
+            <if test="userId != null and userId != ''">user_id = #{userId},</if>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="currency != null and currency != ''">currency = #{currency},</if>
+
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM account_statements WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultMap="AccountStatementsResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM account_statements
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectList" resultMap="AccountStatementsResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM account_statements
+        <include refid="QueryWhere"/>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="count" resultType="int">
+        SELECT COUNT(1)
+        FROM account_statements
+        <include refid="QueryWhere"/>
+    </select>
+
+    <sql id="StatementQueryWhere">
+        <where>
+            <if test="id != null and id != ''">AND id = #{id}</if>
+            <if test="userId != null and userId != ''">AND user_id = #{userId}</if>
+            <if test="orderType != null">AND order_type = #{orderType}</if>
+            <if test="currency != null and currency != ''">AND currency = #{currency}</if>
+            <if test="startTime != null">AND create_time <![CDATA[>=]]> #{startTime}</if>
+            <if test="endTime != null">AND create_time <![CDATA[<=]]> #{endTime}</if>
+        </where>
+    </sql>
+
+
+    <select id="countByQuery"
+            parameterType="com.pakgopay.data.entity.account.AccountStatementEntity"
+            resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM account_statements
+        <include refid="StatementQueryWhere"/>
+    </select>
+
+    <select id="pageByQuery"
+            parameterType="com.pakgopay.data.entity.account.AccountStatementEntity"
+            resultMap="AccountStatementsResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM account_statements
+        <include refid="StatementQueryWhere"/>
+        ORDER BY create_time DESC
+        LIMIT #{pageNo}, #{offset}
+    </select>
+
+</mapper>

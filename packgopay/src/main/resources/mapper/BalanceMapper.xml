@@ -118,4 +118,47 @@
         </if>
     </select>
 
+    <update id="adjustBalance">
+        UPDATE balance
+        SET
+            available_balance = available_balance + #{amount},
+            total_balance = total_balance + #{amount},
+            update_time = #{now}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+    </update>
+
+    <update id="freezeForWithdraw">
+        UPDATE balance
+        SET
+            available_balance = available_balance - #{amount},
+            frozen_balance = frozen_balance + #{amount},
+            update_time = #{now}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND available_balance >= #{amount}
+    </update>
+
+    <update id="confirmWithdraw">
+        UPDATE balance
+        SET
+            frozen_balance = frozen_balance - #{amount},
+            total_balance = total_balance - #{amount},
+            update_time = #{now}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND frozen_balance >= #{amount}
+    </update>
+
+    <update id="cancelWithdraw">
+        UPDATE balance
+        SET
+            frozen_balance = frozen_balance - #{amount},
+            available_balance = available_balance + #{amount},
+            update_time = #{now}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND frozen_balance >= #{amount}
+    </update>
+
 </mapper>

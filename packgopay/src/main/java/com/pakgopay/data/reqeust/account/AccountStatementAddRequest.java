@@ -1,7 +1,6 @@
 package com.pakgopay.data.reqeust.account;
 
 import com.pakgopay.data.reqeust.BaseRequest;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -9,26 +8,24 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
-public class AccountRechargeRequest extends BaseRequest  {
+public class AccountStatementAddRequest extends BaseRequest  {
 
     /**
      * merchant user id
      */
-    @NotBlank(message = "merchantId is empty")
-    private String merchantId;
+    @NotBlank(message = "merchantAgentId is empty")
+    private String merchantAgentId;
 
     /**
      * merchant name
      */
-    @NotBlank(message = "merchantName is empty")
-    private String merchantName;
-
+    @NotBlank(message = "merchantAgentName is empty")
+    private String merchantAgentName;
 
     /**
      * amount
      */
     @NotNull(message = "amount is null")
-    @Min(value = 0, message = "amount must >= 0")
     private BigDecimal amount;
 
     /**
@@ -36,6 +33,17 @@ public class AccountRechargeRequest extends BaseRequest  {
      */
     @NotBlank(message = "currency is empty")
     private String currency;
+
+    /**
+     * orderType
+     */
+    @NotNull(message = "orderType is null")
+    private Integer orderType;
+
+    /**
+     * walletAddr
+     */
+    private String walletAddr;
 
     /**
      * remark
