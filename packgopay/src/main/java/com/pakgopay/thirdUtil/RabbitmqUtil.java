@@ -30,4 +30,8 @@ public class RabbitmqUtil {
             return message1;
         });
     }
+
+    public void sendFanout(String fanoutExchange, TestMessage testMq) {
+        rabbitTemplate.convertAndSend(fanoutExchange,"", JSON.toJSONString(testMq));
+    }
 }

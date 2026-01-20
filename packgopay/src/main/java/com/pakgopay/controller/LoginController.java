@@ -8,6 +8,7 @@ import com.pakgopay.service.common.AuthorizationService;
 import com.pakgopay.service.LoginService;
 import com.pakgopay.service.common.TestMq;
 import com.pakgopay.service.impl.UserService;
+import com.pakgopay.thirdUtil.GoogleUtil;
 import com.pakgopay.thirdUtil.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.LogManager;
@@ -40,11 +41,11 @@ public class LoginController {
 
 
     @RequestMapping(value = "/hello")
-    public String test(){
+    public String test(HttpServletRequest request) {
         System.out.println("this is hello test");
         TestMessage testMessage = new TestMessage();
-        testMessage.setContent("呦西，花姑娘");
-        testMq.send("userNotice", testMessage);
+        testMessage.setContent("{'userId':'262132847035326464','messageInfo': '用户信息'}");
+        testMq.sendFanout("notice2", testMessage);
         /*testMessage.setContent("你滴，大大的良民");*/
        /* testMq.sendDelay("test-delay-L10S", testMessage);*/
         return "{'zf':'test'}";

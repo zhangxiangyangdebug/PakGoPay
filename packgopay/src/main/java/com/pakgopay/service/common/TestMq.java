@@ -21,4 +21,7 @@ public class TestMq {
         rabbitmqUtil.sendDelay(queueName, message);
     }
 
+    public void sendFanout(String queueName, TestMessage message) {
+        rabbitmqUtil.sendFanout(queueName, message);
+    }
 }
