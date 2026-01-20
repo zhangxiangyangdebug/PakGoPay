@@ -195,7 +195,7 @@ public class ReportServiceImpl implements ReportService {
                 MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByMerchantName(entity.getMerchantName())
                         .orElseThrow(() -> new PakGoPayException(
                                 ResultCode.USER_IS_NOT_EXIST
-                                , "agent is not exists, agentName:" + entity.getMerchantName()));
+                                , "merchant is not exists, merchantName:" + entity.getMerchantName()));
                 entity.setUserId(merchantInfoDto.getUserId());
             }
 

@@ -544,11 +544,7 @@ public class MerchantServiceImpl implements MerchantService {
         dto.setCreateBy(req.getUserName());
         dto.setUpdateBy(req.getUserName());
 
-        MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByMerchantName(req.getName())
-                .orElseThrow(() -> new PakGoPayException(
-                        ResultCode.USER_IS_NOT_EXIST
-                        , "merchant is not exists, merchantName:" + req.getName()));
-        dto.setMerchantAgentId(merchantInfoDto.getUserId());
+        dto.setMerchantAgentId(req.getMerchantAgentId());
 
         return b.build();
     }

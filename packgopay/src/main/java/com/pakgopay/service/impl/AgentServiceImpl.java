@@ -491,11 +491,7 @@ public class AgentServiceImpl implements AgentService {
         dto.setCreateBy(req.getUserName());
         dto.setUpdateBy(req.getUserName());
 
-        AgentInfoDto agentInfoDto = agentInfoMapper.findByAgentName(req.getName())
-                .orElseThrow(() -> new PakGoPayException(
-                        ResultCode.USER_IS_NOT_EXIST
-                        , "agent is not exists, agentName:" + req.getName()));
-        dto.setMerchantAgentId(agentInfoDto.getUserId());
+        dto.setMerchantAgentId(req.getMerchantAgentId());
 
         return b.build();
     }
