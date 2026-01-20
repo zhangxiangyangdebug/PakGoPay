@@ -41,6 +41,9 @@ public class CommonConstant {
     // payout order no prefix
     public static final String PAYOUT_PREFIX = "PAY";
 
+    // statement order no prefix
+    public static final String STATEMENT_PREFIX = "SE";
+
     // First level agent
     public static final Integer AGENT_LEVEL_FIRST = 1;
 

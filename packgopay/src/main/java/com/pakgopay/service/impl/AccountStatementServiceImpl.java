@@ -1,9 +1,11 @@
 package com.pakgopay.service.impl;
 
+import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.account.AccountStatementEntity;
 import com.pakgopay.data.reqeust.account.AccountStatementAddRequest;
+import com.pakgopay.data.reqeust.account.AccountStatementEditRequest;
 import com.pakgopay.data.reqeust.account.AccountStatementQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.account.AccountStatementsResponse;
@@ -13,6 +15,7 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.AccountStatementService;
 import com.pakgopay.util.CommontUtil;
 import com.pakgopay.util.PatchBuilderUtil;
+import com.pakgopay.util.SnowflakeIdGenerator;
 import com.pakgopay.util.TransactionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +40,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
     private TransactionUtil transactionUtil;
 
     @Override
-    public CommonResponse queryMerchantRecharge(AccountStatementQueryRequest accountStatementQueryRequest) {
+    public CommonResponse queryMerchantStatement(AccountStatementQueryRequest accountStatementQueryRequest) {
         log.info("queryMerchantRecharge start");
         AccountStatementsResponse response = queryMerchantRechargeData(
                 accountStatementQueryRequest);
@@ -76,7 +79,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
     }
 
     @Override
-    public CommonResponse addMerchantRecharge(AccountStatementAddRequest accountStatementAddRequest) {
+    public CommonResponse addMerchantStatement(AccountStatementAddRequest accountStatementAddRequest) {
         log.info("addMerchantRecharge start");
         AccountStatementsDto accountStatementsDto = generateAccountStatementForAdd(accountStatementAddRequest);
 
@@ -113,6 +116,8 @@ public class AccountStatementServiceImpl implements AccountStatementService {
     private AccountStatementsDto generateAccountStatementForAdd(AccountStatementAddRequest req) {
         AccountStatementsDto dto = new AccountStatementsDto();
         long now = System.currentTimeMillis() / 1000;
+        String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.STATEMENT_PREFIX);
+        dto.setId(systemTransactionNo);
 
         PatchBuilderUtil<AccountStatementAddRequest, AccountStatementsDto> b = PatchBuilderUtil.from(req).to(dto)
                 .reqStr("merchantAgentId", req::getMerchantAgentId, dto::setUserId)
@@ -153,6 +158,11 @@ public class AccountStatementServiceImpl implements AccountStatementService {
             totalBalanceBefore = balanceInfo.getOrDefault("total", BigDecimal.ZERO);
         }
 
+        if (req.getOrderType() == 2 && availableBalanceBefore.compareTo(req.getAmount()) < CommonConstant.ZERO) {
+            log.warn("insufficient available balance");
+            throw new PakGoPayException(ResultCode.FAIL, "insufficient available balance");
+        }
+
         dto.setFrozenBalanceBefore(frozenBalanceBefore);
         dto.setFrozenBalanceAfter(CommontUtil.safeAdd(frozenBalanceBefore, req.getAmount()));
         dto.setAvailableBalanceBefore(availableBalanceBefore);
@@ -161,6 +171,32 @@ public class AccountStatementServiceImpl implements AccountStatementService {
         dto.setTotalBalanceAfter(CommontUtil.safeAdd(totalBalanceBefore, req.getAmount()));
 
         return b.build();
+    }
+
+    @Override
+    public CommonResponse editAccountStatement(AccountStatementEditRequest request) {
+        log.info("editAccountStatement start, id={}", request.getId());
+
+        AccountStatementsDto accountStatementsDto = generateAccountStatement(request);
+        try {
+            int ret = accountStatementsMapper.updateById(accountStatementsDto);
+            log.info("editAccountStatement updateByChannelId done, id={}, ret={}", request.getId(), ret);
+
+            if (ret <= 0) {
+                return CommonResponse.fail(ResultCode.FAIL, "merchant not found or no rows updated");
+            }
+        } catch (Exception e) {
+            log.error("editAccountStatement updateByChannelId failed, id={}", request.getId(), e);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        log.info("editAccountStatement end, id={}", request.getId());
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private AccountStatementsDto generateAccountStatement(AccountStatementEditRequest request) {
+        AccountStatementsDto dto = new AccountStatementsDto();
+        return dto;
     }
 }
 

@@ -157,29 +157,40 @@ public class MerchantStatementController {
         }
     }
 
-    @PostMapping("/queryMerchantRecharge")
-    public CommonResponse queryMerchantRecharge(
+    @PostMapping("/queryMerchantStatement")
+    public CommonResponse queryMerchantStatement(
             @RequestBody @Valid AccountStatementQueryRequest accountStatementQueryRequest) {
-        log.info("queryMerchantRecharge start");
+        log.info("queryMerchantStatement start");
         try {
-            return accountStatementService.queryMerchantRecharge(accountStatementQueryRequest);
+            return accountStatementService.queryMerchantStatement(accountStatementQueryRequest);
         } catch (PakGoPayException e) {
-            log.error("queryMerchantRecharge failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            return CommonResponse.fail(e.getCode(), "queryMerchantRecharge failed: " + e.getMessage());
+            log.error("queryMerchantStatement failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryMerchantStatement failed: " + e.getMessage());
         }
     }
 
-    @PostMapping("/addMerchantRecharge")
-    public CommonResponse addMerchantRecharge(
+    @PostMapping("/addMerchantStatement")
+    public CommonResponse addMerchantStatement(
             @RequestBody @Valid AccountStatementAddRequest accountStatementAddRequest) {
-        log.info("addMerchantRecharge start");
+        log.info("addMerchantStatement start");
         try {
-            return accountStatementService.addMerchantRecharge(accountStatementAddRequest);
+            return accountStatementService.addMerchantStatement(accountStatementAddRequest);
         } catch (PakGoPayException e) {
-            log.error("addMerchantRecharge failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            return CommonResponse.fail(e.getCode(), "addMerchantRecharge failed: " + e.getMessage());
+            log.error("addMerchantStatement failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "addMerchantStatement failed: " + e.getMessage());
         }
     }
 
+    @PostMapping("/editAccountStatement")
+    public CommonResponse editAccountStatement(
+            @RequestBody @Valid AccountStatementEditRequest accountStatementEditRequest) {
+        log.info("editAccountStatement start");
+        try {
+            return accountStatementService.editAccountStatement(accountStatementEditRequest);
+        } catch (PakGoPayException e) {
+            log.error("editAccountStatement failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "editAccountStatement failed: " + e.getMessage());
+        }
+    }
 
 }
