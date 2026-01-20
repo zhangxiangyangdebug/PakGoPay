@@ -19,6 +19,10 @@ public class AccountStatementEditRequest extends BaseRequest  {
     @NotBlank(message = "merchantAgentId is empty")
     private String merchantAgentId;
 
+    /**
+     * is agree?
+     */
+    private boolean isAgree;
 
     /**
      * remark

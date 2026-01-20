@@ -178,17 +178,15 @@ public class AccountStatementServiceImpl implements AccountStatementService {
         log.info("editAccountStatement start, id={}", request.getId());
 
         AccountStatementsDto accountStatementsDto = generateAccountStatement(request);
-        try {
-            int ret = accountStatementsMapper.updateById(accountStatementsDto);
-            log.info("editAccountStatement updateByChannelId done, id={}, ret={}", request.getId(), ret);
+        transactionUtil.runInTransaction(() -> {
+            accountStatementsMapper.updateById(accountStatementsDto);
 
-            if (ret <= 0) {
-                return CommonResponse.fail(ResultCode.FAIL, "merchant not found or no rows updated");
-            }
-        } catch (Exception e) {
-            log.error("editAccountStatement updateByChannelId failed, id={}", request.getId(), e);
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
+            balanceService.withdrawAmount(
+                    accountStatementsDto.getUserId(),
+                    accountStatementsDto.getCurrency(),
+                    accountStatementsDto.getAmount(),
+                    request.isAgree() ? 1 : 2);
+        });
 
         log.info("editAccountStatement end, id={}", request.getId());
         return CommonResponse.success(ResultCode.SUCCESS);
@@ -196,7 +194,14 @@ public class AccountStatementServiceImpl implements AccountStatementService {
 
     private AccountStatementsDto generateAccountStatement(AccountStatementEditRequest request) {
         AccountStatementsDto dto = new AccountStatementsDto();
-        return dto;
+        dto.setUpdateTime(System.currentTimeMillis() / 1000);
+        dto.setStatus(request.isAgree() ? 1 : 2);
+
+        return PatchBuilderUtil.from(request).to(dto)
+                .str(request::getId, dto::setId)
+                .str(request::getRemark, dto::setRemark)
+                .str(request::getUserName, dto::setUpdateBy)
+                .build();
     }
 }
 
