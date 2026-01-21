@@ -21,7 +21,6 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.common.ExportReportDataColumns;
 import com.pakgopay.util.CommontUtil;
-import com.pakgopay.util.CommonUtils;
 import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.TransactionUtil;
@@ -373,7 +372,7 @@ public class MerchantServiceImpl implements MerchantService {
                 // =====================
                 // 4) Collection Fee Configuration
                 // =====================
-                .ifTrue(CommonUtils.supportsCollection(req.getSupportType()))
+                .ifTrue(CommontUtil.supportsCollection(req.getSupportType()))
                 .reqObj("collectionRate", req::getCollectionRate, dto::setCollectionRate)
                 .reqObj("collectionFixedFee", req::getCollectionFixedFee, dto::setCollectionFixedFee)
                 .reqObj("collectionMaxFee", req::getCollectionMaxFee, dto::setCollectionMaxFee)
@@ -384,7 +383,7 @@ public class MerchantServiceImpl implements MerchantService {
                 // =====================
                 // 5) Payout Fee Configuration
                 // =====================
-                .ifTrue(CommonUtils.supportsPay(req.getSupportType()))
+                .ifTrue(CommontUtil.supportsPay(req.getSupportType()))
                 .reqObj("payRate", req::getPayRate, dto::setPayRate)
                 .reqObj("payFixedFee", req::getPayFixedFee, dto::setPayFixedFee)
                 .reqObj("payMaxFee", req::getPayMaxFee, dto::setPayMaxFee)

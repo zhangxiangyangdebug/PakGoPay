@@ -1,5 +1,7 @@
 package com.pakgopay.util;
 
+import com.pakgopay.common.constant.CommonConstant;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Arrays;
@@ -81,5 +83,15 @@ public class CommontUtil {
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
+    }
+
+    public static boolean supportsCollection(Integer supportType) {
+        return CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)
+                || CommonConstant.SUPPORT_TYPE_ALL.equals(supportType);
+    }
+
+    public static boolean supportsPay(Integer supportType) {
+        return CommonConstant.SUPPORT_TYPE_PAY.equals(supportType)
+                || CommonConstant.SUPPORT_TYPE_ALL.equals(supportType);
     }
 }
