@@ -12,6 +12,7 @@ import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.MerchantCheckService;
 import com.pakgopay.service.transaction.PayOutOrderService;
@@ -33,6 +34,9 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
     private MerchantCheckService merchantCheckService;
 
     @Autowired
+    private MerchantService merchantService;
+
+    @Autowired
     private ChannelPaymentServiceImpl channelPaymentService;
 
     @Autowired
@@ -46,7 +50,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         log.info("createPayOutOrder start");
         TransactionInfo transactionInfo = new TransactionInfo();
         // 1. get merchant info
-        MerchantInfoDto merchantInfoDto = merchantCheckService.getMerchantInfo(payOrderRequest.getUserId());
+        MerchantInfoDto merchantInfoDto = merchantService.getMerchantInfo(payOrderRequest.getUserId());
         transactionInfo.setMerchantInfo(merchantInfoDto);
         // merchant is not exists
         if (merchantInfoDto == null) {
@@ -62,8 +66,8 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         transactionInfo.setCurrency(payOrderRequest.getCurrency());
         transactionInfo.setAmount(payOrderRequest.getAmount());
         transactionInfo.setPaymentNo(payOrderRequest.getPaymentNo());
-        Long paymentId = channelPaymentService.getPaymentId(
-                merchantInfoDto.getChannelIds(), CommonConstant.SUPPORT_TYPE_PAY, transactionInfo);
+
+        Long paymentId = channelPaymentService.getPaymentId(CommonConstant.SUPPORT_TYPE_PAY, transactionInfo);
 
         // 4. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.PAYOUT_PREFIX);
@@ -158,7 +162,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         }
 
         // check user is enabled
-        if (merchantCheckService.isEnableMerchant(merchantInfoDto.getStatus(), merchantInfoDto.getParentId())) {
+        if (merchantCheckService.isEnableMerchant(merchantInfoDto)) {
             log.error("The merchant status is disable, merchantName: {}", merchantInfoDto.getMerchantName());
             throw new PakGoPayException(ResultCode.USER_NOT_ENABLE);
         }

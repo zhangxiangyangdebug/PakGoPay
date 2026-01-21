@@ -1,9 +1,6 @@
 package com.pakgopay.service.transaction;
 
 import com.pakgopay.common.constant.CommonConstant;
-import com.pakgopay.common.enums.ResultCode;
-import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.mapper.AgentInfoMapper;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.MerchantInfoMapper;
 import com.pakgopay.mapper.PayOrderMapper;
@@ -16,7 +13,8 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -25,9 +23,6 @@ public class MerchantCheckService {
 
     @Autowired
     private MerchantInfoMapper merchantInfoMapper;
-
-    @Autowired
-    private AgentInfoMapper agentInfoMapper;
 
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;
@@ -39,7 +34,7 @@ public class MerchantCheckService {
         log.info("existsColMerchantOrderNo start");
         // TODO xiaoyou 从redis中获取判断，不存在则存入，数据写入数据库后，删除该数据
         Integer count = collectionOrderMapper.isExitMerchantOrderNo(merchantOrderNo);
-        return CommonConstant.ZERO.equals(count);
+        return !CommonConstant.ZERO.equals(count);
     }
 
     public boolean existsPayMerchantOrderNo(String merchantOrderNo) {
@@ -53,22 +48,29 @@ public class MerchantCheckService {
      *
      * @return result
      */
-    public boolean isEnableMerchant(Integer merchantStatus, String agentUserId) {
+    public boolean isEnableMerchant(MerchantInfoDto merchantInfoDto) {
         log.info("isEnableMerchant start");
-        // xiaoyou 商户启用状态
-        if (!CommonConstant.ENABLE_STATUS_ENABLE.equals(merchantStatus)) {
+        if (merchantInfoDto == null) {
+            log.warn("merchant info is null");
+            return false;
+        }
+        // merchant enable status
+        if (!CommonConstant.ENABLE_STATUS_ENABLE.equals(merchantInfoDto.getStatus())) {
             log.warn("merchantStatus is disable");
             return false;
         }
 
-        // xiaoyou 商户无代理，无需判断代理是否启用
-        if (agentUserId == null) {
+        // The merchant has no agent; additional checks are needed to determine if an agent is enabled.
+        if (merchantInfoDto.getParentId() == null) {
             log.warn("merchant has not agent");
             return true;
         }
 
-        // xiaoyou 查询所有代理信息
-        AgentInfoDto agentInfoDto = agentInfoMapper.findByUserId(agentUserId);
+        AgentInfoDto agentInfoDto = merchantInfoDto.getCurrentAgentInfo();
+        if (agentInfoDto == null) {
+            log.warn("agent info is not exists");
+            return false;
+        }
         boolean agentEnable = CommonConstant.ENABLE_STATUS_ENABLE.equals(agentInfoDto.getStatus());
 
         log.info("agent enable status {}", agentEnable);
@@ -129,16 +131,6 @@ public class MerchantCheckService {
         MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
         merchantInfoDto.setPayWhiteIps(ips);
         merchantInfoMapper.upDatePayWhiteIpsByUserId(userId, ips);
-    }
-
-    public MerchantInfoDto getMerchantInfo(String userId) throws PakGoPayException {
-        log.info("getMerchantInfo start");
-        try {
-            return merchantInfoMapper.findByUserId(userId);
-        } catch (Exception e) {
-            log.error("merchantInfoMapper findByUserId failed, message: {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
     }
 
     private Set<String> parseIpWhitelist(String ipWhitelist) {

@@ -30,7 +30,9 @@ import org.springframework.util.StringUtils;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -56,19 +58,20 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     /**
      * get available payment ids
      *
-     * @param channelIds      channel ids
      * @param supportType     orderType (Collection / Payout)
      * @param transactionInfo transaction info
      * @return payment ids
      * @throws PakGoPayException Business Exception
      */
-    public Long getPaymentId(
-            String channelIds, Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException {
+    public Long getPaymentId(Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException {
         log.info("getPaymentId start, get available payment id");
+        String resolvedChannelIds = resolveChannelIds(transactionInfo);
+
         // key:payment_id value:channel_id
         Map<Long, ChannelDto> paymentMap = new HashMap<>();
         // 1. get payment info list through channel ids and payment no
-        List<PaymentDto> paymentDtoList = getPaymentInfosByChannel(transactionInfo.getPaymentNo(), channelIds, supportType, paymentMap);
+        List<PaymentDto> paymentDtoList = getPaymentInfosByChannel(
+                transactionInfo.getPaymentNo(), resolvedChannelIds, supportType, paymentMap);
 
         // 2. filter support currency payment
         paymentDtoList = filterSupportCurrencyPayments(paymentDtoList, transactionInfo.getCurrency());
@@ -76,8 +79,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         // 3. filter no limit payment infos
         paymentDtoList = filterNoLimitPayments(transactionInfo.getAmount(), paymentDtoList, supportType);
 
-        // TODO xiaoyou 成功率投票
-        PaymentDto paymentDto = paymentDtoList.get(0);
+        PaymentDto paymentDto = selectBySuccessRate(paymentDtoList, supportType);
         log.info(
                 "merchant payment search success, paymentId={}, paymentName={}",
                 paymentDto.getPaymentId(),
@@ -92,6 +94,70 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
         log.info("getPayment id success, id: {}", paymentDto.getPaymentId());
         return paymentDto.getPaymentId();
+    }
+
+    private PaymentDto selectBySuccessRate(List<PaymentDto> paymentDtoList, Integer supportType) {
+        if (paymentDtoList.size() == 1) {
+            return paymentDtoList.getFirst();
+        }
+        Comparator<PaymentDto> comparator = Comparator
+                .comparingDouble(this::successRate)
+                .thenComparing(PaymentDto::getSuccessQuantity)
+                .thenComparing(dto -> resolveRate(dto, supportType), Comparator.reverseOrder());
+        PaymentDto best = paymentDtoList.stream()
+                .max(comparator)
+                .orElse(paymentDtoList.getFirst());
+        List<PaymentDto> topCandidates = paymentDtoList.stream()
+                .filter(dto -> comparator.compare(dto, best) == 0)
+                .toList();
+        if (topCandidates.size() == 1) {
+            return topCandidates.getFirst();
+        }
+        return topCandidates.get(new Random().nextInt(topCandidates.size()));
+    }
+
+    private double successRate(PaymentDto dto) {
+        long total = dto.getOrderQuantity();
+        if (total <= 0) {
+            return 0.0d;
+        }
+        return (double) dto.getSuccessQuantity() / (double) total;
+    }
+
+    private BigDecimal resolveRate(PaymentDto dto, Integer supportType) {
+        String rate = CommonConstant.SUPPORT_TYPE_PAY.equals(supportType)
+                ? dto.getPaymentPayRate()
+                : dto.getPaymentCollectionRate();
+        if (rate == null || rate.isBlank()) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            return new BigDecimal(rate.trim());
+        } catch (NumberFormatException e) {
+            log.warn("invalid payment rate: {}", rate);
+            return BigDecimal.ZERO;
+        }
+    }
+
+    private String resolveChannelIds(TransactionInfo transactionInfo) throws PakGoPayException {
+        MerchantInfoDto merchantInfo = transactionInfo.getMerchantInfo();
+        String resolvedChannelIds = merchantInfo == null ? null : merchantInfo.getChannelIds();
+        if (StringUtils.hasText(resolvedChannelIds)) {
+            return resolvedChannelIds;
+        }
+
+        String agentId = merchantInfo == null ? null : merchantInfo.getParentId();
+        if (!StringUtils.hasText(agentId)) {
+            throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not agent channel");
+        }
+
+        AgentInfoDto agentInfo = merchantInfo.getCurrentAgentInfo();
+        if (agentInfo == null || !StringUtils.hasText(agentInfo.getChannelIds())) {
+            throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "agent has not channel");
+        }
+
+        log.info("merchant channelIds empty, use agent channelIds, agentId={}", agentId);
+        return agentInfo.getChannelIds();
     }
 
     /**
@@ -127,7 +193,50 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         if (paymentDtoList == null || paymentDtoList.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "Merchants have no available matching payments");
         }
+        paymentDtoList = filterEnableTimePayments(paymentDtoList);
         return paymentDtoList;
+    }
+
+    private List<PaymentDto> filterEnableTimePayments(List<PaymentDto> paymentDtoList) throws PakGoPayException {
+        // Filter payments by enableTimePeriod (format: HH:mm:ss,HH:mm:ss).
+        LocalTime now = LocalTime.now(ZoneId.systemDefault());
+        List<PaymentDto> availablePayments = paymentDtoList.stream()
+                .filter(payment -> isWithinEnableTime(now, payment.getEnableTimePeriod()))
+                .toList();
+        if (availablePayments.isEmpty()) {
+            log.warn("no available payments in enable time period, now={}", now);
+            throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "no available payments in time period");
+        }
+        log.info("filterEnableTimePayments end, available size {}", availablePayments.size());
+        return availablePayments;
+    }
+
+    private boolean isWithinEnableTime(LocalTime now, String enableTimePeriod) {
+        if (!StringUtils.hasText(enableTimePeriod)) {
+            return true;
+        }
+        String[] parts = enableTimePeriod.split(",");
+        if (parts.length != 2) {
+            log.warn("invalid enableTimePeriod format: {}", enableTimePeriod);
+            return false;
+        }
+        try {
+            LocalTime start = LocalTime.parse(parts[0].trim());
+            LocalTime end = LocalTime.parse(parts[1].trim());
+            if (start.equals(end)) {
+                // Equal start/end means all-day enabled.
+                return true;
+            }
+            if (start.isBefore(end)) {
+                // Same-day window.
+                return !now.isBefore(start) && !now.isAfter(end);
+            }
+            // Cross-midnight window
+            return !now.isBefore(start) || !now.isAfter(end);
+        } catch (Exception e) {
+            log.warn("parse enableTimePeriod failed: {}", enableTimePeriod);
+            return false;
+        }
     }
 
     /**
@@ -192,10 +301,10 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         List<PaymentDto> availablePayments = paymentDtoList.stream().filter(dto ->
                         // compare daily limit amount
                         CommontUtil.safeAdd(currentDayAmountSum.get(dto.getPaymentId()), amount).
-                                compareTo(dto.getCollectionDailyLimit()) < 0
+                                compareTo(CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType) ? dto.getCollectionDailyLimit() : dto.getPayDailyLimit()) < 0
                                 // compare monthly limit amount
                                 && CommontUtil.safeAdd(currentMonthAmountSum.get(dto.getPaymentId()), amount).
-                                compareTo(dto.getCollectionMonthlyLimit()) < 0
+                                compareTo(CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType) ? dto.getCollectionMonthlyLimit() : dto.getPayDailyLimit()) < 0
                                 // check payment min amount
                                 && amount.compareTo(dto.getPaymentMinAmount()) > 0
                                 // check payment max amount
@@ -220,81 +329,89 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             List<Long> enAblePaymentIds, Integer supportType, Map<Long, BigDecimal> currentDayAmountSum,
             Map<Long, BigDecimal> currentMonthAmountSum) throws PakGoPayException {
         log.info("getCurrentAmountSumByType start");
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
-        Long startTime = today
-                .withDayOfMonth(1)
-                .atStartOfDay(ZoneOffset.UTC)
-                .toEpochSecond();
-        Long endTime = today
-                .withDayOfMonth(1)
-                .plusMonths(1)
-                .atStartOfDay(ZoneOffset.UTC)
-                .toEpochSecond();
+        ZoneId zoneId = ZoneId.systemDefault();
+        LocalDate today = LocalDate.now(zoneId);
+        ZonedDateTime dayStart = today.atStartOfDay(zoneId);
+        ZonedDateTime monthStart = today.withDayOfMonth(1).atStartOfDay(zoneId);
+        long monthStartTime = monthStart.toEpochSecond();
+        long nextMonthStartTime = monthStart.plusMonths(1).toEpochSecond();
         if (CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)) {
             // order type Collection
             List<CollectionOrderDto> collectionOrderDetailDtoList;
             try {
                 collectionOrderDetailDtoList =
-                        collectionOrderMapper.getCollectionOrderInfosByPaymentIds(enAblePaymentIds, startTime, endTime);
+                        collectionOrderMapper.getCollectionOrderInfosByPaymentIds(
+                                enAblePaymentIds, monthStartTime, nextMonthStartTime);
             } catch (Exception e) {
                 log.error("collectionOrderMapper getCollectionOrderInfosByPaymentIds failed, message {}", e.getMessage());
                 throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
             }
 
             if (collectionOrderDetailDtoList == null || collectionOrderDetailDtoList.isEmpty()) {
-                log.error("getCurrentAmountSumByType collectionOrderDetailDtoList is empty");
+                log.info("getCurrentAmountSumByType collectionOrderDetailDtoList is empty");
                 return;
             }
 
-            for (CollectionOrderDto dto : collectionOrderDetailDtoList) {
-                if (dto.getPaymentId() == null || dto.getAmount() == null) {
-                    continue;
-                }
-                // current day data
-                if (dto.getCreateTime().equals(today.atStartOfDay())) {
-                    currentDayAmountSum.merge(dto.getPaymentId(),
-                            dto.getAmount(), BigDecimal::add
-                    );
-                }
-                // current month data
-                currentMonthAmountSum.merge(
-                        dto.getPaymentId(), dto.getAmount(), BigDecimal::add);
-            }
+            accumulateAmountSum(collectionOrderDetailDtoList, dayStart,
+                    currentDayAmountSum, currentMonthAmountSum, true);
         } else {
             // order type Payout
             List<PayOrderDto> payOrderDtoList;
             try {
                 payOrderDtoList =
-                        payOrderMapper.getPayOrderInfosByPaymentIds(enAblePaymentIds, startTime, endTime);
+                        payOrderMapper.getPayOrderInfosByPaymentIds(
+                                enAblePaymentIds, monthStartTime, nextMonthStartTime);
             } catch (Exception e) {
                 log.error("payOrderMapper getPayOrderInfosByPaymentIds failed, message {}", e.getMessage());
                 throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
             }
 
             if (payOrderDtoList == null || payOrderDtoList.isEmpty()) {
-                log.error("getCurrentAmountSumByType payOrderDtoList is empty");
+                log.info("getCurrentAmountSumByType payOrderDtoList is empty");
                 return;
             }
 
-            for (PayOrderDto dto : payOrderDtoList) {
-                if (dto.getPaymentId() == null || dto.getAmount() == null) {
-                    continue;
-                }
-                // current day data
-                if (dto.getCreateTime().equals(today.atStartOfDay())) {
-                    currentDayAmountSum.merge(dto.getPaymentId(),
-                            dto.getAmount(), BigDecimal::add
-                    );
-                }
-                // current month data
-                currentMonthAmountSum.merge(
-                        dto.getPaymentId(), dto.getAmount(), BigDecimal::add
-                );
-            }
+            accumulateAmountSum(payOrderDtoList, dayStart,
+                    currentDayAmountSum, currentMonthAmountSum, false);
         }
 
         log.info("getCurrentAmountSumByType end, currentDayAmountSum: {}, currentMonthAmountSum: {}"
                 , JSON.toJSONString(currentDayAmountSum), JSON.toJSONString(currentMonthAmountSum));
+    }
+
+    private void accumulateAmountSum(
+            List<?> orderDtoList,
+            ZonedDateTime dayStart,
+            Map<Long, BigDecimal> currentDayAmountSum,
+            Map<Long, BigDecimal> currentMonthAmountSum,
+            boolean isCollection) {
+        long dayStartTime = dayStart.toEpochSecond();
+        long nextDayStartTime = dayStart.plusDays(1).toEpochSecond();
+        // Aggregate per-payment daily/monthly totals; dto type depends on isCollection.
+        for (Object dto : orderDtoList) {
+            Long paymentId;
+            BigDecimal amount;
+            Long createTime;
+            if (isCollection) {
+                CollectionOrderDto orderDto = (CollectionOrderDto) dto;
+                paymentId = orderDto.getPaymentId();
+                amount = orderDto.getAmount();
+                createTime = orderDto.getCreateTime();
+            } else {
+                PayOrderDto orderDto = (PayOrderDto) dto;
+                paymentId = orderDto.getPaymentId();
+                amount = orderDto.getAmount();
+                createTime = orderDto.getCreateTime();
+            }
+            if (paymentId == null || amount == null || createTime == null) {
+                continue;
+            }
+            // Add to daily sum if within today's range, always add to month sum.
+            if (createTime >= dayStartTime && createTime < nextDayStartTime) {
+                currentDayAmountSum.merge(paymentId, amount, BigDecimal::add);
+            }
+            currentMonthAmountSum.merge(paymentId, amount, BigDecimal::add);
+        }
     }
 
     /**
@@ -741,9 +858,9 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         long now = System.currentTimeMillis() / 1000;
 
         PatchBuilderUtil<ChannelAddRequest, ChannelDto> builder = PatchBuilderUtil.from(channelAddRequest).to(dto)
-                .str(channelAddRequest::getChannelName,dto::setChannelName)
-                .obj(channelAddRequest::getStatus,dto::setStatus)
-                .ids(channelAddRequest::getPaymentIds,dto::setPaymentIds)
+                .str(channelAddRequest::getChannelName, dto::setChannelName)
+                .obj(channelAddRequest::getStatus, dto::setStatus)
+                .ids(channelAddRequest::getPaymentIds, dto::setPaymentIds)
 
                 // 10) Meta Info
                 .obj(channelAddRequest::getRemark, dto::setRemark)
@@ -803,6 +920,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 .str(paymentAddRequest::getUserName, dto::setCreateBy)
                 .str(paymentAddRequest::getUserName, dto::setUpdateBy);
 
+        dto.setOrderQuantity(0L);
+        dto.setSuccessQuantity(0L);
 
         // supportType routing
         Integer supportType = paymentAddRequest.getSupportType();

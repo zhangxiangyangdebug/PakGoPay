@@ -18,6 +18,12 @@ public class PaymentDto implements Serializable {
     /** Support type: 0-collection, 1-payout, 2-collection & payout */
     private Integer supportType;
 
+    /** Total order quantity */
+    private Long orderQuantity;
+
+    /** Success order quantity */
+    private Long successQuantity;
+
     /** Whether it is a third-party channel: 0-no, 1-yes (varchar in DB) */
     private String isThird;
 

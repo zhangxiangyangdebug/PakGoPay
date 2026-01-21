@@ -10,6 +10,7 @@ import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
+import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.MerchantCheckService;
@@ -30,6 +31,9 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
     MerchantCheckService merchantCheckService;
 
     @Autowired
+    MerchantService merchantService;
+
+    @Autowired
     ChannelPaymentServiceImpl channelPaymentService;
 
     @Autowired
@@ -40,7 +44,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         log.info("createCollectionOrder start");
         TransactionInfo transactionInfo = new TransactionInfo();
         // 1. get merchant info
-        MerchantInfoDto merchantInfoDto = merchantCheckService.getMerchantInfo(colOrderRequest.getUserId());
+        MerchantInfoDto merchantInfoDto = merchantService.getMerchantInfo(colOrderRequest.getUserId());
         transactionInfo.setMerchantInfo(merchantInfoDto);
         // merchant is not exists
         if (merchantInfoDto == null) {
@@ -55,9 +59,8 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         transactionInfo.setCurrency(colOrderRequest.getCurrency());
         transactionInfo.setAmount(colOrderRequest.getAmount());
         transactionInfo.setPaymentNo(colOrderRequest.getPaymentNo());
-        // TODO merchantInfoDto.getChannelIds()为空，取所属代理名下渠道
-        Long paymentId = channelPaymentService.getPaymentId(
-                merchantInfoDto.getChannelIds(), CommonConstant.SUPPORT_TYPE_COLLECTION, transactionInfo);
+
+        Long paymentId = channelPaymentService.getPaymentId(CommonConstant.SUPPORT_TYPE_COLLECTION, transactionInfo);
 
         // 4. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.COLLECTION_PREFIX);
@@ -127,7 +130,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
             CollectionOrderRequest collectionOrderRequest, MerchantInfoDto merchantInfoDto) throws PakGoPayException {
         log.info("validateCollectionRequest start");
         // check ip white list
-        if (merchantCheckService.isColIpAllowed(
+        if (!merchantCheckService.isColIpAllowed(
                 collectionOrderRequest.getUserId(), collectionOrderRequest.getClientIp(),
                 merchantInfoDto.getColWhiteIps())) {
             log.error("isColIpAllowed failed, clientIp: {}", collectionOrderRequest.getClientIp());
@@ -135,7 +138,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         }
 
         // check Merchant order code is uniqueness
-        if(merchantCheckService.existsColMerchantOrderNo(collectionOrderRequest.getMerchantOrderNo())){
+        if(!merchantCheckService.existsColMerchantOrderNo(collectionOrderRequest.getMerchantOrderNo())){
             log.error("existsColMerchantOrderNo failed, merchantOrderNo: {}", collectionOrderRequest.getMerchantOrderNo());
             throw new PakGoPayException(ResultCode.MERCHANT_CODE_IS_EXISTS);
         }
@@ -147,7 +150,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         }
 
         // check user is enabled
-        if (merchantCheckService.isEnableMerchant(merchantInfoDto.getStatus(), merchantInfoDto.getParentId())) {
+        if (!merchantCheckService.isEnableMerchant(merchantInfoDto)) {
             log.error("The merchant status is disable, merchantName: {}", merchantInfoDto.getMerchantName());
             throw new PakGoPayException(ResultCode.USER_NOT_ENABLE);
         }

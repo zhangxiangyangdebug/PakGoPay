@@ -21,6 +21,7 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.common.ExportReportDataColumns;
 import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.CommonUtils;
 import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.TransactionUtil;
@@ -28,6 +29,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -62,6 +64,28 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Autowired
     private TransactionUtil transactionUtil;
+
+    @Override
+    public MerchantInfoDto getMerchantInfo(String userId) throws PakGoPayException {
+        log.info("getMerchantInfo start");
+        try {
+            MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
+            if (merchantInfoDto == null) {
+                return null;
+            }
+            if (StringUtils.hasText(merchantInfoDto.getParentId())) {
+                List<AgentInfoDto> agentInfoDtoList = agentInfoMapper.getAllAgentInfo();
+                Map<String, AgentInfoDto> agentByUserIdMap = safeList(agentInfoDtoList).stream()
+                        .collect(Collectors.toMap(AgentInfoDto::getUserId, Function.identity(), (a, b) -> a));
+                List<AgentInfoDto> agentChain = buildAgentChain(agentByUserIdMap, merchantInfoDto.getParentId());
+                merchantInfoDto.setAgentInfos(agentChain);
+            }
+            return merchantInfoDto;
+        } catch (Exception e) {
+            log.error("merchantInfoMapper findByUserId failed, message: {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+    }
 
 
     @Override
@@ -349,8 +373,7 @@ public class MerchantServiceImpl implements MerchantService {
                 // =====================
                 // 4) Collection Fee Configuration
                 // =====================
-                .ifTrue(CommonConstant.SUPPORT_TYPE_COLLECTION.equals(req.getSupportType())
-                        || CommonConstant.SUPPORT_TYPE_ALL.equals(req.getSupportType()))
+                .ifTrue(CommonUtils.supportsCollection(req.getSupportType()))
                 .reqObj("collectionRate", req::getCollectionRate, dto::setCollectionRate)
                 .reqObj("collectionFixedFee", req::getCollectionFixedFee, dto::setCollectionFixedFee)
                 .reqObj("collectionMaxFee", req::getCollectionMaxFee, dto::setCollectionMaxFee)
@@ -361,8 +384,7 @@ public class MerchantServiceImpl implements MerchantService {
                 // =====================
                 // 5) Payout Fee Configuration
                 // =====================
-                .ifTrue(CommonConstant.SUPPORT_TYPE_PAY.equals(req.getSupportType())
-                        || CommonConstant.SUPPORT_TYPE_ALL.equals(req.getSupportType()))
+                .ifTrue(CommonUtils.supportsPay(req.getSupportType()))
                 .reqObj("payRate", req::getPayRate, dto::setPayRate)
                 .reqObj("payFixedFee", req::getPayFixedFee, dto::setPayFixedFee)
                 .reqObj("payMaxFee", req::getPayMaxFee, dto::setPayMaxFee)

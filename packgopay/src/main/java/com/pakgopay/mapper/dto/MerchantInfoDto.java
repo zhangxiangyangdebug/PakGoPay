@@ -99,4 +99,16 @@ public class MerchantInfoDto implements Serializable {
 
     /** Merchant's support currency */
     List<String> currencyList;
+
+    public AgentInfoDto getCurrentAgentInfo() {
+        if (parentId == null || parentId.isBlank() || agentInfos == null) {
+            return null;
+        }
+        for (AgentInfoDto info : agentInfos) {
+            if (info != null && parentId.equals(info.getUserId())) {
+                return info;
+            }
+        }
+        return null;
+    }
 }

@@ -11,6 +11,8 @@
 
         <result column="payment_name" property="paymentName" javaType="java.lang.String"/>
         <result column="support_type" property="supportType" javaType="java.lang.Integer"/>
+        <result column="order_quantity" property="orderQuantity" javaType="java.lang.Long"/>
+        <result column="success_quantity" property="successQuantity" javaType="java.lang.Long"/>
         <result column="isThird" property="isThird" javaType="java.lang.String"/>
 
         <result column="payment_no" property="paymentNo" javaType="java.lang.String"/>
@@ -64,6 +66,8 @@
         payment_id,
         payment_name,
         support_type,
+        order_quantity,
+        success_quantity,
         isThird,
         payment_no,
         payment_pay_rate,
@@ -129,6 +133,8 @@
         #{paymentId},
         #{paymentName},
         #{supportType},
+        #{orderQuantity},
+        #{successQuantity},
         #{isThird},
         #{paymentNo},
         #{paymentPayRate},
@@ -170,6 +176,8 @@
         <set>
             <if test="paymentName != null">payment_name = #{paymentName},</if>
             <if test="supportType != null">support_type = #{supportType},</if>
+            <if test="orderQuantity != null">order_quantity = #{orderQuantity},</if>
+            <if test="successQuantity != null">success_quantity = #{successQuantity},</if>
             <if test="isThird != null">isThird = #{isThird},</if>
             <if test="paymentNo != null">payment_no = #{paymentNo},</if>
             <if test="paymentPayRate != null">payment_pay_rate = #{paymentPayRate},</if>
