@@ -245,8 +245,9 @@
     <select id="userIdsByQueryMerchant"
             parameterType="com.pakgopay.data.entity.merchant.MerchantEntity"
             resultType="java.lang.String">
-        SELECT DISTINCT user_id
-        FROM merchant_info
+        SELECT DISTINCT m.user_id
+        FROM merchant_info m
+        LEFT JOIN user_info ui ON ui.user_id = m.user_id
         <include refid="MerchantQueryWhere"/>
     </select>
 
