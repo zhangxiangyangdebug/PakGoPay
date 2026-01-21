@@ -377,8 +377,10 @@ public class AgentServiceImpl implements AgentService {
             List<WithdrawalAccountsDto> withdrawalAccountsDtoList = withdrawalAccountsMapper.pageByQueryAgent(entity);
 
             if (accountQueryRequest.getIsNeedCardData()) {
-                List<String> userIds = withdrawalAccountsMapper.userIdsByQueryAgent(entity);
-                if (userIds != null && !userIds.isEmpty()) {
+                String userId = accountQueryRequest.getUserId();
+                if (accountQueryRequest.getUserId() != null && !accountQueryRequest.getUserId().isEmpty()) {
+                    List<String> userIds = new ArrayList<>();
+                    userIds.add(userId);
                     Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
                     response.setCardInfo(cardInfo);
                 }

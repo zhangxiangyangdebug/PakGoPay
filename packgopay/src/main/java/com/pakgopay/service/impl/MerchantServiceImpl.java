@@ -457,8 +457,10 @@ public class MerchantServiceImpl implements MerchantService {
             List<WithdrawalAccountsDto> withdrawalAccountsDtoList = withdrawalAccountsMapper.pageByQueryMerchant(entity);
 
             if (accountQueryRequest.getIsNeedCardData()) {
-                List<String> userIds = withdrawalAccountsMapper.userIdsByQueryMerchant(entity);
-                if (userIds != null && !userIds.isEmpty()) {
+                String userId = accountQueryRequest.getUserId();
+                if (accountQueryRequest.getUserId() != null && !accountQueryRequest.getUserId().isEmpty()) {
+                    List<String> userIds = new ArrayList<>();
+                    userIds.add(userId);
                     Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
                     response.setCardInfo(cardInfo);
                 }
