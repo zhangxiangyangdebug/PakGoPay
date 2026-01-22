@@ -105,7 +105,7 @@
         <where>
             ui.role_id = 4
             <if test="walletAddr != null and walletAddr != ''">AND wa.wallet_addr LIKE CONCAT('%', #{walletAddr}, '%')</if>
-            <if test="name != null and name != ''">AND ai.agent_name LIKE CONCAT('%', #{name}, '%')</if>
+            <if test="name != null and name != ''">AND ui.login_name LIKE CONCAT('%', #{name}, '%')</if>
             <if test="startTime != null">AND wa.create_time <![CDATA[>=]]> #{startTime}</if>
             <if test="endTime != null">AND wa.create_time <![CDATA[<=]]> #{endTime}</if>
         </where>
@@ -116,7 +116,6 @@
             resultType="int">
         SELECT COUNT(1)
         FROM withdrawal_accounts wa
-        LEFT JOIN agent_info ai ON ai.user_id = wa.merchant_agent_id
         LEFT JOIN user_info ui ON ui.user_id = wa.merchant_agent_id
         <include refid="AgentAccountQueryWhere"/>
     </select>
@@ -126,7 +125,6 @@
             resultType="java.lang.String">
         SELECT DISTINCT wa.merchant_agent_id
         FROM withdrawal_accounts wa
-        LEFT JOIN agent_info ai ON ai.user_id = wa.merchant_agent_id
         LEFT JOIN user_info ui ON ui.user_id = wa.merchant_agent_id
         <include refid="AgentAccountQueryWhere"/>
     </select>
@@ -159,7 +157,7 @@
         <where>
             ui.role_id = 2
             <if test="walletAddr != null and walletAddr != ''">AND wa.wallet_addr LIKE CONCAT('%', #{walletAddr}, '%')</if>
-            <if test="name != null and name != ''">AND mi.merchant_name LIKE CONCAT('%', #{name}, '%')</if>
+            <if test="name != null and name != ''">AND ui.login_name LIKE CONCAT('%', #{name}, '%')</if>
             <if test="startTime != null">AND wa.create_time <![CDATA[>=]]> #{startTime}</if>
             <if test="endTime != null">AND wa.create_time <![CDATA[<=]]> #{endTime}</if>
         </where>
@@ -170,7 +168,6 @@
             resultType="int">
         SELECT COUNT(1)
         FROM withdrawal_accounts wa
-        LEFT JOIN merchant_info mi ON mi.user_id = wa.merchant_agent_id
         LEFT JOIN user_info ui ON ui.user_id = wa.merchant_agent_id
         <include refid="MerchantAccountQueryWhere"/>
     </select>
@@ -180,7 +177,6 @@
             resultType="java.lang.String">
         SELECT DISTINCT wa.merchant_agent_id
         FROM withdrawal_accounts wa
-        LEFT JOIN merchant_info mi ON mi.user_id = wa.merchant_agent_id
         LEFT JOIN user_info ui ON ui.user_id = wa.merchant_agent_id
         <include refid="MerchantAccountQueryWhere"/>
     </select>
