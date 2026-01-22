@@ -68,7 +68,6 @@
         <!-- Order status -->
         <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
         <result column="callback_status" property="callbackStatus" javaType="java.lang.String"/>
-        <result column="merchant_id" property="merchantId" javaType="java.lang.String"/>
         <result column="order_status" property="orderStatus" javaType="java.lang.Integer"/>
 
         <!-- Callback times -->
@@ -87,7 +86,7 @@
         last_callback_time,merchant_fixed_fee,merchant_rate,merchant_fee,
         agent1_rate,agent1_fixed_fee,agent1_fee,agent2_rate,agent2_fixed_fee,agent2_fee,agent3_rate,agent3_fixed_fee,agent3_fee,
         request_ip,operate_type,remark,create_time,update_time,collection_mode,payment_id,order_type,callback_status,
-        merchant_id,order_status,request_time,success_callback_time,channel_id
+        order_status,request_time,success_callback_time,channel_id
     </sql>
 
     <!-- Insert order -->
@@ -99,7 +98,7 @@
         #{lastCallbackTime},#{merchantFixedFee},#{merchantRate},#{merchantFee},
         #{agent1Rate},#{agent1FixedFee},#{agent1Fee},#{agent2Rate},#{agent2FixedFee},#{agent2Fee},#{agent3Rate},#{agent3FixedFee},#{agent3Fee},
         #{requestIp},#{operateType},#{remark},#{createTime},#{updateTime},#{collectionMode},#{paymentId},#{orderType},#{callbackStatus},
-        #{merchantId},#{orderStatus},#{requestTime},#{successCallbackTime},#{channelId}
+        #{orderStatus},#{requestTime},#{successCallbackTime},#{channelId}
         )
     </insert>
 

@@ -97,9 +97,6 @@ public class PayOrderDto implements Serializable {
     /** Payment mode: 1-third-party, 2-system */
     private Integer paymentMode;
 
-    /** Merchant ID */
-    private String merchantId;
-
     /** Payment channel ID */
     private Long paymentId;
 
@@ -118,4 +115,3 @@ public class PayOrderDto implements Serializable {
     /** Operate type: 1-system completed, 2-manual confirmation */
     private Integer operateType;
 }
-

@@ -104,8 +104,8 @@
     <sql id="AgentAccountQueryWhere">
         <where>
             ui.role_id = 4
-            <if test="walletAddr != null and walletAddr != ''">AND wa.wallet_addr LIKE CONCAT('%', #{walletAddr}, '%')</if>
-            <if test="name != null and name != ''">AND ui.login_name LIKE CONCAT('%', #{name}, '%')</if>
+            <if test="walletAddr != null and walletAddr != ''">AND wa.wallet_addr = #{walletAddr}</if>
+            <if test="name != null and name != ''">AND ui.login_name = #{name}</if>
             <if test="startTime != null">AND wa.create_time <![CDATA[>=]]> #{startTime}</if>
             <if test="endTime != null">AND wa.create_time <![CDATA[<=]]> #{endTime}</if>
         </where>
@@ -156,8 +156,8 @@
     <sql id="MerchantAccountQueryWhere">
         <where>
             ui.role_id = 2
-            <if test="walletAddr != null and walletAddr != ''">AND wa.wallet_addr LIKE CONCAT('%', #{walletAddr}, '%')</if>
-            <if test="name != null and name != ''">AND ui.login_name LIKE CONCAT('%', #{name}, '%')</if>
+            <if test="walletAddr != null and walletAddr != ''">AND wa.wallet_addr = #{walletAddr}</if>
+            <if test="name != null and name != ''">AND ui.login_name = #{name}</if>
             <if test="startTime != null">AND wa.create_time <![CDATA[>=]]> #{startTime}</if>
             <if test="endTime != null">AND wa.create_time <![CDATA[<=]]> #{endTime}</if>
         </where>

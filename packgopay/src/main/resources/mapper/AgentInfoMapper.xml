@@ -147,11 +147,11 @@
         <where>
 
             <if test="accountName != null and accountName != ''">
-                AND user_name LIKE CONCAT('%', #{accountName}, '%')
+                AND user_name = #{accountName}
             </if>
 
             <if test="agentName != null and agentName != ''">
-                AND agent_name LIKE CONCAT('%', #{agentName}, '%')
+                AND agent_name = #{agentName}
             </if>
 
             <if test="status != null">

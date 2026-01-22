@@ -101,8 +101,6 @@ public class MerchantCheckService {
     @CacheEvict(cacheNames = "col_ip_isAllow", key = "#userId")
     @Transactional
     public void updateColIpWhitelist(String userId, String ips) {
-        MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
-        merchantInfoDto.setColWhiteIps(ips);
         merchantInfoMapper.upDateColWhiteIpsByUserId(userId, ips);
     }
 
@@ -128,8 +126,6 @@ public class MerchantCheckService {
     @CacheEvict(cacheNames = "pay_ip_isAllow", key = "#userId")
     @Transactional
     public void updatePayIpWhitelist(String userId, String ips) {
-        MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
-        merchantInfoDto.setPayWhiteIps(ips);
         merchantInfoMapper.upDatePayWhiteIpsByUserId(userId, ips);
     }
 

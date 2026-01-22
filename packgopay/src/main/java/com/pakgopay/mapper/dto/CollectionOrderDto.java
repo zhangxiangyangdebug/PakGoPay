@@ -106,9 +106,6 @@ public class CollectionOrderDto implements Serializable {
     /** Callback status: 1-success, 2-failed, 3-pending */
     private String callbackStatus;
 
-    /** Merchant ID */
-    private String merchantId;
-
     /** Order status: 1-processing, 2-failed */
     private Integer orderStatus;
 

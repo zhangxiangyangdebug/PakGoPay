@@ -105,7 +105,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         }
 
         // check if the requester and the order owner are the same.
-        if (!payOrderDto.getMerchantId().equals(userId)) {
+        if (!payOrderDto.getMerchantUserId().equals(userId)) {
             log.error("he order does not belong to user, userId: {} transactionNo: {}", userId, transactionNo);
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "the order does not belong to user");
         }

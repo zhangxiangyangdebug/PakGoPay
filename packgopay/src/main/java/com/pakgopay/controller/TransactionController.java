@@ -1,12 +1,16 @@
 package com.pakgopay.controller;
 
 import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.enums.OrderScope;
+import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.service.transaction.OrderHandler;
+import com.pakgopay.service.transaction.OrderHandlerFactory;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.PayOutOrderService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,6 +20,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.WebAsyncTask;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -129,5 +136,20 @@ public class TransactionController {
             log.error("queryMerchantAvailableBalance failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryBalance failed: " + e.getMessage());
         }
+    }
+
+    @GetMapping(value = "/test/collection/nagad")
+    public CommonResponse testNagadCollection() {
+        OrderHandler handler = OrderHandlerFactory.get(
+                OrderType.COLLECTION_ORDER, OrderScope.THIRD_PARTY, "PKR");
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("channelCode", "nagad");
+        payload.put("transactionNo", "TEST-" + System.currentTimeMillis());
+        payload.put("amount", 100);
+        payload.put("merchantName", "Test Merchant");
+        payload.put("merchantCity", "Dhaka");
+        payload.put("merchantAccountNumber", "1234567890");
+        Object result = handler.handle(payload);
+        return CommonResponse.success(result);
     }
 }
