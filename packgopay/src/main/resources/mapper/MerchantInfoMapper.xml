@@ -217,7 +217,7 @@
             <if test="merchantUserId != null and merchantUserId != ''">AND m.user_id = #{merchantUserId}</if>
             <if test="status != null">AND m.status = #{status}</if>
             <if test="parentAgentId != null and parentAgentId != ''">AND m.parent_id = #{parentAgentId}</if>
-            <if test="merchantUserName != null and merchantUserName != ''">AND ui.user_name LIKE CONCAT('%', #{merchantUserName}, '%')</if>
+            <if test="merchantUserName != null and merchantUserName != ''">AND ui.login_name LIKE CONCAT('%', #{merchantUserName}, '%')</if>
         </where>
     </sql>
 
