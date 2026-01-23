@@ -14,6 +14,7 @@ import com.pakgopay.service.LoginService;
 import com.pakgopay.thirdUtil.GoogleUtil;
 import com.pakgopay.thirdUtil.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
@@ -84,6 +85,7 @@ public class LoginServiceImpl implements LoginService {
             loginResponse.setRefreshToken(refreshToken);
             loginResponse.setUserName(user.getLoginName());
             loginResponse.setUserId(userId);
+            loginResponse.setRoleName(user.getRoleName());
             return loginResponse;
         }
         return new CommonResponse(ResultCode.CODE_IS_EXPIRE);

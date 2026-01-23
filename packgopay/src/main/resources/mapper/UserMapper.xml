@@ -46,6 +46,7 @@
         <result column="remark" property="remark" javaType="java.lang.String"/>
         <result column="icon" property="icon" javaType="java.lang.String"/>
         <result column="role_id" property="roleId" javaType="java.lang.Integer"/>
+        <result column="role_name" property="roleName" javaType="java.lang.String"/>
         <result column="status" property="status" javaType="java.lang.Integer"/>
         <result column="login_ips" property="loginIps" javaType="java.lang.String"/>
     </resultMap>
@@ -53,7 +54,7 @@
         SELECT * FROM user_info
     </select>
     <select id="getOneUser" resultMap="userResultMap">
-        SELECT user_id, login_name, login_secret, status from user_info where login_name = #{userName} and password = #{password}
+        SELECT m.user_id, m.login_name, m.login_secret, m.status, n.role_name from user_info m left join role n on m.role_id = n.role_id where login_name = #{userName} and password = #{password}
     </select>
 
     <select id="getSecretKey" resultMap="userResultMap">
