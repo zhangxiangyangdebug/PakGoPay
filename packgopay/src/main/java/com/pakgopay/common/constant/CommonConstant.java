@@ -74,6 +74,10 @@ public class CommonConstant {
     // payment type is 2:bank
     public static final String PAYMENT_TYPE_BANK = "2";
 
+    public static final String USER_ZSET_PREFIX = "ws:msg:";
+    public static final String BODY_KEY_PREFIX = "ws:msg:body:";
+    public static final long TTL_SECONDS = 7 * 24 * 3600;
+
     // merchant report view permissions
     public static final List<Integer> MERCHANT_REPORT_SUPPORT_ROLE = new ArrayList<>() {
         {
