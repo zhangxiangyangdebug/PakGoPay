@@ -99,8 +99,8 @@ public class MerchantCheckService {
      * @param ips    ip list
      */
     @CacheEvict(cacheNames = "col_ip_isAllow", key = "#userId")
-    @Transactional
     public void updateColIpWhitelist(String userId, String ips) {
+        log.info("updateColIpWhitelist");
         merchantInfoMapper.upDateColWhiteIpsByUserId(userId, ips);
     }
 
@@ -126,6 +126,7 @@ public class MerchantCheckService {
     @CacheEvict(cacheNames = "pay_ip_isAllow", key = "#userId")
     @Transactional
     public void updatePayIpWhitelist(String userId, String ips) {
+        log.info("updatePayIpWhitelist");
         merchantInfoMapper.upDatePayWhiteIpsByUserId(userId, ips);
     }
 

@@ -157,7 +157,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         }
 
         // check Merchant order code is uniqueness
-        if(!merchantCheckService.existsColMerchantOrderNo(collectionOrderRequest.getMerchantOrderNo())){
+        if(merchantCheckService.existsColMerchantOrderNo(collectionOrderRequest.getMerchantOrderNo())){
             log.error("existsColMerchantOrderNo failed, merchantOrderNo: {}", collectionOrderRequest.getMerchantOrderNo());
             throw new PakGoPayException(ResultCode.MERCHANT_CODE_IS_EXISTS);
         }

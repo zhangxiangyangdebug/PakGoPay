@@ -278,11 +278,11 @@ public class MerchantServiceImpl implements MerchantService {
 
         MerchantInfoDto merchantInfoDto = checkAndGenerateMerchantInfo(merchantEditRequest);
         try {
-            if (merchantEditRequest.getColWhiteIps() != null && merchantEditRequest.getColWhiteIps().isEmpty()) {
+            if (merchantEditRequest.getColWhiteIps() != null && !merchantEditRequest.getColWhiteIps().isEmpty()) {
                 merchantCheckService.updateColIpWhitelist(merchantEditRequest.getMerchantUserId(), merchantEditRequest.getColWhiteIps());
             }
 
-            if (merchantEditRequest.getPayWhiteIps() != null && merchantEditRequest.getPayWhiteIps().isEmpty()) {
+            if (merchantEditRequest.getPayWhiteIps() != null && !merchantEditRequest.getPayWhiteIps().isEmpty()) {
                 merchantCheckService.updatePayIpWhitelist(merchantEditRequest.getMerchantUserId(), merchantEditRequest.getPayWhiteIps());
             }
 
