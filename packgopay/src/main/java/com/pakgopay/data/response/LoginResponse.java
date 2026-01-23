@@ -10,6 +10,7 @@ public class LoginResponse extends CommonResponse {
     private String refreshToken;
     private String userName;
     private String userId;
+    private String roleName;
 
     public LoginResponse() {}
 
