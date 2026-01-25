@@ -4,7 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pakgopay.data.entity.Message;
 import com.pakgopay.service.common.AuthorizationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -23,6 +28,9 @@ public class RedisUtil {
 
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
+
+    /*@Autowired
+    private RedisTemplate<String, String> redisTemplate;*/
 
     public void set(String key, String value) {
         redisTemplate.opsForValue().set(key, value, AuthorizationService.refreshTokenExpirationTime*1000, TimeUnit.SECONDS);
@@ -56,7 +64,7 @@ public class RedisUtil {
         String bodyKey = BODY_KEY_PREFIX + msg.getId();
         try {
             String json = objectMapper.writeValueAsString(msg);
-            redisTemplate.opsForZSet().add(userKey, msg.getId(), msg.getTimestamp());
+            redisTemplate.opsForZSet().add(userKey, bodyKey, msg.getTimestamp());
             redisTemplate.opsForValue().set(bodyKey, json);
             redisTemplate.expire(bodyKey, java.time.Duration.ofSeconds(TTL_SECONDS));
         } catch (Exception e) {
@@ -70,7 +78,7 @@ public class RedisUtil {
         if (ids == null || ids.isEmpty()) {
             return Collections.emptyList();
         }
-        List<String> keys = ids.stream().map(id -> BODY_KEY_PREFIX + id).collect(Collectors.toList());
+        List<String> keys = ids.stream().collect(Collectors.toList());
         List<String> jsons = redisTemplate.opsForValue().multiGet(keys);
         if (jsons == null) {
             return Collections.emptyList();
@@ -84,6 +92,9 @@ public class RedisUtil {
     }
 
     public void removeMessages(String userkey, String bodyKey) {
+        Double score = redisTemplate.opsForZSet().score(userkey, bodyKey);
+
+        //redisTemplate.opsForZSet().removeRangeByScore(userkey, score, score);
         redisTemplate.opsForZSet().remove(userkey, bodyKey);
         redisTemplate.delete(bodyKey);
     }

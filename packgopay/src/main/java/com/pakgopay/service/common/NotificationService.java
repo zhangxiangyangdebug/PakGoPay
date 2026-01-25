@@ -53,6 +53,7 @@ public class NotificationService {
     public CommonResponse getUserNofityMessage(HttpServletRequest request) {
         String userId = getUserIdFromToken(request);
         List<Message> messages = redisUtil.getMessages(userId);
+        //Long messageCount = Long.valueOf(messages.size());
         Long messageCount = countUnread(userId);
         WsMessage wsMessage = new WsMessage();
         wsMessage.setMessageCount(messageCount);

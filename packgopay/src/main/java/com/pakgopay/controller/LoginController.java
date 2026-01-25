@@ -51,6 +51,7 @@ public class LoginController {
         message.setId(new SimpleDateFormat("yyyyMMddHHmmss").format(new Date())+ UUID.randomUUID().toString());
         message.setTimestamp(Calendar.getInstance().getTimeInMillis());
         message.setUserId(userId);
+        message.setRead(false);
         redisUtil.saveMessage(message);
         testMq.sendFanout("notice2", message);
         /*testMessage.setContent("你滴，大大的良民");*/

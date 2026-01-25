@@ -10,6 +10,7 @@ public class Message implements Serializable {
     private String userId;
     private String content;
     private long timestamp;
+    private boolean read;
 
     // getters/setters/constructors
 }

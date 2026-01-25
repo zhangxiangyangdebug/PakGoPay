@@ -27,9 +27,10 @@ public class NotationController {
         return notificationService.getUserNofityMessage(request);
     }
 
-    @PostMapping("/notation/markNotation")
-    public CommonResponse markRead(HttpServletRequest request, @Param("messageId") String messageId) {
-
+    @GetMapping("/notation/markNotation")
+    public CommonResponse markRead(HttpServletRequest request) {
+        System.out.println("sssss");
+        String messageId = request.getParameter("messageId");
         return notificationService.markRead(request, messageId);
     }
 }
