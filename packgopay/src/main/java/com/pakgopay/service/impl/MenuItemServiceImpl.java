@@ -14,6 +14,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,7 +47,9 @@ public class MenuItemServiceImpl {
         System.out.println("roleId = " + roleId);
         // 根据角色ID查询role-menu拿到menu
         List<String> allMenuIdsByRoleId = roleMenuMapper.getAllMenuIdsByRoleId(roleId);
-
+        if (ObjectUtils.isEmpty(allMenuIdsByRoleId)) {
+            return CommonResponse.fail(ResultCode.USER_HAS_NO_ROLE_PERMISSION);
+        }
         List<MenuItem> menuItems = new ArrayList<>();
         Map<String,MenuItem> menuItem = new HashMap<>();
         List<Children> children = menuItemMapper.queryMenuItem(allMenuIdsByRoleId);

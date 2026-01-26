@@ -24,6 +24,7 @@ public enum ResultCode {
     HTTP_REQUEST_FAILED(100113, "http request failed"),
     DATA_BASE_ERROR(100114, "execute sql failed"),
     INVALID_PARAMS(100115, "params is invalid"),
+    USER_HAS_NO_ROLE_PERMISSION(100116, "user has no permission to view any menus"),
 
     // order code start with 1002
     ORDER_PARAM_VALID(100201, "request param is valid"),
