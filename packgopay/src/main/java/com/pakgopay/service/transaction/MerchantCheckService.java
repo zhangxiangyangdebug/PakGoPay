@@ -8,10 +8,7 @@ import com.pakgopay.mapper.dto.AgentInfoDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -80,54 +77,24 @@ public class MerchantCheckService {
     /**
      * check user ip is in white list (Collection Order)
      *
-     * @param userId   user Id
      * @param clientIp Client Ip
      * @return check result
      */
-    @Cacheable(cacheNames = "col_ip_isAllow", key = "#userId")
-    public boolean isColIpAllowed(String userId, String clientIp, String whiteIps) {
+    public boolean isColIpAllowed(String clientIp, String whiteIps) {
         log.info("validateCollectionRequest start");
         Set<String> allowedIps = parseIpWhitelist(whiteIps);
         return allowedIps.contains(clientIp);
     }
 
-
-    /**
-     * update user ip white list and clear col_ip_isAllow cache (Collection Order)
-     *
-     * @param userId user Id
-     * @param ips    ip list
-     */
-    @CacheEvict(cacheNames = "col_ip_isAllow", key = "#userId")
-    public void updateColIpWhitelist(String userId, String ips) {
-        log.info("updateColIpWhitelist");
-        merchantInfoMapper.upDateColWhiteIpsByUserId(userId, ips);
-    }
-
     /**
      * check user ip is in white list (Pay Order)
      *
-     * @param userId   user Id
      * @param clientIp Client Ip
      * @return check result
      */
-    @Cacheable(cacheNames = "pay_ip_isAllow", key = "#userId")
-    public boolean isPayIpAllowed(String userId, String clientIp, String whiteIps) {
+    public boolean isPayIpAllowed(String clientIp, String whiteIps) {
         Set<String> allowedIps = parseIpWhitelist(whiteIps);
         return allowedIps.contains(clientIp);
-    }
-
-    /**
-     * update user ip white list and clear col_ip_isAllow cache (Pay Order)
-     *
-     * @param userId user Id
-     * @param ips    ip list
-     */
-    @CacheEvict(cacheNames = "pay_ip_isAllow", key = "#userId")
-    @Transactional
-    public void updatePayIpWhitelist(String userId, String ips) {
-        log.info("updatePayIpWhitelist");
-        merchantInfoMapper.upDatePayWhiteIpsByUserId(userId, ips);
     }
 
     private Set<String> parseIpWhitelist(String ipWhitelist) {

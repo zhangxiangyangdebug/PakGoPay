@@ -3,6 +3,7 @@ package com.pakgopay.service.transaction.handler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pakgopay.common.http.RestTemplateUtil;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
+import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.service.transaction.OrderHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,7 @@ import java.util.Map;
 
 @Slf4j
 @Component
-public class ColThirdPartyBankTransferHandler implements OrderHandler {
+public class ColThirdPartyBankTransferHandler extends OrderHandler {
 
     private static final String BASE_URL = "http://localhost:8092";
 
@@ -31,10 +32,17 @@ public class ColThirdPartyBankTransferHandler implements OrderHandler {
         validateRequiredFields(path, payload);
         String url = BASE_URL + path;
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, jsonHeaders());
-        log.info("third-party collection request, channelCode={}, url={}", resolveChannelCode(request), url);
+        log.info("ColThirdPartyBankTransferHandler handle, channelCode={}, url={}, request={}", resolveChannelCode(request), url, request);
         PaymentHttpResponse response = restTemplateUtil.request(entity, HttpMethod.POST, url);
         log.info("third-party collection response, channelCode={}, code={}", resolveChannelCode(request), response == null ? null : response.getCode());
         return response;
+    }
+
+    @Override
+    public NotifyRequest handleNotify(String body) {
+        Map<String, Object> payload = parseBodyMap(body);
+        log.info("third-party collection notify, channelCode={}, payload={}", resolveChannelCode(payload), payload);
+        return buildNotifyResponse(body);
     }
 
     private Map<String, Object> toPayload(Object request) {

@@ -5,14 +5,15 @@ import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
+import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.entity.TransactionInfo;
+import com.pakgopay.data.entity.channel.ChannelEntity;
+import com.pakgopay.data.entity.channel.PaymentEntity;
 import com.pakgopay.data.reqeust.channel.*;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.channel.ChannelResponse;
 import com.pakgopay.data.response.channel.PaymentResponse;
-import com.pakgopay.data.entity.TransactionInfo;
-import com.pakgopay.data.entity.channel.ChannelEntity;
-import com.pakgopay.data.entity.channel.PaymentEntity;
 import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.ChannelPaymentService;
@@ -29,6 +30,7 @@ import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -94,6 +96,66 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
         log.info("getPayment id success, id: {}", paymentDto.getPaymentId());
         return paymentDto.getPaymentId();
+    }
+
+    @Override
+    public void updateChannelAndPaymentStats(CollectionOrderDto order, TransactionStatus status) {
+        // Update counters only for final status changes.
+        boolean isSuccess = TransactionStatus.SUCCESS.equals(status);
+        boolean isFailure = TransactionStatus.FAILED.equals(status)
+                || TransactionStatus.EXPIRED.equals(status)
+                || TransactionStatus.CANCELLED.equals(status);
+        if (!isSuccess && !isFailure) {
+            return;
+        }
+
+        Long channelId = order.getChannelId();
+        if (channelId != null) {
+            ChannelDto channel = channelMapper.findByChannelId(channelId);
+            if (channel != null) {
+                long totalCount = defaultLong(channel.getTotalCount()) + 1L;
+                long failCount = defaultLong(channel.getFailCount()) + (isFailure ? 1L : 0L);
+                ChannelDto update = new ChannelDto();
+                update.setChannelId(channelId);
+                update.setTotalCount(totalCount);
+                update.setFailCount(failCount);
+                update.setSuccessRate(calculateSuccessRate(totalCount, failCount));
+                update.setUpdateTime(System.currentTimeMillis() / 1000);
+                channelMapper.updateByChannelId(update);
+            } else {
+                log.warn("channel not found, channelId={}", channelId);
+            }
+        }
+
+        Long paymentId = order.getPaymentId();
+        if (paymentId != null) {
+            PaymentDto payment = paymentMapper.findByPaymentId(paymentId);
+            if (payment != null) {
+                long orderQuantity = defaultLong(payment.getOrderQuantity()) + 1L;
+                long successQuantity = defaultLong(payment.getSuccessQuantity()) + (isSuccess ? 1L : 0L);
+                PaymentDto update = new PaymentDto();
+                update.setPaymentId(paymentId);
+                update.setOrderQuantity(orderQuantity);
+                update.setSuccessQuantity(successQuantity);
+                update.setUpdateTime(System.currentTimeMillis() / 1000);
+                paymentMapper.updateByPaymentId(update);
+            } else {
+                log.warn("payment not found, paymentId={}", paymentId);
+            }
+        }
+    }
+
+    private long defaultLong(Long value) {
+        return value == null ? 0L : value;
+    }
+
+    private BigDecimal calculateSuccessRate(long totalCount, long failCount) {
+        if (totalCount <= 0) {
+            return BigDecimal.ZERO;
+        }
+        long successCount = totalCount - failCount;
+        return BigDecimal.valueOf(successCount)
+                .divide(BigDecimal.valueOf(totalCount), 6, RoundingMode.HALF_UP);
     }
 
     private PaymentDto selectBySuccessRate(List<PaymentDto> paymentDtoList, Integer supportType) {
@@ -280,8 +342,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                             && amount.compareTo(dto.getPaymentMaxAmount()) < 0;
 
                     if (!result) {
-                        log.warn("paymentId: {}, amount max: {} min: {}, over limit amount: {}"
-                                , dto.getPaymentId(), dto.getPaymentMaxAmount(), dto.getPaymentMinAmount(), amount);
+                        log.warn("paymentName: {}, amount max: {} min: {}, over limit amount: {}"
+                                , dto.getPaymentName(), dto.getPaymentMaxAmount(), dto.getPaymentMinAmount(), amount);
                     }
                     return result;
                 })

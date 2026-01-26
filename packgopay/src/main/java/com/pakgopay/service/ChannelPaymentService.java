@@ -1,10 +1,12 @@
 package com.pakgopay.service;
 
 import com.pakgopay.common.enums.OrderType;
+import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.TransactionInfo;
 import com.pakgopay.data.reqeust.channel.*;
 import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.mapper.dto.CollectionOrderDto;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
@@ -13,6 +15,8 @@ public interface ChannelPaymentService {
     Long getPaymentId(Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException;
 
     void calculateTransactionFee(TransactionInfo transactionInfo, OrderType orderType);
+
+    void updateChannelAndPaymentStats(CollectionOrderDto order, TransactionStatus status);
 
     CommonResponse queryChannel(ChannelQueryRequest channelQueryRequest) throws PakGoPayException;
 

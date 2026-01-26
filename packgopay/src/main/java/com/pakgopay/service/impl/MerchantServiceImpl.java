@@ -278,14 +278,6 @@ public class MerchantServiceImpl implements MerchantService {
 
         MerchantInfoDto merchantInfoDto = checkAndGenerateMerchantInfo(merchantEditRequest);
         try {
-            if (merchantEditRequest.getColWhiteIps() != null && !merchantEditRequest.getColWhiteIps().isEmpty()) {
-                merchantCheckService.updateColIpWhitelist(merchantEditRequest.getMerchantUserId(), merchantEditRequest.getColWhiteIps());
-            }
-
-            if (merchantEditRequest.getPayWhiteIps() != null && !merchantEditRequest.getPayWhiteIps().isEmpty()) {
-                merchantCheckService.updatePayIpWhitelist(merchantEditRequest.getMerchantUserId(), merchantEditRequest.getPayWhiteIps());
-            }
-
             int ret = merchantInfoMapper.updateByUserId(merchantInfoDto);
             log.info("editMerchant updateByChannelId done, merchantUserId={}, ret={}", merchantEditRequest.getMerchantUserId(), ret);
 
@@ -331,6 +323,8 @@ public class MerchantServiceImpl implements MerchantService {
                 // float & whitelist
                 .obj(req::getIsFloat, dto::setIsFloat)
                 .obj(req::getFloatRange, dto::setFloatRange)
+                .str(req::getColWhiteIps, dto::setColWhiteIps)
+                .str(req::getPayWhiteIps, dto::setPayWhiteIps)
 
                 // channel ids (List<Long> -> "1,2,3")
                 .ids(req::getChannelIds, dto::setChannelIds)

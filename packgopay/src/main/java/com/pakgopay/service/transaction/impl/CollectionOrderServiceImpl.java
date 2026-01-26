@@ -1,23 +1,23 @@
 package com.pakgopay.service.transaction.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
-import com.pakgopay.common.enums.OrderScope;
-import com.pakgopay.common.enums.OrderType;
-import com.pakgopay.common.enums.OrderStatus;
-import com.pakgopay.common.enums.ResultCode;
+import com.pakgopay.common.enums.*;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.TransactionInfo;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
+import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
+import com.pakgopay.service.BalanceService;
+import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.MerchantService;
-import com.pakgopay.service.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.MerchantCheckService;
 import com.pakgopay.service.transaction.OrderHandler;
 import com.pakgopay.service.transaction.OrderHandlerFactory;
+import com.pakgopay.util.CommontUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 @Service
@@ -39,14 +40,22 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
     MerchantService merchantService;
 
     @Autowired
-    ChannelPaymentServiceImpl channelPaymentService;
+    ChannelPaymentService channelPaymentService;
+
+    @Autowired
+    private BalanceService balanceService;
 
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;
 
     @Override
     public CommonResponse createCollectionOrder(CollectionOrderRequest colOrderRequest) throws PakGoPayException {
-        log.info("createCollectionOrder start");
+        log.info("createCollectionOrder start, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
+                colOrderRequest.getMerchantId(),
+                colOrderRequest.getMerchantOrderNo(),
+                colOrderRequest.getCurrency(),
+                colOrderRequest.getAmount(),
+                colOrderRequest.getPaymentNo());
         TransactionInfo transactionInfo = new TransactionInfo();
         // 1. get merchant info
         MerchantInfoDto merchantInfoDto = merchantService.getMerchantInfo(colOrderRequest.getMerchantId());
@@ -56,9 +65,14 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
             log.error("merchant info is not exist, userId {}", colOrderRequest.getMerchantId());
             throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
         }
+        log.info("merchant info loaded, userId={}, agentId={}, channelIds={}",
+                merchantInfoDto.getUserId(),
+                merchantInfoDto.getParentId(),
+                merchantInfoDto.getChannelIds());
 
         // 2. check request validate
         validateCollectionRequest(colOrderRequest, merchantInfoDto);
+        log.info("collection request validated, merchantId={}", colOrderRequest.getMerchantId());
 
         // 3. get available payment id
         transactionInfo.setCurrency(colOrderRequest.getCurrency());
@@ -66,6 +80,9 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         transactionInfo.setPaymentNo(colOrderRequest.getPaymentNo());
 
         channelPaymentService.getPaymentId(CommonConstant.SUPPORT_TYPE_COLLECTION, transactionInfo);
+        log.info("payment resolved, paymentId={}, channelId={}",
+                transactionInfo.getPaymentId(),
+                transactionInfo.getChannelId());
 
         // 4. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.COLLECTION_PREFIX);
@@ -73,19 +90,29 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         transactionInfo.setTransactionNo(systemTransactionNo);
 
         CollectionOrderDto collectionOrderDto = buildCollectionOrderDto(colOrderRequest, transactionInfo);
+        log.info("collectionOrderDto built, transactionNo={}, paymentId={}, channelId={}, collectionMode={}",
+                collectionOrderDto.getTransactionNo(),
+                collectionOrderDto.getPaymentId(),
+                collectionOrderDto.getChannelId(),
+                collectionOrderDto.getCollectionMode());
         Object handlerResponse = dispatchCollectionOrder(collectionOrderDto, colOrderRequest.getChannelParams());
+        log.info("collection handler dispatched, transactionNo={}, responseType={}",
+                collectionOrderDto.getTransactionNo(),
+                handlerResponse == null ? null : handlerResponse.getClass().getSimpleName());
 
         try {
             int ret = collectionOrderMapper.insert(collectionOrderDto);
             if (ret <= 0) {
                 return CommonResponse.fail(ResultCode.DATA_BASE_ERROR, "collection order insert failed");
             }
+            log.info("collection order inserted, transactionNo={}", collectionOrderDto.getTransactionNo());
         } catch (Exception e) {
             log.error("collection order insert failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
         Map<String, Object> responseBody = buildCollectionResponse(collectionOrderDto, handlerResponse);
+        log.info("createCollectionOrder success, transactionNo={}", collectionOrderDto.getTransactionNo());
         return CommonResponse.success(responseBody);
     }
 
@@ -145,12 +172,138 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         return CommonResponse.success(result);
     }
 
+    @Override
+    public CommonResponse handleNotify(String currency, String body) throws PakGoPayException {
+        log.info("handleNotify start, currency={}, bodySize={}", currency, body == null ? 0 : body.length());
+        OrderHandler handler = OrderHandlerFactory.get(
+                OrderType.COLLECTION_ORDER, OrderScope.THIRD_PARTY, currency);
+
+        // Parse notify payload into a structured response.
+        NotifyRequest response = handler.handleNotify(body);
+        log.info("notify parsed, transactionNo={}, merchantNo={}, status={}",
+                response == null ? null : response.getTransactionNo(),
+                response == null ? null : response.getMerchantNo(),
+                response == null ? null : response.getStatus());
+
+        // Validate required fields in the notify response.
+        OrderHandler.validateNotifyResponse(response);
+        log.info("notify response validated, transactionNo={}", response.getTransactionNo());
+
+        // Verify order existence and validate state transition.
+        CollectionOrderDto collectionOrderDto = validateNotifyOrder(response);
+        log.info("notify order validated, transactionNo={}, orderStatus={}",
+                collectionOrderDto.getTransactionNo(),
+                collectionOrderDto.getOrderStatus());
+
+        // Calculate fees, update order record, and apply balance changes.
+        applyNotifyUpdate(collectionOrderDto, response);
+        log.info("notify applied, transactionNo={}, status={}",
+                collectionOrderDto.getTransactionNo(),
+                response.getStatus());
+
+        return CommonResponse.success(response);
+    }
+
+    private CollectionOrderDto validateNotifyOrder(NotifyRequest response) throws PakGoPayException {
+        CollectionOrderDto collectionOrderDto = collectionOrderMapper.findByTransactionNo(response.getTransactionNo())
+                .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS,
+                        "record is not exists, transactionNo:" + response.getTransactionNo()));
+        if (collectionOrderDto.getMerchantUserId() == null
+                || !collectionOrderDto.getMerchantUserId().equals(response.getMerchantNo())) {
+            throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "merchantNo does not match");
+        }
+        if (TransactionStatus.SUCCESS.getCode().equals(collectionOrderDto.getOrderStatus())
+                || TransactionStatus.FAILED.getCode().equals(collectionOrderDto.getOrderStatus())) {
+            throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "order status can not be changed");
+        }
+        return collectionOrderDto;
+    }
+
+    private void applyNotifyUpdate(CollectionOrderDto collectionOrderDto, NotifyRequest response) throws PakGoPayException {
+        TransactionStatus targetStatus = resolveNotifyStatus(response.getStatus());
+        MerchantInfoDto merchantInfo = merchantService.getMerchantInfo(collectionOrderDto.getMerchantUserId());
+        if (merchantInfo == null) {
+            throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
+        }
+        TransactionInfo transactionInfo = new TransactionInfo();
+        transactionInfo.setMerchantInfo(merchantInfo);
+        transactionInfo.setAmount(resolveOrderAmount(collectionOrderDto));
+        channelPaymentService.calculateTransactionFee(transactionInfo, OrderType.COLLECTION_ORDER);
+
+        CollectionOrderDto update = new CollectionOrderDto();
+        update.setTransactionNo(collectionOrderDto.getTransactionNo());
+        update.setMerchantRate(transactionInfo.getMerchantRate());
+        update.setMerchantFixedFee(transactionInfo.getMerchantFixedFee());
+        update.setMerchantFee(transactionInfo.getMerchantFee());
+        update.setAgent1Rate(transactionInfo.getAgent1Rate());
+        update.setAgent1FixedFee(transactionInfo.getAgent1FixedFee());
+        update.setAgent1Fee(transactionInfo.getAgent1Fee());
+        update.setAgent2Rate(transactionInfo.getAgent2Rate());
+        update.setAgent2FixedFee(transactionInfo.getAgent2FixedFee());
+        update.setAgent2Fee(transactionInfo.getAgent2Fee());
+        update.setAgent3Rate(transactionInfo.getAgent3Rate());
+        update.setAgent3FixedFee(transactionInfo.getAgent3FixedFee());
+        update.setAgent3Fee(transactionInfo.getAgent3Fee());
+        update.setOrderStatus(targetStatus.getCode());
+        if (TransactionStatus.SUCCESS.equals(targetStatus)) {
+            update.setSuccessCallbackTime(System.currentTimeMillis() / 1000);
+        }
+        update.setUpdateTime(System.currentTimeMillis() / 1000);
+        try {
+            collectionOrderMapper.updateByTransactionNo(update);
+            channelPaymentService.updateChannelAndPaymentStats(collectionOrderDto, targetStatus);
+        } catch (Exception e) {
+            log.error("collection order updateByTransactionNo failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+
+        if (TransactionStatus.SUCCESS.equals(targetStatus)) {
+            BigDecimal creditAmount = CommontUtil.safeSubtract(
+                    resolveOrderAmount(collectionOrderDto), transactionInfo.getMerchantFee());
+            balanceService.rechargeAmount(
+                    collectionOrderDto.getMerchantUserId(),
+                    collectionOrderDto.getCurrencyType(),
+                    creditAmount);
+        }
+    }
+
+    private TransactionStatus resolveNotifyStatus(String status) throws PakGoPayException {
+        if (status == null || status.isBlank()) {
+            throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "status is empty");
+        }
+        if (TransactionStatus.SUCCESS.getMessage().equalsIgnoreCase(status)) {
+            return TransactionStatus.SUCCESS;
+        }
+        if (TransactionStatus.FAILED.getMessage().equalsIgnoreCase(status)) {
+            return TransactionStatus.FAILED;
+        }
+        if (TransactionStatus.PROCESSING.getMessage().equalsIgnoreCase(status)) {
+            return TransactionStatus.PROCESSING;
+        }
+        if (TransactionStatus.PENDING.getMessage().equalsIgnoreCase(status)) {
+            return TransactionStatus.PENDING;
+        }
+        if (TransactionStatus.EXPIRED.getMessage().equalsIgnoreCase(status)) {
+            return TransactionStatus.EXPIRED;
+        }
+        if (TransactionStatus.CANCELLED.getMessage().equalsIgnoreCase(status)) {
+            return TransactionStatus.CANCELLED;
+        }
+        throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "unsupported status");
+    }
+
+    private BigDecimal resolveOrderAmount(CollectionOrderDto dto) {
+        if (dto.getActualAmount() != null) {
+            return dto.getActualAmount();
+        }
+        return dto.getAmount();
+    }
+
     private void validateCollectionRequest(
             CollectionOrderRequest collectionOrderRequest, MerchantInfoDto merchantInfoDto) throws PakGoPayException {
         log.info("validateCollectionRequest start");
         // check ip white list
-        if (!merchantCheckService.isColIpAllowed(
-                collectionOrderRequest.getUserId(), collectionOrderRequest.getClientIp(),
+        if (!merchantCheckService.isColIpAllowed(collectionOrderRequest.getClientIp(),
                 merchantInfoDto.getColWhiteIps())) {
             log.error("isColIpAllowed failed, clientIp: {}", collectionOrderRequest.getClientIp());
             throw new PakGoPayException(ResultCode.IS_NOT_WHITE_IP);
@@ -197,6 +350,11 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         dto.setMerchantOrderNo(request.getMerchantOrderNo()); // merchant order no
         dto.setAmount(request.getAmount()); // requested amount
         dto.setCurrencyType(request.getCurrency()); // currency code
+        if (merchantInfo.getIsFloat() == 1) {
+            BigDecimal floatingAmount = generateFloatAmount(merchantInfo.getFloatRange());
+            dto.setFloatingAmount(floatingAmount); // floating amount
+            dto.setActualAmount(CommontUtil.safeSubtract(request.getAmount(), floatingAmount)); // floating amount
+        }
 
         // -----------------------------
         // 2) Merchant ownership linkage
@@ -213,7 +371,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         // 4) Merchant & agent fee config
         // -----------------------------
         if (transactionInfo.getPaymentInfo() != null) {
-            dto.setCollectionMode(Integer.valueOf(transactionInfo.getPaymentInfo().getIsThird())); // collection mode
+            dto.setCollectionMode("1".equals(transactionInfo.getPaymentInfo().getIsThird()) ? 2:1); // collection mode
         }
         if (merchantInfo != null) {
             dto.setMerchantRate(merchantInfo.getCollectionRate()); // merchant collection rate
@@ -245,12 +403,19 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
 
         // Unassigned fields:
         // actualAmount
-        // floatingAmount
         // callbackToken
         // lastCallbackTime
         // callbackStatus
         // successCallbackTime
         return dto;
+    }
+
+    private BigDecimal generateFloatAmount(BigDecimal floatRange) {
+        if (floatRange == null || floatRange.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        double value = ThreadLocalRandom.current().nextDouble(0.0d, floatRange.doubleValue());
+        return BigDecimal.valueOf(value);
     }
 
     private Object dispatchCollectionOrder(CollectionOrderDto dto, Object channelParams) {
@@ -261,11 +426,14 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
                 OrderType.COLLECTION_ORDER, scope, dto.getCurrencyType());
         Map<String, Object> payload = new HashMap<>();
         payload.put("transactionNo", dto.getTransactionNo());
-        payload.put("amount", dto.getAmount());
+        // TODO 需要查看为什么为null
+        payload.put("amount", dto.getActualAmount() != null ? dto.getActualAmount() : new BigDecimal("1"));
         payload.put("currency", dto.getCurrencyType());
         payload.put("merchantOrderNo", dto.getMerchantOrderNo());
         payload.put("merchantUserId", dto.getMerchantUserId());
         payload.put("callbackUrl", dto.getCallbackUrl());
+        // TODO 待处理，确定使用那个通道
+        payload.put("channelCode", "digimone");
         payload.put("channelParams", channelParams);
         return handler.handle(payload);
     }
