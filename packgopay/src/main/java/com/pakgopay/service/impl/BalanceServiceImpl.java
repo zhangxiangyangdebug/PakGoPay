@@ -86,16 +86,42 @@ public class BalanceServiceImpl implements BalanceService {
             return;
         }
 
-        int ret = 0;
         try {
             long now = System.currentTimeMillis() / 1000;
-            ret = balanceMapper.addAvailableBalance(userId, amount, currency, now);
+            upsertCreditBalance(userId, currency, amount, now);
         } catch (Exception e) {
             log.error("creditBalance failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
-        if (ret <= 0) {
-            throw new PakGoPayException(ResultCode.FAIL, "addAvailableBalance failed");
+    }
+
+    private void upsertCreditBalance(String userId, String currency, BigDecimal amount, long now) {
+        int updated = balanceMapper.addAvailableBalance(userId, amount, currency, now);
+        if (updated > 0) {
+            return;
+        }
+
+        BalanceDto dto = new BalanceDto();
+        dto.setUserId(userId);
+        dto.setCurrency(currency);
+        dto.setAvailableBalance(amount);
+        dto.setFrozenBalance(BigDecimal.ZERO);
+        dto.setWithdrawAmount(BigDecimal.ZERO);
+        dto.setTotalBalance(amount);
+        dto.setCreateTime(now);
+        dto.setUpdateTime(now);
+
+        try {
+            int insert = balanceMapper.insert(dto);
+            if (insert <= 0) {
+                throw new PakGoPayException(ResultCode.FAIL, "insert balance failed");
+            }
+        } catch (Exception e) {
+            // If another thread inserted, retry update.
+            int retry = balanceMapper.addAvailableBalance(userId, amount, currency, now);
+            if (retry <= 0) {
+                throw e;
+            }
         }
     }
 

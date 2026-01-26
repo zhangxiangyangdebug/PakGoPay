@@ -261,7 +261,6 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
             BigDecimal creditAmount = CommontUtil.safeSubtract(
                     resolveOrderAmount(collectionOrderDto), transactionInfo.getMerchantFee());
-//            balanceService.createBalanceRecord(collectionOrderDto.getMerchantUserId(), collectionOrderDto.getCurrencyType());
             balanceService.creditBalance(
                     collectionOrderDto.getMerchantUserId(),
                     collectionOrderDto.getCurrencyType(),
