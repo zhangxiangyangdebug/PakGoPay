@@ -2,11 +2,13 @@ package com.pakgopay.service.transaction.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.data.entity.TransactionInfo;
+import com.pakgopay.common.enums.OrderScope;
 import com.pakgopay.common.enums.OrderStatus;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
+import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
@@ -15,6 +17,8 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.MerchantCheckService;
+import com.pakgopay.service.transaction.OrderHandler;
+import com.pakgopay.service.transaction.OrderHandlerFactory;
 import com.pakgopay.service.transaction.PayOutOrderService;
 import com.pakgopay.util.CommontUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
@@ -50,7 +54,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         log.info("createPayOutOrder start");
         TransactionInfo transactionInfo = new TransactionInfo();
         // 1. get merchant info
-        MerchantInfoDto merchantInfoDto = merchantService.getMerchantInfo(payOrderRequest.getUserId());
+        MerchantInfoDto merchantInfoDto = merchantService.fetchMerchantInfo(payOrderRequest.getUserId());
         transactionInfo.setMerchantInfo(merchantInfoDto);
         // merchant is not exists
         if (merchantInfoDto == null) {
@@ -67,7 +71,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         transactionInfo.setAmount(payOrderRequest.getAmount());
         transactionInfo.setPaymentNo(payOrderRequest.getPaymentNo());
 
-        Long paymentId = channelPaymentService.getPaymentId(CommonConstant.SUPPORT_TYPE_PAY, transactionInfo);
+        Long paymentId = channelPaymentService.selectPaymentId(CommonConstant.SUPPORT_TYPE_PAY, transactionInfo);
 
         // 4. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.PAYOUT_PREFIX);
@@ -78,7 +82,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         // xiaoyou TODO 计算渠道和通道费率和成本
         // 计算多级代理商分成（判断是否有代理 parent_id）
         // 计算平台利润 = 代付金额 - 商户抽成 - 代理商分成
-        channelPaymentService.calculateTransactionFee(transactionInfo, OrderType.PAY_OUT_ORDER);
+        channelPaymentService.calculateTransactionFees(transactionInfo, OrderType.PAY_OUT_ORDER);
 
         // 冻结资金（代付金额 + 商户抽成）
         balanceService.freezeBalance(CommontUtil.safeAdd(transactionInfo.getMerchantFee(),
@@ -139,12 +143,20 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         return CommonResponse.success(result);
     }
 
+    @Override
+    public CommonResponse handleNotify(String currency, String body) throws PakGoPayException {
+        OrderHandler handler = OrderHandlerFactory.get(
+                OrderType.PAY_OUT_ORDER, OrderScope.THIRD_PARTY, currency);
+        NotifyRequest response = handler.handleNotify(body);
+        OrderHandler.validateNotifyResponse(response);
+        return CommonResponse.success(response);
+    }
+
     private void validatePayOutRequest(
             PayOutOrderRequest payOutOrderRequest, MerchantInfoDto merchantInfoDto) throws PakGoPayException {
         log.info("validatePayOutRequest start");
         // check ip white list
-        if (merchantCheckService.isPayIpAllowed(
-                payOutOrderRequest.getUserId(), payOutOrderRequest.getClientIp(), merchantInfoDto.getColWhiteIps())) {
+        if (merchantCheckService.isPayIpAllowed(payOutOrderRequest.getClientIp(), merchantInfoDto.getColWhiteIps())) {
             log.error("isColIpAllowed failed, clientIp: {}", payOutOrderRequest.getClientIp());
             throw new PakGoPayException(ResultCode.IS_NOT_WHITE_IP);
         }

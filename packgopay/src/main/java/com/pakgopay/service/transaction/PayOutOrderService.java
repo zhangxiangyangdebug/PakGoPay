@@ -9,4 +9,6 @@ public interface PayOutOrderService {
     CommonResponse createPayOutOrder(@Valid PayOutOrderRequest payOutOrderRequest) throws PakGoPayException;
 
     CommonResponse queryOrderInfo(String userId, String transactionNo) throws PakGoPayException;
+
+    CommonResponse handleNotify(String currency, String body) throws PakGoPayException;
 }

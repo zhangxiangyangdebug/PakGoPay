@@ -8,9 +8,9 @@ import jakarta.validation.Valid;
 
 public interface AccountStatementService {
 
-    CommonResponse queryMerchantStatement(AccountStatementQueryRequest accountStatementQueryRequest);
+    CommonResponse queryMerchantStatements(AccountStatementQueryRequest accountStatementQueryRequest);
 
-    CommonResponse addMerchantStatement(AccountStatementAddRequest accountStatementAddRequest);
+    CommonResponse createMerchantStatement(AccountStatementAddRequest accountStatementAddRequest);
 
-    CommonResponse editAccountStatement(@Valid AccountStatementEditRequest accountStatementEditRequest);
+    CommonResponse updateAccountStatement(@Valid AccountStatementEditRequest accountStatementEditRequest);
 }

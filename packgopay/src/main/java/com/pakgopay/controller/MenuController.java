@@ -26,7 +26,7 @@ public class MenuController {
         String userId = userInfo.split("&")[0];
         CommonResponse menu = null;
         try {
-            menu = menuItemService.menu(userId);
+            menu = menuItemService.listMenuForUser(userId);
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }

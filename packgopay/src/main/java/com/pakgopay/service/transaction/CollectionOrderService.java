@@ -11,4 +11,6 @@ public interface CollectionOrderService {
     CommonResponse createCollectionOrder(@Valid CollectionOrderRequest collectionOrderRequest) throws PakGoPayException;
 
     CommonResponse queryOrderInfo(String userId, String transactionNo) throws PakGoPayException;
+
+    CommonResponse handleNotify(String currency, String body) throws PakGoPayException;
 }

@@ -15,7 +15,6 @@ public class CommonService {
     private RoleMapper roleMapper;
 
     public Integer getRoleIdByUserId(String userId) throws PakGoPayException {
-        log.info("getRoleIdByUserId start");
         Integer roleId = 0;
         try {
             roleId = roleMapper.queryRoleInfoByUserId(userId);
@@ -27,7 +26,6 @@ public class CommonService {
             log.error("user has not role");
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "user has not role");
         }
-        log.info("getRoleIdByUserId end, roleId: {}", roleId);
         return roleId;
     }
 

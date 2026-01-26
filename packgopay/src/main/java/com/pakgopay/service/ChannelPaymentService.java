@@ -1,32 +1,36 @@
 package com.pakgopay.service;
 
 import com.pakgopay.common.enums.OrderType;
+import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.TransactionInfo;
 import com.pakgopay.data.reqeust.channel.*;
 import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.mapper.dto.CollectionOrderDto;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
 public interface ChannelPaymentService {
-    Long getPaymentId(Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException;
+    Long selectPaymentId(Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException;
 
-    void calculateTransactionFee(TransactionInfo transactionInfo, OrderType orderType);
+    void calculateTransactionFees(TransactionInfo transactionInfo, OrderType orderType);
 
-    CommonResponse queryChannel(ChannelQueryRequest channelQueryRequest) throws PakGoPayException;
+    void updateChannelAndPaymentCounters(CollectionOrderDto order, TransactionStatus status);
 
-    CommonResponse queryPayment(PaymentQueryRequest paymentQueryRequest) throws PakGoPayException;
+    CommonResponse queryChannels(ChannelQueryRequest channelQueryRequest) throws PakGoPayException;
 
-    void exportChannel(ChannelQueryRequest channelQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+    CommonResponse queryPayments(PaymentQueryRequest paymentQueryRequest) throws PakGoPayException;
 
-    void exportPayment(PaymentQueryRequest paymentQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+    void exportChannels(ChannelQueryRequest channelQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 
-    CommonResponse editChannel(ChannelEditRequest channelEditRequest) throws PakGoPayException;
+    void exportPayments(PaymentQueryRequest paymentQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 
-    CommonResponse editPayment(PaymentEditRequest paymentEditRequest) throws PakGoPayException;
+    CommonResponse updateChannel(ChannelEditRequest channelEditRequest) throws PakGoPayException;
 
-    CommonResponse addChannel(ChannelAddRequest channelAddRequest) throws PakGoPayException;
+    CommonResponse updatePayment(PaymentEditRequest paymentEditRequest) throws PakGoPayException;
 
-    CommonResponse addPayment(PaymentAddRequest paymentAddRequest) throws PakGoPayException;
+    CommonResponse createChannel(ChannelAddRequest channelAddRequest) throws PakGoPayException;
+
+    CommonResponse createPayment(PaymentAddRequest paymentAddRequest) throws PakGoPayException;
 }

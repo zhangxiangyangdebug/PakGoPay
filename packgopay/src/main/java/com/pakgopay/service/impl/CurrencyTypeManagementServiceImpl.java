@@ -29,7 +29,7 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
     private UserMapper userMapper;
 
     @Override
-    public CommonResponse getAllCurrencyType() {
+    public CommonResponse listCurrencyTypes() {
        try {
            log.info("start getAllCurrencyType");
            List<CurrencyTypeDTO> allCurrencyType = currencyTypeMapper.getAllCurrencyType();
@@ -42,7 +42,7 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
     }
 
     @Override
-    public CommonResponse getCurrencyById(Integer id) {
+    public CommonResponse fetchCurrencyById(Integer id) {
         try{
             List<CurrencyTypeDTO> allCurrencyType= new ArrayList<>();
             if (id == null) {
@@ -59,9 +59,9 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
     }
 
     @Override
-    public CommonResponse addNewCurrencyType(CurrencyTypeRequest currencyTypeRequest, HttpServletRequest request) {
+    public CommonResponse createCurrencyType(CurrencyTypeRequest currencyTypeRequest, HttpServletRequest request) {
         try {
-            String operatorInfo = checkGoogleCode(currencyTypeRequest.getGoogleCode(), request);
+            String operatorInfo = verifyGoogleCode(currencyTypeRequest.getGoogleCode(), request);
             if (operatorInfo == null) {
                 return CommonResponse.fail(ResultCode.CODE_IS_EXPIRE);
             }
@@ -81,7 +81,7 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
     }
 
 
-    public String checkGoogleCode(Long googleCode, HttpServletRequest request) throws PakGoPayException {
+    public String verifyGoogleCode(Long googleCode, HttpServletRequest request) throws PakGoPayException {
         String userInfo = GoogleUtil.getUserInfoFromToken(request);
         if(userInfo==null){
             throw new PakGoPayException(ResultCode.TOKEN_IS_EXPIRE);

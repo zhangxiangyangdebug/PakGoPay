@@ -28,9 +28,8 @@ public class ChannelPaymentController {
 
     @PostMapping("/queryChannel")
     public CommonResponse queryChannel(@RequestBody @Valid ChannelQueryRequest channelQueryRequest, HttpServletRequest request) {
-        log.info("queryChannel start");
         try {
-            return channelPaymentService.queryChannel(channelQueryRequest);
+            return channelPaymentService.queryChannels(channelQueryRequest);
         } catch (PakGoPayException e) {
             log.error("queryChannel failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryChannel failed: " + e.getMessage());
@@ -39,9 +38,8 @@ public class ChannelPaymentController {
 
     @PostMapping("/queryPayment")
     public CommonResponse queryPayment(@RequestBody @Valid PaymentQueryRequest paymentQueryRequest, HttpServletRequest request) {
-        log.info("queryPayment start");
         try {
-            return channelPaymentService.queryPayment(paymentQueryRequest);
+            return channelPaymentService.queryPayments(paymentQueryRequest);
         } catch (PakGoPayException e) {
             log.error("queryPayment failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryPayment failed: " + e.getMessage());
@@ -51,9 +49,8 @@ public class ChannelPaymentController {
     @PostMapping(value = "exportChannel")
     public void exportChannel(
             @RequestBody @Valid ChannelQueryRequest channelQueryRequest, HttpServletResponse response) {
-        log.info("exportChannel start");
         try {
-            channelPaymentService.exportChannel(channelQueryRequest, response);
+            channelPaymentService.exportChannels(channelQueryRequest, response);
         } catch (PakGoPayException e) {
             log.error("exportChannel failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             ExportFileUtils.writeJsonError(response, e.getCode(), "exportChannel failed: " + e.getMessage());
@@ -62,15 +59,13 @@ public class ChannelPaymentController {
             ExportFileUtils.writeJsonError(response,
                     ResultCode.FAIL, "exportChannel failed, IOException message: " + e.getMessage());
         }
-        log.info("exportChannel end");
     }
 
     @PostMapping(value = "exportPayment")
     public void exportPayment(
             @RequestBody @Valid PaymentQueryRequest paymentQueryRequest, HttpServletResponse response) {
-        log.info("exportPayment start");
         try {
-            channelPaymentService.exportPayment(paymentQueryRequest, response);
+            channelPaymentService.exportPayments(paymentQueryRequest, response);
         } catch (PakGoPayException e) {
             log.error("exportPayment failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             ExportFileUtils.writeJsonError(response, e.getCode(), "exportPayment failed: " + e.getMessage());
@@ -79,15 +74,13 @@ public class ChannelPaymentController {
             ExportFileUtils.writeJsonError(response,
                     ResultCode.FAIL, "exportPayment failed, IOException message: " + e.getMessage());
         }
-        log.info("exportPayment end");
     }
 
 
     @PostMapping("/editChannel")
     public CommonResponse editChannel(@RequestBody @Valid ChannelEditRequest channelEditRequest, HttpServletRequest request) {
-        log.info("editChannel start");
         try {
-            return channelPaymentService.editChannel(channelEditRequest);
+            return channelPaymentService.updateChannel(channelEditRequest);
         } catch (PakGoPayException e) {
             log.error("editChannel failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "editChannel failed: " + e.getMessage());
@@ -96,9 +89,8 @@ public class ChannelPaymentController {
 
     @PostMapping("/editPayment")
     public CommonResponse editPayment(@RequestBody @Valid PaymentEditRequest paymentEditRequest, HttpServletRequest request) {
-        log.info("editPayment start");
         try {
-            return channelPaymentService.editPayment(paymentEditRequest);
+            return channelPaymentService.updatePayment(paymentEditRequest);
         } catch (PakGoPayException e) {
             log.error("editPayment failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "editPayment failed: " + e.getMessage());
@@ -107,9 +99,8 @@ public class ChannelPaymentController {
 
     @PostMapping("/addChannel")
     public CommonResponse addChannel(@RequestBody @Valid ChannelAddRequest channelAddRequest, HttpServletRequest request) {
-        log.info("addChannel start");
         try {
-            return channelPaymentService.addChannel(channelAddRequest);
+            return channelPaymentService.createChannel(channelAddRequest);
         } catch (PakGoPayException e) {
             log.error("addChannel failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "addChannel failed: " + e.getMessage());
@@ -118,9 +109,8 @@ public class ChannelPaymentController {
 
     @PostMapping("/addPayment")
     public CommonResponse addPayment(@RequestBody @Valid PaymentAddRequest paymentAddRequest, HttpServletRequest request) {
-        log.info("addPayment start");
         try {
-            return channelPaymentService.addPayment(paymentAddRequest);
+            return channelPaymentService.createPayment(paymentAddRequest);
         } catch (PakGoPayException e) {
             log.error("addPayment failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "addPayment failed: " + e.getMessage());

@@ -23,7 +23,7 @@ public class UserService {
     @Autowired
     private BalanceMapper balanceMapper;
 
-    public List<UserDTO> selectAllUser() {
+    public List<UserDTO> listUsers() {
         return userMapper.selectAllUser();
     }
 

@@ -106,7 +106,7 @@ public class LoginServiceImpl implements LoginService {
     }
 
     @Override
-    public CommonResponse getQrCode(String userName, String password) {
+    public CommonResponse generateLoginQrCode(String userName, String password) {
         UserDTO userInfo = userMapper.getSecretKey(userName, password);
         if (ObjectUtils.isEmpty(userInfo)) {
             return CommonResponse.fail(ResultCode.USER_VERIFY_FAIL, "check user info failed");
@@ -127,7 +127,7 @@ public class LoginServiceImpl implements LoginService {
     }
 
     @Override
-    public CommonResponse refreshToken(String refreshToken) {
+    public CommonResponse refreshAuthToken(String refreshToken) {
         // 从refreshToken中获取用户账号
         String userInfos = AuthorizationService.verifyToken(refreshToken);
         if (userInfos == null) {

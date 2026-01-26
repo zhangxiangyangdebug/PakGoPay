@@ -40,7 +40,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
     private TransactionUtil transactionUtil;
 
     @Override
-    public CommonResponse queryMerchantStatement(AccountStatementQueryRequest accountStatementQueryRequest) {
+    public CommonResponse queryMerchantStatements(AccountStatementQueryRequest accountStatementQueryRequest) {
         log.info("queryMerchantRecharge start");
         AccountStatementsResponse response = queryMerchantRechargeData(
                 accountStatementQueryRequest);
@@ -79,7 +79,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
     }
 
     @Override
-    public CommonResponse addMerchantStatement(AccountStatementAddRequest accountStatementAddRequest) {
+    public CommonResponse createMerchantStatement(AccountStatementAddRequest accountStatementAddRequest) {
         log.info("addMerchantRecharge start");
         AccountStatementsDto accountStatementsDto = generateAccountStatementForAdd(accountStatementAddRequest);
 
@@ -87,14 +87,14 @@ public class AccountStatementServiceImpl implements AccountStatementService {
             accountStatementsMapper.insert(accountStatementsDto);
             // recharge
             if (accountStatementsDto.getOrderType() == 1) {
-                balanceService.rechargeAmount(
+                balanceService.creditBalance(
                         accountStatementsDto.getUserId(),
                         accountStatementsDto.getCurrency(),
                         accountStatementsDto.getAmount());
             }
             // withdrawal
             if (accountStatementsDto.getOrderType() == 2) {
-                balanceService.withdrawAmount(
+                balanceService.applyWithdrawalOperation(
                         accountStatementsDto.getUserId(),
                         accountStatementsDto.getCurrency(),
                         accountStatementsDto.getAmount(),
@@ -102,7 +102,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
             }
             // adjust
             if (accountStatementsDto.getOrderType() == 3) {
-                balanceService.adjustAmount(
+                balanceService.adjustBalance(
                         accountStatementsDto.getUserId(),
                         accountStatementsDto.getCurrency(),
                         accountStatementsDto.getAmount());
@@ -136,7 +136,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
         dto.setCreateBy(req.getUserName());
         dto.setUpdateBy(req.getUserName());
 
-        Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(new ArrayList<>() {{
+        Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(new ArrayList<>() {{
             add(dto.getUserId());
         }});
         String currency = dto.getCurrency();
@@ -175,14 +175,14 @@ public class AccountStatementServiceImpl implements AccountStatementService {
     }
 
     @Override
-    public CommonResponse editAccountStatement(AccountStatementEditRequest request) {
+    public CommonResponse updateAccountStatement(AccountStatementEditRequest request) {
         log.info("editAccountStatement start, id={}", request.getId());
 
         AccountStatementsDto accountStatementsDto = generateAccountStatement(request);
         transactionUtil.runInTransaction(() -> {
             accountStatementsMapper.updateById(accountStatementsDto);
 
-            balanceService.withdrawAmount(
+            balanceService.applyWithdrawalOperation(
                     accountStatementsDto.getUserId(),
                     accountStatementsDto.getCurrency(),
                     request.getAmount(),
@@ -205,5 +205,3 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                 .build();
     }
 }
-
-

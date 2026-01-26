@@ -16,16 +16,16 @@ public class CurrencyManagementController {
 
     @GetMapping("/currencyTypeInfo")
     public CommonResponse currencyTypeInfo() {
-        return currencyTypeManagementService.getAllCurrencyType();
+        return currencyTypeManagementService.listCurrencyTypes();
     }
 
     @PostMapping("/addCurrencyType")
     public CommonResponse addCurrencyType(@RequestBody CurrencyTypeRequest currencyTypeRequest, HttpServletRequest request) {
-        return currencyTypeManagementService.addNewCurrencyType(currencyTypeRequest, request);
+        return currencyTypeManagementService.createCurrencyType(currencyTypeRequest, request);
     }
 
     @GetMapping("/getCurrencyById")
     public CommonResponse updateCurrencyType(Integer id) {
-        return currencyTypeManagementService.getCurrencyById(id);
+        return currencyTypeManagementService.fetchCurrencyById(id);
     }
 }

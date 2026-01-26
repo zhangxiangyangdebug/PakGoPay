@@ -57,17 +57,17 @@ public class ReportServiceImpl implements ReportService {
     private BalanceService balanceService;
 
     @Override
-    public CommonResponse queryMerchantReport(MerchantReportRequest merchantReportRequest) throws PakGoPayException {
-        log.info("queryMerchantReport start");
+    public CommonResponse queryMerchantReports(MerchantReportRequest merchantReportRequest) throws PakGoPayException {
+        log.info("queryMerchantReports start");
         checkUserRolePermission(
                 merchantReportRequest.getUserId(), CommonConstant.MERCHANT_REPORT_SUPPORT_ROLE);
-        MerchantReportResponse response = getMerchantReportResponse(merchantReportRequest);
+        MerchantReportResponse response = buildMerchantReportResponse(merchantReportRequest);
 
-        log.info("queryMerchantReport end");
+        log.info("queryMerchantReports end");
         return CommonResponse.success(response);
     }
 
-    private MerchantReportResponse getMerchantReportResponse(
+    private MerchantReportResponse buildMerchantReportResponse(
             MerchantReportRequest merchantReportRequest) throws PakGoPayException {
 
         MerchantReportEntity entity = new MerchantReportEntity();
@@ -78,23 +78,23 @@ public class ReportServiceImpl implements ReportService {
         entity.setEndTime(Long.valueOf(merchantReportRequest.getEndTime()));
         entity.setPageNo(merchantReportRequest.getPageNo());
         entity.setPageSize(merchantReportRequest.getPageSize());
-        log.info("queryMerchantReport condition is {}", JSON.toJSONString(entity));
+        log.info("queryMerchantReports condition is {}", JSON.toJSONString(entity));
 
-        return queryMerchantReportData(entity, merchantReportRequest.getIsNeedCardData());
+        return fetchMerchantReportPage(entity, merchantReportRequest.getIsNeedCardData());
     }
 
     @Override
-    public CommonResponse queryChannelReport(ChannelReportRequest channelReportRequest) throws PakGoPayException {
-        log.info("queryChannelReport start");
+    public CommonResponse queryChannelReports(ChannelReportRequest channelReportRequest) throws PakGoPayException {
+        log.info("queryChannelReports start");
         checkUserRolePermission(
                 channelReportRequest.getUserId(), CommonConstant.CHANNEL_REPORT_SUPPORT_ROLE);
-        ChannelReportResponse response = getChannelReportResponse(channelReportRequest);
+        ChannelReportResponse response = buildChannelReportResponse(channelReportRequest);
 
-        log.info("queryChannelReport end");
+        log.info("queryChannelReports end");
         return CommonResponse.success(response);
     }
 
-    private ChannelReportResponse getChannelReportResponse(
+    private ChannelReportResponse buildChannelReportResponse(
             ChannelReportRequest channelReportRequest) throws PakGoPayException {
         ChannelReportEntity entity = new ChannelReportEntity();
         entity.setChannelId(Long.valueOf(channelReportRequest.getChannelId()));
@@ -104,23 +104,23 @@ public class ReportServiceImpl implements ReportService {
         entity.setEndTime(Long.valueOf(channelReportRequest.getEndTime()));
         entity.setPageNo(channelReportRequest.getPageNo());
         entity.setPageSize(channelReportRequest.getPageSize());
-        log.info("queryChannelReport condition is {}", JSON.toJSONString(entity));
+        log.info("queryChannelReports condition is {}", JSON.toJSONString(entity));
 
-        return queryChannelReportData(entity, channelReportRequest.getIsNeedCardData());
+        return fetchChannelReportPage(entity, channelReportRequest.getIsNeedCardData());
     }
 
     @Override
-    public CommonResponse queryAgentReport(AgentReportRequest agentReportRequest) throws PakGoPayException {
-        log.info("queryAgentReport start");
+    public CommonResponse queryAgentReports(AgentReportRequest agentReportRequest) throws PakGoPayException {
+        log.info("queryAgentReports start");
         checkUserRolePermission(
                 agentReportRequest.getUserId(), CommonConstant.AGENT_REPORT_SUPPORT_ROLE);
-        AgentReportResponse response = getAgentReportResponse(agentReportRequest);
+        AgentReportResponse response = buildAgentReportResponse(agentReportRequest);
 
-        log.info("queryAgentReport end");
+        log.info("queryAgentReports end");
         return CommonResponse.success(response);
     }
 
-    private AgentReportResponse getAgentReportResponse(AgentReportRequest agentReportRequest) throws PakGoPayException {
+    private AgentReportResponse buildAgentReportResponse(AgentReportRequest agentReportRequest) throws PakGoPayException {
         AgentReportEntity entity = new AgentReportEntity();
         entity.setOrderType(agentReportRequest.getOrderType());
         entity.setCurrency(agentReportRequest.getCurrency());
@@ -128,23 +128,23 @@ public class ReportServiceImpl implements ReportService {
         entity.setEndTime(Long.valueOf(agentReportRequest.getEndTime()));
         entity.setPageNo(agentReportRequest.getPageNo());
         entity.setPageSize(agentReportRequest.getPageSize());
-        log.info("queryAgentReport condition is {}", JSON.toJSONString(entity));
+        log.info("queryAgentReports condition is {}", JSON.toJSONString(entity));
 
-        return queryAgentReportData(entity, agentReportRequest.getIsNeedCardData());
+        return fetchAgentReportPage(entity, agentReportRequest.getIsNeedCardData());
     }
 
     @Override
-    public CommonResponse queryCurrencyReport(BaseReportRequest currencyReportRequest) throws PakGoPayException {
-        log.info("queryCurrencyReport start");
+    public CommonResponse queryCurrencyReports(BaseReportRequest currencyReportRequest) throws PakGoPayException {
+        log.info("queryCurrencyReports start");
         checkUserRolePermission(
                 currencyReportRequest.getUserId(), CommonConstant.CURRENCY_REPORT_SUPPORT_ROLE);
-        CurrencyReportResponse response = getCurrencyReportResponse(currencyReportRequest);
+        CurrencyReportResponse response = buildCurrencyReportResponse(currencyReportRequest);
 
-        log.info("queryCurrencyReport end");
+        log.info("queryCurrencyReports end");
         return CommonResponse.success(response);
     }
 
-    private CurrencyReportResponse getCurrencyReportResponse(
+    private CurrencyReportResponse buildCurrencyReportResponse(
             BaseReportRequest currencyReportRequest) throws PakGoPayException {
         BaseReportEntity entity = new BaseReportEntity();
         entity.setOrderType(currencyReportRequest.getOrderType());
@@ -153,23 +153,23 @@ public class ReportServiceImpl implements ReportService {
         entity.setEndTime(Long.valueOf(currencyReportRequest.getEndTime()));
         entity.setPageNo(currencyReportRequest.getPageNo());
         entity.setPageSize(currencyReportRequest.getPageSize());
-        log.info("queryCurrencyReport condition is {}", JSON.toJSONString(entity));
+        log.info("queryCurrencyReports condition is {}", JSON.toJSONString(entity));
 
-        return queryCurrencyReportData(entity, currencyReportRequest.getIsNeedCardData());
+        return fetchCurrencyReportPage(entity, currencyReportRequest.getIsNeedCardData());
     }
 
     @Override
-    public CommonResponse queryPaymentReport(PaymentReportRequest paymentReportRequest) throws PakGoPayException {
-        log.info("queryPaymentReport start");
+    public CommonResponse queryPaymentReports(PaymentReportRequest paymentReportRequest) throws PakGoPayException {
+        log.info("queryPaymentReports start");
         checkUserRolePermission(
                 paymentReportRequest.getUserId(), CommonConstant.PAYMENT_REPORT_SUPPORT_ROLE);
 
-        PaymentReportResponse response = getPaymentReportResponse(paymentReportRequest);
-        log.info("queryPaymentReport end");
+        PaymentReportResponse response = buildPaymentReportResponse(paymentReportRequest);
+        log.info("queryPaymentReports end");
         return CommonResponse.success(response);
     }
 
-    private PaymentReportResponse getPaymentReportResponse(
+    private PaymentReportResponse buildPaymentReportResponse(
             PaymentReportRequest paymentReportRequest) throws PakGoPayException {
         PaymentReportEntity entity = new PaymentReportEntity();
         if (paymentReportRequest.getPaymentId() != null && !paymentReportRequest.getPaymentId().isEmpty()) {
@@ -181,13 +181,13 @@ public class ReportServiceImpl implements ReportService {
         entity.setEndTime(Long.valueOf(paymentReportRequest.getEndTime()));
         entity.setPageNo(paymentReportRequest.getPageNo());
         entity.setPageSize(paymentReportRequest.getPageSize());
-        log.info("queryPaymentReport condition is {}", JSON.toJSONString(entity));
+        log.info("queryPaymentReports condition is {}", JSON.toJSONString(entity));
 
-        return queryPaymentReportData(entity, paymentReportRequest.getIsNeedCardData());
+        return fetchPaymentReportPage(entity, paymentReportRequest.getIsNeedCardData());
     }
 
-    private MerchantReportResponse queryMerchantReportData(MerchantReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
-        log.info("queryMerchantReportData start");
+    private MerchantReportResponse fetchMerchantReportPage(MerchantReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
+        log.info("fetchMerchantReportPage start");
         MerchantReportResponse response = new MerchantReportResponse();
         try {
             // administrator searches for specified user by merchant name
@@ -207,10 +207,10 @@ public class ReportServiceImpl implements ReportService {
             response.setPageSize(entity.getPageSize());
             response.setTotalNumber(totalNumber);
         } catch (PakGoPayException e) {
-            log.error("queryMerchantReportData failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            log.error("fetchMerchantReportPage failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             throw e;
         } catch (Exception e) {
-            log.error("merchantReportMapper queryMerchantReportData failed, message {}", e.getMessage());
+            log.error("merchantReportMapper fetchMerchantReportPage failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
@@ -219,16 +219,16 @@ public class ReportServiceImpl implements ReportService {
             if(entity.getUserId() != null){
                 userIds.add(entity.getUserId());
             }
-            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
+            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds);
             response.setCardInfo(cardInfo);
         }
 
-        log.info("queryMerchantReportData end");
+        log.info("fetchMerchantReportPage end");
         return response;
     }
 
-    private ChannelReportResponse queryChannelReportData(ChannelReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
-        log.info("queryChannelReportData start");
+    private ChannelReportResponse fetchChannelReportPage(ChannelReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
+        log.info("fetchChannelReportPage start");
         ChannelReportResponse response = new ChannelReportResponse();
         try {
             List<BigDecimal> balanceInfos = channelReportMapper.balanceInfosByQuery(entity);
@@ -252,17 +252,17 @@ public class ReportServiceImpl implements ReportService {
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
-            log.error("channelReportMapper queryChannelReportData failed, message {}", e.getMessage());
+            log.error("channelReportMapper fetchChannelReportPage failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
-        log.info("queryChannelReportData end");
+        log.info("fetchChannelReportPage end");
         return response;
     }
 
 
-    private AgentReportResponse queryAgentReportData(AgentReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
-        log.info("queryAgentReportData start");
+    private AgentReportResponse fetchAgentReportPage(AgentReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
+        log.info("fetchAgentReportPage start");
         AgentReportResponse response = new AgentReportResponse();
         try {
             List<BigDecimal> balanceInfos = agentReportMapper.commissionInfosByQuery(entity);
@@ -286,16 +286,16 @@ public class ReportServiceImpl implements ReportService {
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
-            log.error("agentReportMapper queryAgentReportData failed, message {}", e.getMessage());
+            log.error("agentReportMapper fetchAgentReportPage failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
-        log.info("queryAgentReportData end");
+        log.info("fetchAgentReportPage end");
         return response;
     }
 
-    private CurrencyReportResponse queryCurrencyReportData(BaseReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
-        log.info("queryCurrencyReportData start");
+    private CurrencyReportResponse fetchCurrencyReportPage(BaseReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
+        log.info("fetchCurrencyReportPage start");
         CurrencyReportResponse response = new CurrencyReportResponse();
         try {
             List<BigDecimal> balanceInfos = currencyReportMapper.balanceInfosByQuery(entity);
@@ -319,16 +319,16 @@ public class ReportServiceImpl implements ReportService {
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
-            log.error("currencyReportMapper queryCurrencyReportData failed, message {}", e.getMessage());
+            log.error("currencyReportMapper fetchCurrencyReportPage failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
-        log.info("queryCurrencyReportData end");
+        log.info("fetchCurrencyReportPage end");
         return response;
     }
 
-    private PaymentReportResponse queryPaymentReportData(PaymentReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
-        log.info("queryPaymentReportData start");
+    private PaymentReportResponse fetchPaymentReportPage(PaymentReportEntity entity, Boolean isNeedCardData) throws PakGoPayException {
+        log.info("fetchPaymentReportPage start");
         PaymentReportResponse response = new PaymentReportResponse();
         try {
             List<BigDecimal> balanceInfos = paymentReportMapper.balanceInfosByQuery(entity);
@@ -352,11 +352,11 @@ public class ReportServiceImpl implements ReportService {
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
-            log.error("paymentReportMapper queryPaymentReportData failed, message {}", e.getMessage());
+            log.error("paymentReportMapper fetchPaymentReportPage failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
-        log.info("queryPaymentReportData end");
+        log.info("fetchPaymentReportPage end");
         return response;
     }
 
@@ -371,10 +371,10 @@ public class ReportServiceImpl implements ReportService {
     }
 
     @Override
-    public void exportMerchantReport(
+    public void exportMerchantReports(
             MerchantReportRequest merchantReportRequest, HttpServletResponse response)
             throws PakGoPayException, IOException {
-        log.info("exportMerchantReport start");
+        log.info("exportMerchantReports start");
 
         // 1) Parse and validate export columns (must go through whitelist)
         ExportFileUtils.ColumnParseResult<MerchantReportDto> colRes =
@@ -389,18 +389,18 @@ public class ReportServiceImpl implements ReportService {
                 response,
                 colRes.getHead(),
                 merchantReportRequest,
-                (req) -> getMerchantReportResponse(req).getMerchantReportDtoList(),
+                (req) -> buildMerchantReportResponse(req).getMerchantReportDtoList(),
                 colRes.getDefs(),
                 ExportReportDataColumns.MERCHANT_REPORT_EXPORT_FILE_NAME);
 
-        log.info("exportMerchantReport end");
+        log.info("exportMerchantReports end");
     }
 
     @Override
-    public void exportChannelReport(
+    public void exportChannelReports(
             ChannelReportRequest channelReportRequest, HttpServletResponse response)
             throws PakGoPayException, IOException {
-        log.info("exportChannelReport start");
+        log.info("exportChannelReports start");
 
         // 1) Parse and validate export columns (must go through whitelist)
         ExportFileUtils.ColumnParseResult<ChannelReportDto> colRes =
@@ -415,19 +415,19 @@ public class ReportServiceImpl implements ReportService {
                 response,
                 colRes.getHead(),
                 channelReportRequest,
-                (req) -> getChannelReportResponse(req).getChannelReportDtoList(),
+                (req) -> buildChannelReportResponse(req).getChannelReportDtoList(),
                 colRes.getDefs(),
                 ExportReportDataColumns.CHANNEL_REPORT_EXPORT_FILE_NAME);
 
-        log.info("exportChannelReport end");
+        log.info("exportChannelReports end");
 
     }
 
     @Override
-    public void exportAgentReport(
+    public void exportAgentReports(
             AgentReportRequest agentReportRequest, HttpServletResponse response)
             throws PakGoPayException, IOException {
-        log.info("exportAgentReport start");
+        log.info("exportAgentReports start");
 
         // 1) Parse and validate export columns (must go through whitelist)
         ExportFileUtils.ColumnParseResult<AgentReportDto> colRes =
@@ -442,18 +442,18 @@ public class ReportServiceImpl implements ReportService {
                 response,
                 colRes.getHead(),
                 agentReportRequest,
-                (req) -> getAgentReportResponse(req).getAgentReportDtoList(),
+                (req) -> buildAgentReportResponse(req).getAgentReportDtoList(),
                 colRes.getDefs(),
                 ExportReportDataColumns.AGENT_REPORT_EXPORT_FILE_NAME);
 
-        log.info("exportAgentReport end");
+        log.info("exportAgentReports end");
     }
 
     @Override
-    public void exportCurrencyReport(
+    public void exportCurrencyReports(
             BaseReportRequest currencyReportRequest, HttpServletResponse response)
             throws PakGoPayException, IOException {
-        log.info("exportCurrencyReport start");
+        log.info("exportCurrencyReports start");
 
         // 1) Parse and validate export columns (must go through whitelist)
         ExportFileUtils.ColumnParseResult<CurrencyReportDto> colRes =
@@ -468,18 +468,18 @@ public class ReportServiceImpl implements ReportService {
                 response,
                 colRes.getHead(),
                 currencyReportRequest,
-                (req) -> getCurrencyReportResponse(req).getCurrencyReportDtoList(),
+                (req) -> buildCurrencyReportResponse(req).getCurrencyReportDtoList(),
                 colRes.getDefs(),
                 ExportReportDataColumns.CURRENCY_REPORT_EXPORT_FILE_NAME);
 
-        log.info("exportCurrencyReport end");
+        log.info("exportCurrencyReports end");
     }
 
     @Override
-    public void exportPaymentReport(
+    public void exportPaymentReports(
             PaymentReportRequest paymentReportRequest, HttpServletResponse response)
             throws PakGoPayException, IOException {
-        log.info("exportPaymentReport start");
+        log.info("exportPaymentReports start");
 
         // 1) Parse and validate export columns (must go through whitelist)
         ExportFileUtils.ColumnParseResult<PaymentReportDto> colRes =
@@ -494,11 +494,11 @@ public class ReportServiceImpl implements ReportService {
                 response,
                 colRes.getHead(),
                 paymentReportRequest,
-                (req) -> getPaymentReportResponse(req).getPaymentReportDtoList(),
+                (req) -> buildPaymentReportResponse(req).getPaymentReportDtoList(),
                 colRes.getDefs(),
                 ExportReportDataColumns.PAYMENT_REPORT_EXPORT_FILE_NAME
         );
 
-        log.info("exportPaymentReport end");
+        log.info("exportPaymentReports end");
     }
 }

@@ -61,15 +61,12 @@ public class AgentServiceImpl implements AgentService {
     private TransactionUtil transactionUtil;
 
     @Override
-    public CommonResponse queryAgent(AgentQueryRequest agentQueryRequest) throws PakGoPayException {
-        log.info("queryAgent start");
-        AgentResponse response = queryAgentData(agentQueryRequest);
-        log.info("queryAgent end");
+    public CommonResponse queryAgents(AgentQueryRequest agentQueryRequest) throws PakGoPayException {
+        AgentResponse response = fetchAgentPage(agentQueryRequest);
         return CommonResponse.success(response);
     }
 
-    private AgentResponse queryAgentData(AgentQueryRequest agentQueryRequest) throws PakGoPayException {
-        log.info("queryAgentData start");
+    private AgentResponse fetchAgentPage(AgentQueryRequest agentQueryRequest) throws PakGoPayException {
         AgentInfoEntity entity = new AgentInfoEntity();
         entity.setAgentName(agentQueryRequest.getAgentName());
         entity.setAccountName(agentQueryRequest.getAccountName());
@@ -81,26 +78,22 @@ public class AgentServiceImpl implements AgentService {
         try {
             Integer totalNumber = agentInfoMapper.countByQuery(entity);
             List<AgentInfoDto> agentInfoDtoList = agentInfoMapper.pageByQuery(entity);
-            getAgentDetailInfo(agentInfoDtoList);
+            enrichAgentDetails(agentInfoDtoList);
 
             response.setAgentInfoDtoList(agentInfoDtoList);
             response.setTotalNumber(totalNumber);
         } catch (Exception e) {
-            log.error("agentInfoMapper queryAgentData failed, message {}", e.getMessage());
+            log.error("agentInfoMapper fetchAgentPage failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
         response.setPageNo(entity.getPageNo());
         response.setPageSize(entity.getPageSize());
-        log.info("queryAgentData end");
         return response;
     }
 
-    private void getAgentDetailInfo(List<AgentInfoDto> agentInfoDtoList) {
-        log.info("getAgentDetailInfo start");
-
+    private void enrichAgentDetails(List<AgentInfoDto> agentInfoDtoList) {
         if (agentInfoDtoList == null || agentInfoDtoList.isEmpty()) {
-            log.info("agentInfoDtoList is empty");
             return;
         }
 
@@ -139,7 +132,6 @@ public class AgentServiceImpl implements AgentService {
                 : channelMapper.getPaymentIdsByChannelIds(new ArrayList<>(allChannelIds), null).stream()
                 .filter(p -> p != null && p.getChannelId() != null)
                 .collect(Collectors.toMap(ChannelDto::getChannelId, v -> v, (a, b) -> a));
-        log.info("getPaymentIdsByChannelIds channelMap size: {}", channelMap.size());
         // 6) Fill detail info for each agent
         for (AgentInfoDto agentInfo : agentInfoDtoList) {
             // agent's channel info
@@ -161,7 +153,6 @@ public class AgentServiceImpl implements AgentService {
             agentInfo.setParentAgentName(agentInfoDto.getAgentName());
             agentInfo.setParentUserName(agentInfoDto.getAccountName());
         }
-        log.info("getAgentDetailInfo end");
     }
 
     /**
@@ -185,9 +176,7 @@ public class AgentServiceImpl implements AgentService {
     }
 
     @Override
-    public void exportAgent(AgentQueryRequest agentQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException {
-        log.info("exportAgent start");
-
+    public void exportAgents(AgentQueryRequest agentQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException {
         // 1) Parse and validate export columns (must go through whitelist)
         ExportFileUtils.ColumnParseResult<AgentInfoDto> colRes =
                 ExportFileUtils.parseColumns(agentQueryRequest, ExportReportDataColumns.AGENT_ALLOWED);
@@ -201,18 +190,14 @@ public class AgentServiceImpl implements AgentService {
                 response,
                 colRes.getHead(),
                 agentQueryRequest,
-                (req) -> queryAgentData(req).getAgentInfoDtoList(),
+                (req) -> fetchAgentPage(req).getAgentInfoDtoList(),
                 colRes.getDefs(),
                 ExportReportDataColumns.CHANNEL_EXPORT_FILE_NAME);
-
-        log.info("exportAgent end");
     }
 
     @Override
-    public CommonResponse editAgent(AgentEditRequest agentEditRequest) throws PakGoPayException {
-        log.info("editAgent start, agentName={}", agentEditRequest.getAgentName());
-
-        AgentInfoDto agentInfoDto = checkAndGenerateAgentInfoDto(agentEditRequest);
+    public CommonResponse updateAgent(AgentEditRequest agentEditRequest) throws PakGoPayException {
+        AgentInfoDto agentInfoDto = buildAgentUpdateDto(agentEditRequest);
         try {
             int ret = agentInfoMapper.updateByAgentNo(agentInfoDto);
             log.info("editAgent updateByChannelId done, agentName={}, ret={}", agentEditRequest.getAgentName(), ret);
@@ -224,12 +209,10 @@ public class AgentServiceImpl implements AgentService {
             log.error("editAgent updateByChannelId failed, agentName={}", agentEditRequest.getAgentName(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
-
-        log.info("editAgent end, agentName={}", agentEditRequest.getAgentName());
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
-    private AgentInfoDto checkAndGenerateAgentInfoDto(AgentEditRequest agentEditRequest) throws PakGoPayException {
+    private AgentInfoDto buildAgentUpdateDto(AgentEditRequest agentEditRequest) throws PakGoPayException {
         AgentInfoDto dto = new AgentInfoDto();
         dto.setAgentNo(PatchBuilderUtil.parseRequiredLong(agentEditRequest.getAgentNo(),"agentNo"));
         dto.setUpdateTime(System.currentTimeMillis() / 1000);
@@ -260,11 +243,9 @@ public class AgentServiceImpl implements AgentService {
     }
 
     @Override
-    public CommonResponse addAgent(AgentAddRequest agentAddRequest) throws PakGoPayException {
-        log.info("addChannel start");
-
-        CreateUserRequest createUserRequest = generateUserCreateInfo(agentAddRequest);
-        AgentInfoDto agentInfoDto = generateAgentInfoDtoForAdd(agentAddRequest);
+    public CommonResponse createAgent(AgentAddRequest agentAddRequest) throws PakGoPayException {
+        CreateUserRequest createUserRequest = buildAgentUserCreateRequest(agentAddRequest);
+        AgentInfoDto agentInfoDto = buildAgentCreateDto(agentAddRequest);
 
         transactionUtil.runInTransaction(() -> {
             Long userId = userService.createUser(createUserRequest);
@@ -276,11 +257,10 @@ public class AgentServiceImpl implements AgentService {
             agentInfoMapper.insert(agentInfoDto);
         });
 
-        log.info("addChannel end");
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
-    private AgentInfoDto generateAgentInfoDtoForAdd(AgentAddRequest req) throws PakGoPayException {
+    private AgentInfoDto buildAgentCreateDto(AgentAddRequest req) throws PakGoPayException {
         AgentInfoDto dto = new AgentInfoDto();
         long now = System.currentTimeMillis() / 1000;
 
@@ -333,7 +313,7 @@ public class AgentServiceImpl implements AgentService {
         return b.build();
     }
 
-    private CreateUserRequest generateUserCreateInfo(AgentAddRequest agentAddRequest) {
+    private CreateUserRequest buildAgentUserCreateRequest(AgentAddRequest agentAddRequest) {
         CreateUserRequest dto = new CreateUserRequest();
         long now = System.currentTimeMillis() / 1000;
         dto.setRoleId(CommonConstant.ROLE_AGENT);
@@ -353,16 +333,13 @@ public class AgentServiceImpl implements AgentService {
     }
 
     @Override
-    public CommonResponse queryAgentAccount(AccountQueryRequest accountQueryRequest) {
-        log.info("queryAgentAccount start");
-        WithdrawalAccountResponse response = queryAgentAccountData(accountQueryRequest);
-        log.info("queryAgentAccount end");
+    public CommonResponse queryAgentAccounts(AccountQueryRequest accountQueryRequest) {
+        WithdrawalAccountResponse response = fetchAgentAccountPage(accountQueryRequest);
         return CommonResponse.success(response);
     }
 
-    private WithdrawalAccountResponse queryAgentAccountData(
+    private WithdrawalAccountResponse fetchAgentAccountPage(
             AccountQueryRequest accountQueryRequest) throws PakGoPayException {
-        log.info("queryAgentAccountData start");
         AccountInfoEntity entity = new AccountInfoEntity();
         entity.setName(accountQueryRequest.getName());
         entity.setWalletAddr(accountQueryRequest.getWalletAddr());
@@ -381,7 +358,7 @@ public class AgentServiceImpl implements AgentService {
                 if (accountQueryRequest.getUserId() != null && !accountQueryRequest.getUserId().isEmpty()) {
                     List<String> userIds = new ArrayList<>();
                     userIds.add(userId);
-                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
+                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds);
                     response.setCardInfo(cardInfo);
                 }
             }
@@ -395,15 +372,12 @@ public class AgentServiceImpl implements AgentService {
 
         response.setPageNo(entity.getPageNo());
         response.setPageSize(entity.getPageSize());
-        log.info("queryAgentAccountData end");
         return response;
     }
 
     @Override
-    public void exportAgentAccount(
+    public void exportAgentAccounts(
             AccountQueryRequest accountQueryRequest, HttpServletResponse response) throws IOException {
-        log.info("exportAgentAccount start");
-
         // 1) Parse and validate export columns (must go through whitelist)
         ExportFileUtils.ColumnParseResult<WithdrawalAccountsDto> colRes =
                 ExportFileUtils.parseColumns(accountQueryRequest, ExportReportDataColumns.AGENT_ACCOUNT_ALLOWED);
@@ -417,18 +391,14 @@ public class AgentServiceImpl implements AgentService {
                 response,
                 colRes.getHead(),
                 accountQueryRequest,
-                (req) -> queryAgentAccountData(req).getWithdrawalAccountsDtoList(),
+                (req) -> fetchAgentAccountPage(req).getWithdrawalAccountsDtoList(),
                 colRes.getDefs(),
                 ExportReportDataColumns.CHANNEL_EXPORT_FILE_NAME);
-
-        log.info("exportAgentAccount end");
     }
 
     @Override
-    public CommonResponse editAgentAccount(AccountEditRequest accountEditRequest) {
-        log.info("editAgentAccount start, withdrawalId={}", accountEditRequest.getId());
-
-        WithdrawalAccountsDto withdrawalAccountsDto = generateAccountsDto(accountEditRequest);
+    public CommonResponse updateAgentAccount(AccountEditRequest accountEditRequest) {
+        WithdrawalAccountsDto withdrawalAccountsDto = buildAgentAccountUpdateDto(accountEditRequest);
         try {
             int ret = withdrawalAccountsMapper.updateById(withdrawalAccountsDto);
             log.info("editAgentAccount updateByChannelId done, withdrawalId={}, ret={}", accountEditRequest.getId(), ret);
@@ -441,11 +411,10 @@ public class AgentServiceImpl implements AgentService {
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
-        log.info("editAgentAccount end, withdrawalId={}", accountEditRequest.getId());
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
-    private WithdrawalAccountsDto generateAccountsDto(AccountEditRequest accountEditRequest) {
+    private WithdrawalAccountsDto buildAgentAccountUpdateDto(AccountEditRequest accountEditRequest) {
         WithdrawalAccountsDto dto = new WithdrawalAccountsDto();
         dto.setId(PatchBuilderUtil.parseRequiredLong(accountEditRequest.getId(), "id"));
         dto.setUpdateTime(System.currentTimeMillis() / 1000);
@@ -458,11 +427,9 @@ public class AgentServiceImpl implements AgentService {
     }
 
     @Override
-    public CommonResponse addAgentAccount(AccountAddRequest accountAddRequest) {
-        log.info("addAgentAccount start");
-
+    public CommonResponse createAgentAccount(AccountAddRequest accountAddRequest) {
         try {
-            WithdrawalAccountsDto withdrawalAccountsDto = generateAccountInfoDtoForAdd(accountAddRequest);
+            WithdrawalAccountsDto withdrawalAccountsDto = buildAgentAccountCreateDto(accountAddRequest);
             int ret = withdrawalAccountsMapper.insert(withdrawalAccountsDto);
             log.info("addAgentAccount insert done, ret={}", ret);
         } catch (PakGoPayException e) {
@@ -472,12 +439,10 @@ public class AgentServiceImpl implements AgentService {
             log.error("addAgentAccount insert failed", e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
-
-        log.info("addAgentAccount end");
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
-    private WithdrawalAccountsDto generateAccountInfoDtoForAdd(AccountAddRequest req) throws PakGoPayException {
+    private WithdrawalAccountsDto buildAgentAccountCreateDto(AccountAddRequest req) throws PakGoPayException {
         WithdrawalAccountsDto dto = new WithdrawalAccountsDto();
         long now = System.currentTimeMillis() / 1000;
 

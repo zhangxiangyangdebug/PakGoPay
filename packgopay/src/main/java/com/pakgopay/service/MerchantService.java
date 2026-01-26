@@ -12,19 +12,19 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 public interface MerchantService {
-    MerchantInfoDto getMerchantInfo(String userId) throws PakGoPayException;
+    MerchantInfoDto fetchMerchantInfo(String userId) throws PakGoPayException;
 
-    CommonResponse queryMerchant(MerchantQueryRequest merchantQueryRequest);
+    CommonResponse queryMerchants(MerchantQueryRequest merchantQueryRequest);
 
-    CommonResponse editMerchant(MerchantEditRequest merchantEditRequest);
+    CommonResponse updateMerchant(MerchantEditRequest merchantEditRequest);
 
-    CommonResponse addMerchant(MerchantAddRequest merchantAddRequest);
+    CommonResponse createMerchant(MerchantAddRequest merchantAddRequest);
 
-    CommonResponse queryMerchantAccount(AccountQueryRequest accountQueryRequest);
+    CommonResponse queryMerchantAccounts(AccountQueryRequest accountQueryRequest);
 
-    void exportMerchantAccount(AccountQueryRequest accountQueryRequest, HttpServletResponse response) throws IOException;
+    void exportMerchantAccounts(AccountQueryRequest accountQueryRequest, HttpServletResponse response) throws IOException;
 
-    CommonResponse editMerchantAccount(AccountEditRequest accountEditRequest);
+    CommonResponse updateMerchantAccount(AccountEditRequest accountEditRequest);
 
-    CommonResponse addMerchantAccount(AccountAddRequest accountAddRequest);
+    CommonResponse createMerchantAccount(AccountAddRequest accountAddRequest);
 }
