@@ -35,7 +35,12 @@ public class TransactionController {
     @PostMapping(value = "/createCollectionOrder")
     public WebAsyncTask<CommonResponse> createCollectionOrder(
             HttpServletRequest request, @Valid @RequestBody CollectionOrderRequest collectionOrderRequest) {
-        log.info("createCollectionOrder start");
+        log.info("createCollectionOrder request, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
+                collectionOrderRequest.getMerchantId(),
+                collectionOrderRequest.getMerchantOrderNo(),
+                collectionOrderRequest.getCurrency(),
+                collectionOrderRequest.getAmount(),
+                collectionOrderRequest.getPaymentNo());
         WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L,
                 () -> {
                     try {
@@ -63,7 +68,12 @@ public class TransactionController {
     @PostMapping(value = "/createPayOutOrder")
     public WebAsyncTask<CommonResponse> createPayOutOrder(
             HttpServletRequest request, @Valid @RequestBody PayOutOrderRequest payOutOrderRequest) {
-        log.info("createPayOutOrder start");
+        log.info("createPayOutOrder request, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
+                payOutOrderRequest.getMerchantId(),
+                payOutOrderRequest.getMerchantOrderNo(),
+                payOutOrderRequest.getCurrency(),
+                payOutOrderRequest.getAmount(),
+                payOutOrderRequest.getPaymentNo());
         WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L,
                 () -> {
                     try {
@@ -91,7 +101,6 @@ public class TransactionController {
     public CommonResponse queryOrder(
             HttpServletRequest request, @RequestParam(value = "userId") String userId,
             @RequestParam(value = "transactionNo") String transactionNo) {
-        log.info("queryOrder start");
         if (!StringUtils.hasText(transactionNo)) {
             log.error("transactionNo is empty");
             return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "transactionNo is empty");
@@ -110,23 +119,22 @@ public class TransactionController {
             return CommonResponse.fail(e.getCode(), "queryOrder failed, " + e.getMessage());
         }
 
-        log.info("transactionNo is invalid, transactionNo {}", transactionNo);
+        log.warn("transactionNo is invalid, transactionNo {}", transactionNo);
         return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "transactionNo is invalid");
     }
 
     @GetMapping(value = "/balance")
     public CommonResponse queryBalance(
             HttpServletRequest request, @RequestParam(value = "userId") String userId) {
-        log.info("queryBalance start");
         if (!StringUtils.hasText(userId)) {
             log.error("userId is empty");
             return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "userId is empty");
         }
 
         try {
-            return balanceService.queryMerchantAvailableBalance(userId);
+            return balanceService.fetchMerchantAvailableBalance(userId);
         } catch (PakGoPayException e) {
-            log.error("queryMerchantAvailableBalance failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            log.error("fetchMerchantAvailableBalance failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryBalance failed: " + e.getMessage());
         }
     }
@@ -134,7 +142,8 @@ public class TransactionController {
     @PostMapping(value = "/notifyTransaction")
     public CommonResponse handleNotify(@RequestParam("orderType") String orderType,
             @RequestParam("currency") String currency, @RequestBody(required = false) String body) {
-        log.info("notify received, orderType={}, currency={}, body={}", orderType, currency, body);
+        log.info("notify received, orderType={}, currency={}, bodySize={}",
+                orderType, currency, body == null ? 0 : body.length());
         if ("collection".equalsIgnoreCase(orderType)) {
             return collectionOrderService.handleNotify(currency, body);
         }

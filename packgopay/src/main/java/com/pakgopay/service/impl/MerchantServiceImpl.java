@@ -69,8 +69,7 @@ public class MerchantServiceImpl implements MerchantService {
     private MerchantCheckService merchantCheckService;
 
     @Override
-    public MerchantInfoDto getMerchantInfo(String userId) throws PakGoPayException {
-        log.info("getMerchantInfo start");
+    public MerchantInfoDto fetchMerchantInfo(String userId) throws PakGoPayException {
         try {
             MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
             if (merchantInfoDto == null) {
@@ -92,15 +91,12 @@ public class MerchantServiceImpl implements MerchantService {
 
 
     @Override
-    public CommonResponse queryMerchant(MerchantQueryRequest merchantQueryRequest) {
-        log.info("queryMerchant start");
-        MerchantResponse response = queryMerchantData(merchantQueryRequest);
-        log.info("queryMerchant end");
+    public CommonResponse queryMerchants(MerchantQueryRequest merchantQueryRequest) {
+        MerchantResponse response = fetchMerchantPage(merchantQueryRequest);
         return CommonResponse.success(response);
     }
 
-    private MerchantResponse queryMerchantData(MerchantQueryRequest merchantQueryRequest) throws PakGoPayException {
-        log.info("queryAgentData start");
+    private MerchantResponse fetchMerchantPage(MerchantQueryRequest merchantQueryRequest) throws PakGoPayException {
         MerchantEntity entity = new MerchantEntity();
         entity.setMerchantName(merchantQueryRequest.getMerchantName());
         entity.setMerchantUserName(merchantQueryRequest.getMerchantUserName());
@@ -119,7 +115,7 @@ public class MerchantServiceImpl implements MerchantService {
             if (merchantQueryRequest.getIsNeedCardData()) {
                 List<String> userIds = merchantInfoMapper.userIdsByQueryMerchant(entity);
                 if (userIds != null && !userIds.isEmpty()) {
-                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
+                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds);
                     response.setCardInfo(cardInfo);
                 }
             }
@@ -133,7 +129,6 @@ public class MerchantServiceImpl implements MerchantService {
 
         response.setPageNo(entity.getPageNo());
         response.setPageSize(entity.getPageSize());
-        log.info("queryAgentData end");
         return response;
     }
 
@@ -273,9 +268,7 @@ public class MerchantServiceImpl implements MerchantService {
     }
 
     @Override
-    public CommonResponse editMerchant(MerchantEditRequest merchantEditRequest) {
-        log.info("editMerchant start, merchantUserId={}", merchantEditRequest.getMerchantUserId());
-
+    public CommonResponse updateMerchant(MerchantEditRequest merchantEditRequest) {
         MerchantInfoDto merchantInfoDto = checkAndGenerateMerchantInfo(merchantEditRequest);
         try {
             int ret = merchantInfoMapper.updateByUserId(merchantInfoDto);
@@ -288,8 +281,6 @@ public class MerchantServiceImpl implements MerchantService {
             log.error("editMerchant updateByChannelId failed, merchantUserId={}", merchantEditRequest.getMerchantUserId(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
-
-        log.info("editMerchant end, merchantUserId={}", merchantEditRequest.getMerchantUserId());
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
@@ -333,9 +324,7 @@ public class MerchantServiceImpl implements MerchantService {
     }
 
     @Override
-    public CommonResponse addMerchant(MerchantAddRequest merchantAddRequest) {
-        log.info("addChannel start");
-
+    public CommonResponse createMerchant(MerchantAddRequest merchantAddRequest) {
         CreateUserRequest createUserRequest = generateUserCreateInfo(merchantAddRequest);
         MerchantInfoDto merchantInfoDto = generateMerchantInfoForAdd(merchantAddRequest);
 
@@ -346,7 +335,6 @@ public class MerchantServiceImpl implements MerchantService {
             merchantInfoMapper.insert(merchantInfoDto);
         });
 
-        log.info("addChannel end");
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
@@ -437,15 +425,12 @@ public class MerchantServiceImpl implements MerchantService {
     }
 
     @Override
-    public CommonResponse queryMerchantAccount(AccountQueryRequest accountQueryRequest) {
-        log.info("queryMerchantAccount start");
-        WithdrawalAccountResponse response = queryMerchantAccountData(accountQueryRequest);
-        log.info("queryMerchantAccount end");
+    public CommonResponse queryMerchantAccounts(AccountQueryRequest accountQueryRequest) {
+        WithdrawalAccountResponse response = fetchMerchantAccountPage(accountQueryRequest);
         return CommonResponse.success(response);
     }
 
-    private WithdrawalAccountResponse queryMerchantAccountData(AccountQueryRequest accountQueryRequest) {
-        log.info("queryMerchantAccountData start");
+    private WithdrawalAccountResponse fetchMerchantAccountPage(AccountQueryRequest accountQueryRequest) {
         AccountInfoEntity entity = new AccountInfoEntity();
         entity.setName(accountQueryRequest.getName());
         entity.setWalletAddr(accountQueryRequest.getWalletAddr());
@@ -464,7 +449,7 @@ public class MerchantServiceImpl implements MerchantService {
                 if (accountQueryRequest.getUserId() != null && !accountQueryRequest.getUserId().isEmpty()) {
                     List<String> userIds = new ArrayList<>();
                     userIds.add(userId);
-                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.getBalanceInfos(userIds);
+                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds);
                     response.setCardInfo(cardInfo);
                 }
             }
@@ -478,15 +463,12 @@ public class MerchantServiceImpl implements MerchantService {
 
         response.setPageNo(entity.getPageNo());
         response.setPageSize(entity.getPageSize());
-        log.info("queryMerchantAccountData end");
         return response;
     }
 
     @Override
-    public void exportMerchantAccount(
+    public void exportMerchantAccounts(
             AccountQueryRequest accountQueryRequest, HttpServletResponse response) throws IOException {
-        log.info("exportMerchantAccount start");
-
         // 1) Parse and validate export columns (must go through whitelist)
         ExportFileUtils.ColumnParseResult<WithdrawalAccountsDto> colRes =
                 ExportFileUtils.parseColumns(accountQueryRequest, ExportReportDataColumns.MERCHANT_ACCOUNT_ALLOWED);
@@ -500,17 +482,13 @@ public class MerchantServiceImpl implements MerchantService {
                 response,
                 colRes.getHead(),
                 accountQueryRequest,
-                (req) -> queryMerchantAccountData(req).getWithdrawalAccountsDtoList(),
+                (req) -> fetchMerchantAccountPage(req).getWithdrawalAccountsDtoList(),
                 colRes.getDefs(),
                 ExportReportDataColumns.CHANNEL_EXPORT_FILE_NAME);
-
-        log.info("exportMerchantAccount end");
     }
 
     @Override
-    public CommonResponse editMerchantAccount(AccountEditRequest accountEditRequest) {
-        log.info("editMerchantAccount start, withdrawalId={}", accountEditRequest.getId());
-
+    public CommonResponse updateMerchantAccount(AccountEditRequest accountEditRequest) {
         WithdrawalAccountsDto withdrawalAccountsDto = generateAccountsDto(accountEditRequest);
         try {
             int ret = withdrawalAccountsMapper.updateById(withdrawalAccountsDto);
@@ -523,8 +501,6 @@ public class MerchantServiceImpl implements MerchantService {
             log.error("editMerchantAccount updateByChannelId failed, withdrawalId={}", accountEditRequest.getId(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
-
-        log.info("editMerchantAccount end, withdrawalId={}", accountEditRequest.getId());
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
@@ -541,9 +517,7 @@ public class MerchantServiceImpl implements MerchantService {
     }
 
     @Override
-    public CommonResponse addMerchantAccount(AccountAddRequest accountAddRequest) {
-        log.info("addMerchantAccount start");
-
+    public CommonResponse createMerchantAccount(AccountAddRequest accountAddRequest) {
         try {
             WithdrawalAccountsDto withdrawalAccountsDto = generateAccountInfoDtoForAdd(accountAddRequest);
             int ret = withdrawalAccountsMapper.insert(withdrawalAccountsDto);
@@ -555,8 +529,6 @@ public class MerchantServiceImpl implements MerchantService {
             log.error("addMerchantAccount insert failed", e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
-
-        log.info("addMerchantAccount end");
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 

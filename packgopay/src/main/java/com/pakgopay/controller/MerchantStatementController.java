@@ -75,9 +75,8 @@ public class MerchantStatementController {
 
     @PostMapping("/queryMerchant")
     public CommonResponse queryMerchant(@RequestBody @Valid MerchantQueryRequest merchantQueryRequest) {
-        log.info("queryMerchant start");
         try {
-            return merchantService.queryMerchant(merchantQueryRequest);
+            return merchantService.queryMerchants(merchantQueryRequest);
         } catch (PakGoPayException e) {
             log.error("queryMerchant failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryMerchant failed: " + e.getMessage());
@@ -86,9 +85,8 @@ public class MerchantStatementController {
 
     @PostMapping("/editMerchant")
     public CommonResponse editMerchant(@RequestBody @Valid MerchantEditRequest merchantEditRequest) {
-        log.info("editMerchant start");
         try {
-            return merchantService.editMerchant(merchantEditRequest);
+            return merchantService.updateMerchant(merchantEditRequest);
         } catch (PakGoPayException e) {
             log.error("editMerchant failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "editMerchant failed: " + e.getMessage());
@@ -97,9 +95,8 @@ public class MerchantStatementController {
 
     @PostMapping("/addMerchant")
     public CommonResponse addMerchant(@RequestBody @Valid MerchantAddRequest merchantAddRequest) {
-        log.info("addMerchant start");
         try {
-            return merchantService.addMerchant(merchantAddRequest);
+            return merchantService.createMerchant(merchantAddRequest);
         } catch (PakGoPayException e) {
             log.error("addMerchant failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "addMerchant failed: " + e.getMessage());
@@ -109,9 +106,8 @@ public class MerchantStatementController {
     @PostMapping("/queryMerchantAccount")
     public CommonResponse queryMerchantAccount(
             @RequestBody @Valid AccountQueryRequest accountQueryRequest) {
-        log.info("queryMerchantAccount start");
         try {
-            return merchantService.queryMerchantAccount(accountQueryRequest);
+            return merchantService.queryMerchantAccounts(accountQueryRequest);
         } catch (PakGoPayException e) {
             log.error("queryMerchantAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryMerchantAccount failed: " + e.getMessage());
@@ -121,9 +117,8 @@ public class MerchantStatementController {
     @PostMapping(value = "exportMerchantAccount")
     public void exportMerchantAccount(
             @RequestBody @Valid AccountQueryRequest accountQueryRequest, HttpServletResponse response) {
-        log.info("exportMerchantAccount start");
         try {
-            merchantService.exportMerchantAccount(accountQueryRequest, response);
+            merchantService.exportMerchantAccounts(accountQueryRequest, response);
         } catch (PakGoPayException e) {
             log.error("exportMerchantAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             ExportFileUtils.writeJsonError(response, e.getCode(), "exportMerchantAccount failed: " + e.getMessage());
@@ -132,14 +127,12 @@ public class MerchantStatementController {
             ExportFileUtils.writeJsonError(response,
                     ResultCode.FAIL, "exportMerchantAccount failed, IOException message: " + e.getMessage());
         }
-        log.info("exportMerchantAccount end");
     }
 
     @PostMapping("/editMerchantAccount")
     public CommonResponse editMerchantAccount(@RequestBody @Valid AccountEditRequest accountEditRequest, HttpServletRequest request) {
-        log.info("editMerchantAccount start");
         try {
-            return merchantService.editMerchantAccount(accountEditRequest);
+            return merchantService.updateMerchantAccount(accountEditRequest);
         } catch (PakGoPayException e) {
             log.error("editMerchantAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "editMerchantAccount failed: " + e.getMessage());
@@ -148,9 +141,8 @@ public class MerchantStatementController {
 
     @PostMapping("/addMerchantAccount")
     public CommonResponse addMerchantAccount(@RequestBody @Valid AccountAddRequest accountAddRequest, HttpServletRequest request) {
-        log.info("addMerchantAccount start");
         try {
-            return merchantService.addMerchantAccount(accountAddRequest);
+            return merchantService.createMerchantAccount(accountAddRequest);
         } catch (PakGoPayException e) {
             log.error("addMerchantAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "addMerchantAccount failed: " + e.getMessage());
@@ -160,9 +152,8 @@ public class MerchantStatementController {
     @PostMapping("/queryMerchantStatement")
     public CommonResponse queryMerchantStatement(
             @RequestBody @Valid AccountStatementQueryRequest accountStatementQueryRequest) {
-        log.info("queryMerchantStatement start");
         try {
-            return accountStatementService.queryMerchantStatement(accountStatementQueryRequest);
+            return accountStatementService.queryMerchantStatements(accountStatementQueryRequest);
         } catch (PakGoPayException e) {
             log.error("queryMerchantStatement failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryMerchantStatement failed: " + e.getMessage());
@@ -172,9 +163,8 @@ public class MerchantStatementController {
     @PostMapping("/addMerchantStatement")
     public CommonResponse addMerchantStatement(
             @RequestBody @Valid AccountStatementAddRequest accountStatementAddRequest) {
-        log.info("addMerchantStatement start");
         try {
-            return accountStatementService.addMerchantStatement(accountStatementAddRequest);
+            return accountStatementService.createMerchantStatement(accountStatementAddRequest);
         } catch (PakGoPayException e) {
             log.error("addMerchantStatement failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "addMerchantStatement failed: " + e.getMessage());
@@ -184,9 +174,8 @@ public class MerchantStatementController {
     @PostMapping("/editAccountStatement")
     public CommonResponse editAccountStatement(
             @RequestBody @Valid AccountStatementEditRequest accountStatementEditRequest) {
-        log.info("editAccountStatement start");
         try {
-            return accountStatementService.editAccountStatement(accountStatementEditRequest);
+            return accountStatementService.updateAccountStatement(accountStatementEditRequest);
         } catch (PakGoPayException e) {
             log.error("editAccountStatement failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "editAccountStatement failed: " + e.getMessage());

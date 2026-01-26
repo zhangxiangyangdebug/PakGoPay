@@ -29,17 +29,17 @@ public class SystemConfigController {
 
     @GetMapping("/roleList")
     public CommonResponse roleList(@RequestParam(required = false) String roleName){
-        return systemConfigService.roleList(roleName);
+        return systemConfigService.listRoles(roleName);
     }
 
     @GetMapping("/loginUserList")
     public CommonResponse loginUserList() {
-        return systemConfigService.loginUserList();
+        return systemConfigService.listLoginUsers();
     }
 
     @GetMapping("/manageLoginUserStatus")
     public CommonResponse manageLoginUserStatus(String userId, Integer status, Integer googleCode, String operatorId){
-        return systemConfigService.manageLoginUserStatus(userId, status, googleCode, operatorId);
+        return systemConfigService.updateLoginUserStatus(userId, status, googleCode, operatorId);
     }
 
     @GetMapping("/deleteLoginUser")
@@ -49,17 +49,17 @@ public class SystemConfigController {
 
     @GetMapping("/loginUserByLoginName")
     public CommonResponse loginUserByLoginName(String loginName){
-        return systemConfigService.loginUserByLoginName(loginName);
+        return systemConfigService.fetchLoginUserByLoginName(loginName);
     }
 
     @PostMapping("/addRole")
     public CommonResponse addRoleInfo(@RequestBody AddRoleRequest addRoleRequest, HttpServletRequest request){
-        return systemConfigService.addRoleInfo(addRoleRequest, request);
+        return systemConfigService.createRole(addRoleRequest, request);
     }
 
     @PostMapping("/modifyRoleInfo")
     public CommonResponse modifyRoleInfo(@RequestBody ModifyRoleRequest modifyRoleRequest, HttpServletRequest request){
-        return systemConfigService.modifyRoleInfo(modifyRoleRequest, request);
+        return systemConfigService.updateRole(modifyRoleRequest, request);
     }
 
     @PostMapping("/deleteRole")
@@ -69,6 +69,6 @@ public class SystemConfigController {
 
     @GetMapping("/getRoleInfoByRoleId")
     public CommonResponse getRoleInfoOfMenu(Integer roleId) {
-        return systemConfigService.getRoleMenuInfoByRoleId(roleId);
+        return systemConfigService.fetchRoleMenuByRoleId(roleId);
     }
 }

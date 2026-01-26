@@ -37,7 +37,7 @@ public class MenuItemServiceImpl {
     @Autowired
     private UserMapper userMapper;
 
-    public CommonResponse menu(String  userId) throws JsonProcessingException {
+    public CommonResponse listMenuForUser(String userId) throws JsonProcessingException {
         // 根据userID查询user-role表 拿到用户角色
         Integer roleId = userMapper.getOneUserByUserId(userId).getRoleId();
         if (roleId == null) {

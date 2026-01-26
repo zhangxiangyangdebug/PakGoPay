@@ -54,7 +54,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         log.info("createPayOutOrder start");
         TransactionInfo transactionInfo = new TransactionInfo();
         // 1. get merchant info
-        MerchantInfoDto merchantInfoDto = merchantService.getMerchantInfo(payOrderRequest.getUserId());
+        MerchantInfoDto merchantInfoDto = merchantService.fetchMerchantInfo(payOrderRequest.getUserId());
         transactionInfo.setMerchantInfo(merchantInfoDto);
         // merchant is not exists
         if (merchantInfoDto == null) {
@@ -71,7 +71,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         transactionInfo.setAmount(payOrderRequest.getAmount());
         transactionInfo.setPaymentNo(payOrderRequest.getPaymentNo());
 
-        Long paymentId = channelPaymentService.getPaymentId(CommonConstant.SUPPORT_TYPE_PAY, transactionInfo);
+        Long paymentId = channelPaymentService.selectPaymentId(CommonConstant.SUPPORT_TYPE_PAY, transactionInfo);
 
         // 4. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.PAYOUT_PREFIX);
@@ -82,7 +82,7 @@ public class PayOutOrderServiceImpl implements PayOutOrderService {
         // xiaoyou TODO 计算渠道和通道费率和成本
         // 计算多级代理商分成（判断是否有代理 parent_id）
         // 计算平台利润 = 代付金额 - 商户抽成 - 代理商分成
-        channelPaymentService.calculateTransactionFee(transactionInfo, OrderType.PAY_OUT_ORDER);
+        channelPaymentService.calculateTransactionFees(transactionInfo, OrderType.PAY_OUT_ORDER);
 
         // 冻结资金（代付金额 + 商户抽成）
         balanceService.freezeBalance(CommontUtil.safeAdd(transactionInfo.getMerchantFee(),

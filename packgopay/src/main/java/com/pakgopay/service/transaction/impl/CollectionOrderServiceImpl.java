@@ -7,6 +7,7 @@ import com.pakgopay.data.entity.TransactionInfo;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
@@ -18,6 +19,7 @@ import com.pakgopay.service.transaction.MerchantCheckService;
 import com.pakgopay.service.transaction.OrderHandler;
 import com.pakgopay.service.transaction.OrderHandlerFactory;
 import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,7 +60,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
                 colOrderRequest.getPaymentNo());
         TransactionInfo transactionInfo = new TransactionInfo();
         // 1. get merchant info
-        MerchantInfoDto merchantInfoDto = merchantService.getMerchantInfo(colOrderRequest.getMerchantId());
+        MerchantInfoDto merchantInfoDto = merchantService.fetchMerchantInfo(colOrderRequest.getMerchantId());
         transactionInfo.setMerchantInfo(merchantInfoDto);
         // merchant is not exists
         if (merchantInfoDto == null) {
@@ -79,7 +81,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         transactionInfo.setAmount(colOrderRequest.getAmount());
         transactionInfo.setPaymentNo(colOrderRequest.getPaymentNo());
 
-        channelPaymentService.getPaymentId(CommonConstant.SUPPORT_TYPE_COLLECTION, transactionInfo);
+        channelPaymentService.selectPaymentId(CommonConstant.SUPPORT_TYPE_COLLECTION, transactionInfo);
         log.info("payment resolved, paymentId={}, channelId={}",
                 transactionInfo.getPaymentId(),
                 transactionInfo.getChannelId());
@@ -181,9 +183,8 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         // Parse notify payload into a structured response.
         NotifyRequest response = handler.handleNotify(body);
         log.info("notify parsed, transactionNo={}, merchantNo={}, status={}",
-                response == null ? null : response.getTransactionNo(),
-                response == null ? null : response.getMerchantNo(),
-                response == null ? null : response.getStatus());
+                response.getTransactionNo(), response.getMerchantNo(),
+                response.getStatus());
 
         // Validate required fields in the notify response.
         OrderHandler.validateNotifyResponse(response);
@@ -221,14 +222,14 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
 
     private void applyNotifyUpdate(CollectionOrderDto collectionOrderDto, NotifyRequest response) throws PakGoPayException {
         TransactionStatus targetStatus = resolveNotifyStatus(response.getStatus());
-        MerchantInfoDto merchantInfo = merchantService.getMerchantInfo(collectionOrderDto.getMerchantUserId());
+        MerchantInfoDto merchantInfo = merchantService.fetchMerchantInfo(collectionOrderDto.getMerchantUserId());
         if (merchantInfo == null) {
             throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
         }
         TransactionInfo transactionInfo = new TransactionInfo();
         transactionInfo.setMerchantInfo(merchantInfo);
         transactionInfo.setAmount(resolveOrderAmount(collectionOrderDto));
-        channelPaymentService.calculateTransactionFee(transactionInfo, OrderType.COLLECTION_ORDER);
+        channelPaymentService.calculateTransactionFees(transactionInfo, OrderType.COLLECTION_ORDER);
 
         CollectionOrderDto update = new CollectionOrderDto();
         update.setTransactionNo(collectionOrderDto.getTransactionNo());
@@ -251,7 +252,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         update.setUpdateTime(System.currentTimeMillis() / 1000);
         try {
             collectionOrderMapper.updateByTransactionNo(update);
-            channelPaymentService.updateChannelAndPaymentStats(collectionOrderDto, targetStatus);
+        channelPaymentService.updateChannelAndPaymentCounters(collectionOrderDto, targetStatus);
         } catch (Exception e) {
             log.error("collection order updateByTransactionNo failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -260,7 +261,8 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
             BigDecimal creditAmount = CommontUtil.safeSubtract(
                     resolveOrderAmount(collectionOrderDto), transactionInfo.getMerchantFee());
-            balanceService.rechargeAmount(
+//            balanceService.createBalanceRecord(collectionOrderDto.getMerchantUserId(), collectionOrderDto.getCurrencyType());
+            balanceService.creditBalance(
                     collectionOrderDto.getMerchantUserId(),
                     collectionOrderDto.getCurrencyType(),
                     creditAmount);
@@ -346,60 +348,62 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         // 1) Core identifiers & amounts
         // -----------------------------
         CollectionOrderDto dto = new CollectionOrderDto();
-        dto.setTransactionNo(transactionInfo.getTransactionNo()); // system transaction no
-        dto.setMerchantOrderNo(request.getMerchantOrderNo()); // merchant order no
-        dto.setAmount(request.getAmount()); // requested amount
-        dto.setCurrencyType(request.getCurrency()); // currency code
+        PatchBuilderUtil<CollectionOrderRequest, CollectionOrderDto> builder = PatchBuilderUtil.from(request).to(dto);
+        builder.obj(transactionInfo::getTransactionNo, dto::setTransactionNo) // system transaction no
+                .obj(request::getMerchantOrderNo, dto::setMerchantOrderNo) // merchant order no
+                .obj(request::getAmount, dto::setAmount) // requested amount
+                .obj(request::getCurrency, dto::setCurrencyType); // currency code
         if (merchantInfo.getIsFloat() == 1) {
             BigDecimal floatingAmount = generateFloatAmount(merchantInfo.getFloatRange());
-            dto.setFloatingAmount(floatingAmount); // floating amount
-            dto.setActualAmount(CommontUtil.safeSubtract(request.getAmount(), floatingAmount)); // floating amount
+            builder.obj(() -> floatingAmount, dto::setFloatingAmount) // floating amount
+                    .obj(() -> CommontUtil.safeSubtract(request.getAmount(), floatingAmount), dto::setActualAmount); // floating amount
         }
 
         // -----------------------------
         // 2) Merchant ownership linkage
         // -----------------------------
-        dto.setMerchantUserId(request.getMerchantId()); // merchant user id
+        builder.obj(request::getMerchantId, dto::setMerchantUserId); // merchant user id
 
         // -----------------------------
         // 3) Channel/payment association
         // -----------------------------
-        dto.setPaymentId(transactionInfo.getPaymentId()); // payment channel id
-        dto.setChannelId(transactionInfo.getChannelId()); // channel id
+        builder.obj(transactionInfo::getPaymentId, dto::setPaymentId) // payment channel id
+                .obj(transactionInfo::getChannelId, dto::setChannelId); // channel id
 
         // -----------------------------
         // 4) Merchant & agent fee config
         // -----------------------------
         if (transactionInfo.getPaymentInfo() != null) {
-            dto.setCollectionMode("1".equals(transactionInfo.getPaymentInfo().getIsThird()) ? 2:1); // collection mode
+            Integer collectionMode = "1".equals(transactionInfo.getPaymentInfo().getIsThird()) ? 2 : 1;
+            builder.obj(() -> collectionMode, dto::setCollectionMode); // collection mode
         }
         if (merchantInfo != null) {
-            dto.setMerchantRate(merchantInfo.getCollectionRate()); // merchant collection rate
-            dto.setMerchantFixedFee(merchantInfo.getCollectionFixedFee()); // merchant fixed fee
+            builder.obj(merchantInfo::getCollectionRate, dto::setMerchantRate) // merchant collection rate
+                    .obj(merchantInfo::getCollectionFixedFee, dto::setMerchantFixedFee); // merchant fixed fee
         }
-        dto.setMerchantFee(transactionInfo.getMerchantFee()); // merchant fee
-        dto.setAgent1Rate(transactionInfo.getAgent1Rate()); // agent1 rate
-        dto.setAgent1FixedFee(transactionInfo.getAgent1FixedFee()); // agent1 fixed fee
-        dto.setAgent1Fee(transactionInfo.getAgent1Fee()); // agent1 fee
-        dto.setAgent2Rate(transactionInfo.getAgent2Rate()); // agent2 rate
-        dto.setAgent2FixedFee(transactionInfo.getAgent2FixedFee()); // agent2 fixed fee
-        dto.setAgent2Fee(transactionInfo.getAgent2Fee()); // agent2 fee
-        dto.setAgent3Rate(transactionInfo.getAgent3Rate()); // agent3 rate
-        dto.setAgent3FixedFee(transactionInfo.getAgent3FixedFee()); // agent3 fixed fee
-        dto.setAgent3Fee(transactionInfo.getAgent3Fee()); // agent3 fee
+        builder.obj(transactionInfo::getMerchantFee, dto::setMerchantFee) // merchant fee
+                .obj(transactionInfo::getAgent1Rate, dto::setAgent1Rate) // agent1 rate
+                .obj(transactionInfo::getAgent1FixedFee, dto::setAgent1FixedFee) // agent1 fixed fee
+                .obj(transactionInfo::getAgent1Fee, dto::setAgent1Fee) // agent1 fee
+                .obj(transactionInfo::getAgent2Rate, dto::setAgent2Rate) // agent2 rate
+                .obj(transactionInfo::getAgent2FixedFee, dto::setAgent2FixedFee) // agent2 fixed fee
+                .obj(transactionInfo::getAgent2Fee, dto::setAgent2Fee) // agent2 fee
+                .obj(transactionInfo::getAgent3Rate, dto::setAgent3Rate) // agent3 rate
+                .obj(transactionInfo::getAgent3FixedFee, dto::setAgent3FixedFee) // agent3 fixed fee
+                .obj(transactionInfo::getAgent3Fee, dto::setAgent3Fee); // agent3 fee
 
         // -----------------------------
         // 5) Callback & request metadata
         // -----------------------------
-        dto.setOrderType(1); // order type: 1-system, 2-manual
-        dto.setOrderStatus(1); // order status: 1-processing, 2-failed
-        dto.setCallbackUrl(request.getNotificationUrl()); // async callback url
-        dto.setCallbackTimes(CommonConstant.ZERO); // initial callback times
-        dto.setRequestIp(request.getClientIp()); // request ip
-        dto.setRemark(request.getRemark()); // remark
-        dto.setRequestTime(now); // request time
-        dto.setCreateTime(now); // create time
-        dto.setUpdateTime(now); // update time
+        builder.obj(() -> 1, dto::setOrderType) // order type: 1-system, 2-manual
+                .obj(() -> 1, dto::setOrderStatus) // order status: 1-processing, 2-failed
+                .obj(request::getNotificationUrl, dto::setCallbackUrl) // async callback url
+                .obj(() -> CommonConstant.ZERO, dto::setCallbackTimes) // initial callback times
+                .obj(request::getClientIp, dto::setRequestIp) // request ip
+                .obj(request::getRemark, dto::setRemark) // remark
+                .obj(() -> now, dto::setRequestTime) // request time
+                .obj(() -> now, dto::setCreateTime) // create time
+                .obj(() -> now, dto::setUpdateTime); // update time
 
         // Unassigned fields:
         // actualAmount
@@ -407,7 +411,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         // lastCallbackTime
         // callbackStatus
         // successCallbackTime
-        return dto;
+        return builder.build();
     }
 
     private BigDecimal generateFloatAmount(BigDecimal floatRange) {
@@ -465,7 +469,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         if (handlerResponse instanceof Map<?, ?> map) {
             return (Map<String, Object>) map;
         }
-        if (handlerResponse instanceof com.pakgopay.data.response.http.PaymentHttpResponse resp) {
+        if (handlerResponse instanceof PaymentHttpResponse resp) {
             Object data = resp.getData();
             if (data instanceof Map<?, ?> dataMap) {
                 return (Map<String, Object>) dataMap;

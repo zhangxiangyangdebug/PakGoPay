@@ -8,21 +8,21 @@ import jakarta.servlet.http.HttpServletRequest;
 
 public interface SystemConfigService {
 
-    public CommonResponse roleList(String roleName);
+    public CommonResponse listRoles(String roleName);
 
-    public CommonResponse loginUserList();
+    public CommonResponse listLoginUsers();
 
-    public CommonResponse manageLoginUserStatus(String userId, Integer status, Integer googleCode, String operatorId);
+    public CommonResponse updateLoginUserStatus(String userId, Integer status, Integer googleCode, String operatorId);
 
     public CommonResponse deleteLoginUser(String userId, Integer googleCode, String operatorId);
 
-    public CommonResponse loginUserByLoginName(String loginName);
+    public CommonResponse fetchLoginUserByLoginName(String loginName);
 
-    public CommonResponse addRoleInfo(AddRoleRequest addRoleRequest, HttpServletRequest request);
+    public CommonResponse createRole(AddRoleRequest addRoleRequest, HttpServletRequest request);
 
-    public CommonResponse getRoleMenuInfoByRoleId(Integer menuId);
+    public CommonResponse fetchRoleMenuByRoleId(Integer menuId);
 
-    public CommonResponse modifyRoleInfo(ModifyRoleRequest modifyRoleRequest, HttpServletRequest request);
+    public CommonResponse updateRole(ModifyRoleRequest modifyRoleRequest, HttpServletRequest request);
 
     public CommonResponse deleteRole(DeleteRoleRequest deleteRoleRequest, HttpServletRequest request);
 }

@@ -11,23 +11,23 @@ import java.io.IOException;
 public interface ReportService {
 
 
-    CommonResponse queryMerchantReport(MerchantReportRequest merchantReportRequest) throws PakGoPayException;
+    CommonResponse queryMerchantReports(MerchantReportRequest merchantReportRequest) throws PakGoPayException;
 
-    CommonResponse queryChannelReport(@Valid ChannelReportRequest channelReportRequest) throws PakGoPayException;
+    CommonResponse queryChannelReports(@Valid ChannelReportRequest channelReportRequest) throws PakGoPayException;
 
-    CommonResponse queryAgentReport(@Valid AgentReportRequest agentReportRequest) throws PakGoPayException;
+    CommonResponse queryAgentReports(@Valid AgentReportRequest agentReportRequest) throws PakGoPayException;
 
-    CommonResponse queryCurrencyReport(@Valid BaseReportRequest currencyReportRequest) throws PakGoPayException;
+    CommonResponse queryCurrencyReports(@Valid BaseReportRequest currencyReportRequest) throws PakGoPayException;
 
-    CommonResponse queryPaymentReport(@Valid PaymentReportRequest paymentReportRequest) throws PakGoPayException;
+    CommonResponse queryPaymentReports(@Valid PaymentReportRequest paymentReportRequest) throws PakGoPayException;
 
-    void exportMerchantReport(@Valid MerchantReportRequest merchantReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+    void exportMerchantReports(@Valid MerchantReportRequest merchantReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 
-    void exportChannelReport(@Valid ChannelReportRequest channelReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+    void exportChannelReports(@Valid ChannelReportRequest channelReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 
-    void exportAgentReport(@Valid AgentReportRequest agentReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+    void exportAgentReports(@Valid AgentReportRequest agentReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 
-    void exportCurrencyReport(@Valid BaseReportRequest currencyReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+    void exportCurrencyReports(@Valid BaseReportRequest currencyReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 
-    void exportPaymentReport(@Valid PaymentReportRequest paymentReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+    void exportPaymentReports(@Valid PaymentReportRequest paymentReportRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 }

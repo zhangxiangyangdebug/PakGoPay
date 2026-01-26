@@ -1,7 +1,6 @@
 package com.pakgopay.service.impl;
 
 
-import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.common.enums.ResultCode;
@@ -57,6 +56,9 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     @Autowired
     private AgentInfoMapper agentInfoMapper;
 
+    // =====================
+    // Payment selection
+    // =====================
     /**
      * get available payment ids
      *
@@ -65,23 +67,28 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      * @return payment ids
      * @throws PakGoPayException Business Exception
      */
-    public Long getPaymentId(Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException {
-        log.info("getPaymentId start, get available payment id");
-        String resolvedChannelIds = resolveChannelIds(transactionInfo);
+    @Override
+    public Long selectPaymentId(Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException {
+        log.info("selectPaymentId start, get available payment id");
+        String resolvedChannelIds = resolveChannelIdsForMerchant(transactionInfo);
+        log.info("selectPaymentId resolvedChannelIds, channelIds={}", resolvedChannelIds);
 
         // key:payment_id value:channel_id
         Map<Long, ChannelDto> paymentMap = new HashMap<>();
         // 1. get payment info list through channel ids and payment no
-        List<PaymentDto> paymentDtoList = getPaymentInfosByChannel(
+        List<PaymentDto> paymentDtoList = loadPaymentsByChannelIds(
                 transactionInfo.getPaymentNo(), resolvedChannelIds, supportType, paymentMap);
+        log.info("selectPaymentId loaded payments, size={}", paymentDtoList.size());
 
         // 2. filter support currency payment
-        paymentDtoList = filterSupportCurrencyPayments(paymentDtoList, transactionInfo.getCurrency());
+        paymentDtoList = filterPaymentsByCurrency(paymentDtoList, transactionInfo.getCurrency());
+        log.info("selectPaymentId currency filtered, currency={}, size={}", transactionInfo.getCurrency(), paymentDtoList.size());
 
         // 3. filter no limit payment infos
-        paymentDtoList = filterNoLimitPayments(transactionInfo.getAmount(), paymentDtoList, supportType);
+        paymentDtoList = filterPaymentsByLimits(transactionInfo.getAmount(), paymentDtoList, supportType);
+        log.info("selectPaymentId limit filtered, amount={}, size={}", transactionInfo.getAmount(), paymentDtoList.size());
 
-        PaymentDto paymentDto = selectBySuccessRate(paymentDtoList, supportType);
+        PaymentDto paymentDto = selectPaymentByPerformance(paymentDtoList, supportType);
         log.info(
                 "merchant payment search success, paymentId={}, paymentName={}",
                 paymentDto.getPaymentId(),
@@ -94,18 +101,22 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         transactionInfo.setChannelId(paymentMap.get(paymentDto.getPaymentId()).getChannelId());
         transactionInfo.setChannelInfo(paymentMap.get(paymentDto.getPaymentId()));
 
-        log.info("getPayment id success, id: {}", paymentDto.getPaymentId());
+        log.info("selectPaymentId success, id: {}", paymentDto.getPaymentId());
         return paymentDto.getPaymentId();
     }
 
+    // =====================
+    // Stats updates
+    // =====================
     @Override
-    public void updateChannelAndPaymentStats(CollectionOrderDto order, TransactionStatus status) {
+    public void updateChannelAndPaymentCounters(CollectionOrderDto order, TransactionStatus status) {
         // Update counters only for final status changes.
         boolean isSuccess = TransactionStatus.SUCCESS.equals(status);
         boolean isFailure = TransactionStatus.FAILED.equals(status)
                 || TransactionStatus.EXPIRED.equals(status)
                 || TransactionStatus.CANCELLED.equals(status);
         if (!isSuccess && !isFailure) {
+            log.info("skip stats update, status={}", status == null ? null : status.getCode());
             return;
         }
 
@@ -122,6 +133,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 update.setSuccessRate(calculateSuccessRate(totalCount, failCount));
                 update.setUpdateTime(System.currentTimeMillis() / 1000);
                 channelMapper.updateByChannelId(update);
+                log.info("channel stats updated, channelId={}, totalCount={}, failCount={}", channelId, totalCount, failCount);
             } else {
                 log.warn("channel not found, channelId={}", channelId);
             }
@@ -139,6 +151,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 update.setSuccessQuantity(successQuantity);
                 update.setUpdateTime(System.currentTimeMillis() / 1000);
                 paymentMapper.updateByPaymentId(update);
+                log.info("payment stats updated, paymentId={}, orderQuantity={}, successQuantity={}", paymentId, orderQuantity, successQuantity);
             } else {
                 log.warn("payment not found, paymentId={}", paymentId);
             }
@@ -158,14 +171,157 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 .divide(BigDecimal.valueOf(totalCount), 6, RoundingMode.HALF_UP);
     }
 
-    private PaymentDto selectBySuccessRate(List<PaymentDto> paymentDtoList, Integer supportType) {
+    // =====================
+    // Fee calculation
+    // =====================
+    @Override
+    public void calculateTransactionFees(TransactionInfo transactionInfo, OrderType orderType) {
+        BigDecimal amount = transactionInfo.getAmount();
+        // merchant fee
+        BigDecimal fixedFee = null;
+        BigDecimal rate = null;
+        // get fixedFee and rate
+        if (orderType.equals(OrderType.PAY_OUT_ORDER)) {
+            fixedFee = transactionInfo.getMerchantInfo().getPayFixedFee();
+            rate = transactionInfo.getMerchantInfo().getPayRate();
+        } else {
+            fixedFee = transactionInfo.getMerchantInfo().getCollectionFixedFee();
+            rate = transactionInfo.getMerchantInfo().getCollectionRate();
+        }
+
+        BigDecimal transactionFee = BigDecimal.ZERO;
+        // fixed fee
+        if (fixedFee != null && !fixedFee.equals(BigDecimal.ZERO)) {
+            transactionFee = CommontUtil.safeAdd(transactionFee, fixedFee);
+        }
+
+        // percentage rate
+        if (rate != null && !rate.equals(BigDecimal.ZERO)) {
+            transactionFee = CommontUtil.safeAdd(transactionFee, CommontUtil.calculate(amount, rate, 6));
+        }
+
+        calculateAgentFees(transactionInfo, orderType);
+
+        transactionInfo.setMerchantFee(transactionFee);
+        transactionInfo.setMerchantRate(rate);
+        transactionInfo.setMerchantFixedFee(fixedFee);
+    }
+
+    private void calculateAgentFees(TransactionInfo transactionInfo, OrderType orderType) {
+        String agentId = transactionInfo.getMerchantInfo().getParentId();
+        if (agentId == null) {
+            log.info("merchant has not agent");
+            return;
+        }
+
+        List<AgentInfoDto> chains = new ArrayList<>();
+        Set<String> visited = new HashSet<>(); // 防环
+
+        AgentInfoDto current = loadAgentByUserId(agentId);
+        if (current == null) {
+            log.error("agent info is not exists, agentId {}", agentId);
+            return;
+        }
+
+        Integer startLevel = current.getLevel();
+        while (startLevel >= CommonConstant.AGENT_LEVEL_FIRST) {
+            // preventing the formation of circular links
+            if (current == null || visited.contains(current.getUserId())) {
+                log.warn("userId is duplicate");
+                break;
+            } else {
+                visited.add(current.getUserId());
+            }
+            // check agent enable status
+            if (CommonConstant.ENABLE_STATUS_ENABLE.equals(current.getStatus())) {
+                chains.add(current);
+            } else {
+                log.info("agent is not enable");
+                break;
+            }
+            // check agent parent id
+            if (!StringUtils.hasText(current.getParentId())) {
+                log.info("agent has not parent agent");
+                break;
+            }
+            // check agent level
+            if (current.getLevel() != null && current.getLevel() <= 1) {
+                log.info("agent level is {}", current.getLevel());
+                break;
+            }
+
+            current = loadAgentByUserId(current.getParentId());
+            startLevel--;
+        }
+
+        applyAgentFeesToTransaction(transactionInfo, orderType, chains);
+    }
+
+    /**
+     * save agent's fee info
+     *
+     * @param transactionInfo transaction info
+     * @param orderType       order type
+     * @param chains          agent info list
+     */
+    private void applyAgentFeesToTransaction(TransactionInfo transactionInfo, OrderType orderType, List<AgentInfoDto> chains) {
+        BigDecimal amount = transactionInfo.getAmount();
+        chains.forEach(info -> {
+
+            BigDecimal rate = OrderType.PAY_OUT_ORDER.equals(
+                    orderType) ? info.getPayRate() : info.getCollectionRate();
+            BigDecimal fixedFee = OrderType.PAY_OUT_ORDER.equals(
+                    orderType) ? info.getPayFixedFee() : info.getCollectionFixedFee();
+            BigDecimal agentFee = CommontUtil.calculate(
+                    amount, OrderType.PAY_OUT_ORDER.equals(
+                            orderType) ? info.getPayRate() : info.getCollectionRate(), 6);
+            // First level agent
+            if (CommonConstant.AGENT_LEVEL_FIRST.equals(info.getLevel())) {
+                transactionInfo.setAgent1Rate(rate);
+                transactionInfo.setAgent1FixedFee(fixedFee);
+                transactionInfo.setAgent1Fee(agentFee);
+            }
+            // Second level agent
+            if (CommonConstant.AGENT_LEVEL_SECOND.equals(info.getLevel())) {
+                transactionInfo.setAgent2Rate(rate);
+                transactionInfo.setAgent2FixedFee(fixedFee);
+                transactionInfo.setAgent2Fee(agentFee);
+            }
+            // Third level agent
+            if (CommonConstant.AGENT_LEVEL_THIRD.equals(info.getLevel())) {
+                transactionInfo.setAgent3Rate(rate);
+                transactionInfo.setAgent3FixedFee(fixedFee);
+                transactionInfo.setAgent3Fee(agentFee);
+            }
+        });
+    }
+
+    /**
+     * get agent info by agent id
+     *
+     * @param agentId agent id
+     * @return agent info
+     */
+    private AgentInfoDto loadAgentByUserId(String agentId) {
+        try {
+            return agentInfoMapper.findByUserId(agentId);
+        } catch (Exception e) {
+            log.error("agentInfoMapper findByUserId failed, agentId: {} message: {}", agentId, e.getMessage());
+        }
+        return null;
+    }
+
+    // =====================
+    // Selection helpers
+    // =====================
+    private PaymentDto selectPaymentByPerformance(List<PaymentDto> paymentDtoList, Integer supportType) {
         if (paymentDtoList.size() == 1) {
             return paymentDtoList.getFirst();
         }
         Comparator<PaymentDto> comparator = Comparator
-                .comparingDouble(this::successRate)
+                .comparingDouble(this::computeSuccessRate)
                 .thenComparing(PaymentDto::getSuccessQuantity)
-                .thenComparing(dto -> resolveRate(dto, supportType), Comparator.reverseOrder());
+                .thenComparing(dto -> parsePaymentRate(dto, supportType), Comparator.reverseOrder());
         PaymentDto best = paymentDtoList.stream()
                 .max(comparator)
                 .orElse(paymentDtoList.getFirst());
@@ -178,7 +334,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         return topCandidates.get(new Random().nextInt(topCandidates.size()));
     }
 
-    private double successRate(PaymentDto dto) {
+    private double computeSuccessRate(PaymentDto dto) {
         long total = dto.getOrderQuantity();
         if (total <= 0) {
             return 0.0d;
@@ -186,7 +342,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         return (double) dto.getSuccessQuantity() / (double) total;
     }
 
-    private BigDecimal resolveRate(PaymentDto dto, Integer supportType) {
+    private BigDecimal parsePaymentRate(PaymentDto dto, Integer supportType) {
         String rate = CommonConstant.SUPPORT_TYPE_PAY.equals(supportType)
                 ? dto.getPaymentPayRate()
                 : dto.getPaymentCollectionRate();
@@ -201,7 +357,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         }
     }
 
-    private String resolveChannelIds(TransactionInfo transactionInfo) throws PakGoPayException {
+    private String resolveChannelIdsForMerchant(TransactionInfo transactionInfo) throws PakGoPayException {
         MerchantInfoDto merchantInfo = transactionInfo.getMerchantInfo();
         String resolvedChannelIds = merchantInfo == null ? null : merchantInfo.getChannelIds();
         if (StringUtils.hasText(resolvedChannelIds)) {
@@ -232,10 +388,9 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      * @return paymentInfo
      * @throws PakGoPayException business Exception
      */
-    private List<PaymentDto> getPaymentInfosByChannel(
+    private List<PaymentDto> loadPaymentsByChannelIds(
             Integer paymentNo, String channelIds, Integer supportType, Map<Long, ChannelDto> paymentMap)
             throws PakGoPayException {
-        log.info("filterNoLimitPayments start, channelIds {}", channelIds);
         // 1. obtain merchant's channel id list
         if (!StringUtils.hasText(channelIds)) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not channel");
@@ -247,7 +402,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         }
 
         // 2. obtain merchant's available payment ids by channel ids
-        Set<Long> paymentIdList = getAssociatePaymentIdByChannel(channelIdList, paymentMap);
+        Set<Long> paymentIdList = collectPaymentIdsByChannelIds(channelIdList, paymentMap);
 
         // 3. obtain merchant's available payment infos by channel ids
         List<PaymentDto> paymentDtoList = paymentMapper.
@@ -255,25 +410,24 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         if (paymentDtoList == null || paymentDtoList.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "Merchants have no available matching payments");
         }
-        paymentDtoList = filterEnableTimePayments(paymentDtoList);
+        paymentDtoList = filterPaymentsByEnableTime(paymentDtoList);
         return paymentDtoList;
     }
 
-    private List<PaymentDto> filterEnableTimePayments(List<PaymentDto> paymentDtoList) throws PakGoPayException {
+    private List<PaymentDto> filterPaymentsByEnableTime(List<PaymentDto> paymentDtoList) throws PakGoPayException {
         // Filter payments by enableTimePeriod (format: HH:mm:ss,HH:mm:ss).
         LocalTime now = LocalTime.now(ZoneId.systemDefault());
         List<PaymentDto> availablePayments = paymentDtoList.stream()
-                .filter(payment -> isWithinEnableTime(now, payment.getEnableTimePeriod()))
+                .filter(payment -> isWithinEnableTimeWindow(now, payment.getEnableTimePeriod()))
                 .toList();
         if (availablePayments.isEmpty()) {
             log.warn("no available payments in enable time period, now={}", now);
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "no available payments in time period");
         }
-        log.info("filterEnableTimePayments end, available size {}", availablePayments.size());
         return availablePayments;
     }
 
-    private boolean isWithinEnableTime(LocalTime now, String enableTimePeriod) {
+    private boolean isWithinEnableTimeWindow(LocalTime now, String enableTimePeriod) {
         if (!StringUtils.hasText(enableTimePeriod)) {
             return true;
         }
@@ -309,15 +463,13 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      * @return filtered payments
      * @throws PakGoPayException business Exception
      */
-    private List<PaymentDto> filterSupportCurrencyPayments(List<PaymentDto> availablePayments, String currency) throws PakGoPayException {
-        log.info("filterSupportCurrencyPayments start");
+    private List<PaymentDto> filterPaymentsByCurrency(List<PaymentDto> availablePayments, String currency) throws PakGoPayException {
         availablePayments = availablePayments.stream()
                 .filter(payment -> payment.getCurrency().equals(currency)).toList();
         if (availablePayments.isEmpty()) {
             log.error("availablePayments is empty");
             throw new PakGoPayException(ResultCode.PAYMENT_NOT_SUPPORT_CURRENCY, "channel is not support this currency: " + currency);
         }
-        log.error("filterSupportCurrencyPayments end, availablePayments size {}", availablePayments.size());
         return availablePayments;
     }
 
@@ -330,9 +482,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      * @return filtered payments
      * @throws PakGoPayException business Exception
      */
-    private List<PaymentDto> filterNoLimitPayments(BigDecimal amount, List<PaymentDto> paymentDtoList, Integer supportType) throws PakGoPayException {
-        log.info("filterNoLimitPayments start, paymentsDtoList size {}", paymentDtoList.size());
-
+    private List<PaymentDto> filterPaymentsByLimits(BigDecimal amount, List<PaymentDto> paymentDtoList, Integer supportType) throws PakGoPayException {
         // Filter orders by amount that match the maximum and minimum range of the channel.
         paymentDtoList = paymentDtoList.stream().filter(dto ->
                         // check payment min amount
@@ -357,7 +507,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         List<Long> enAblePaymentIds = paymentDtoList.stream().map(PaymentDto::getPaymentId).toList();
         Map<Long, BigDecimal> currentDayAmountSum = new HashMap<>();
         Map<Long, BigDecimal> currentMonthAmountSum = new HashMap<>();
-        getCurrentAmountSumByType(enAblePaymentIds, supportType, currentDayAmountSum, currentMonthAmountSum);
+        loadCurrentAmountSums(enAblePaymentIds, supportType, currentDayAmountSum, currentMonthAmountSum);
 
         // filter no limit payment
         List<PaymentDto> availablePayments = paymentDtoList.stream().filter(dto ->
@@ -375,7 +525,6 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         if (availablePayments.isEmpty()) {
             throw new PakGoPayException(ResultCode.PAYMENT_AMOUNT_OVER_LIMIT, "Merchant‘s payments over daily/monthly limit");
         }
-        log.info("no limit payment info size {}", availablePayments.size());
         return availablePayments;
     }
 
@@ -387,10 +536,9 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      * @param currentDayAmountSum   daily amount (key: paymentId value: amount sum)
      * @param currentMonthAmountSum monthly amount (key: paymentId value: amount sum)
      */
-    private void getCurrentAmountSumByType(
+    private void loadCurrentAmountSums(
             List<Long> enAblePaymentIds, Integer supportType, Map<Long, BigDecimal> currentDayAmountSum,
             Map<Long, BigDecimal> currentMonthAmountSum) throws PakGoPayException {
-        log.info("getCurrentAmountSumByType start");
         ZoneId zoneId = ZoneId.systemDefault();
         LocalDate today = LocalDate.now(zoneId);
         ZonedDateTime dayStart = today.atStartOfDay(zoneId);
@@ -410,11 +558,10 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             }
 
             if (collectionOrderDetailDtoList == null || collectionOrderDetailDtoList.isEmpty()) {
-                log.info("getCurrentAmountSumByType collectionOrderDetailDtoList is empty");
                 return;
             }
 
-            accumulateAmountSum(collectionOrderDetailDtoList, dayStart,
+            accumulateAmountSums(collectionOrderDetailDtoList, dayStart,
                     currentDayAmountSum, currentMonthAmountSum, true);
         } else {
             // order type Payout
@@ -429,19 +576,16 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             }
 
             if (payOrderDtoList == null || payOrderDtoList.isEmpty()) {
-                log.info("getCurrentAmountSumByType payOrderDtoList is empty");
                 return;
             }
 
-            accumulateAmountSum(payOrderDtoList, dayStart,
+            accumulateAmountSums(payOrderDtoList, dayStart,
                     currentDayAmountSum, currentMonthAmountSum, false);
         }
 
-        log.info("getCurrentAmountSumByType end, currentDayAmountSum: {}, currentMonthAmountSum: {}"
-                , JSON.toJSONString(currentDayAmountSum), JSON.toJSONString(currentMonthAmountSum));
     }
 
-    private void accumulateAmountSum(
+    private void accumulateAmountSums(
             List<?> orderDtoList,
             ZonedDateTime dayStart,
             Map<Long, BigDecimal> currentDayAmountSum,
@@ -484,7 +628,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      * @return payment ids
      * @throws PakGoPayException business Exception
      */
-    private Set<Long> getAssociatePaymentIdByChannel(List<Long> channelIdList, Map<Long, ChannelDto> paymentMap) throws PakGoPayException {
+    private Set<Long> collectPaymentIdsByChannelIds(List<Long> channelIdList, Map<Long, ChannelDto> paymentMap) throws PakGoPayException {
         List<ChannelDto> channelInfos = channelMapper.
                 getPaymentIdsByChannelIds(channelIdList, CommonConstant.ENABLE_STATUS_ENABLE);
         if (channelInfos.isEmpty()) {
@@ -508,154 +652,16 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         return paymentIdList;
     }
 
-    public void calculateTransactionFee(TransactionInfo transactionInfo, OrderType orderType) {
-        BigDecimal amount = transactionInfo.getAmount();
-        // merchant fee
-        BigDecimal fixedFee = null;
-        BigDecimal rate = null;
-        // get fixedFee and rate
-        if (orderType.equals(OrderType.PAY_OUT_ORDER)) {
-            fixedFee = transactionInfo.getMerchantInfo().getPayFixedFee();
-            rate = transactionInfo.getMerchantInfo().getPayRate();
-        } else {
-            fixedFee = transactionInfo.getMerchantInfo().getCollectionFixedFee();
-            rate = transactionInfo.getMerchantInfo().getCollectionRate();
-        }
-
-        BigDecimal transactionFee = BigDecimal.ZERO;
-        // fixed fee
-        if (fixedFee != null && !fixedFee.equals(BigDecimal.ZERO)) {
-            transactionFee = CommontUtil.safeAdd(transactionFee, fixedFee);
-        }
-
-        // percentage rate
-        if (rate != null && !rate.equals(BigDecimal.ZERO)) {
-            transactionFee = CommontUtil.safeAdd(transactionFee, CommontUtil.calculate(amount, rate, 6));
-        }
-
-        calculateAgentFee(transactionInfo, orderType);
-
-        transactionInfo.setMerchantFee(transactionFee);
-        transactionInfo.setMerchantRate(rate);
-        transactionInfo.setMerchantFixedFee(fixedFee);
-    }
-
-    private void calculateAgentFee(TransactionInfo transactionInfo, OrderType orderType) {
-        log.info("calculateAgentFee start");
-        String agentId = transactionInfo.getMerchantInfo().getParentId();
-        if (agentId == null) {
-            log.info("merchant has not agent");
-            return;
-        }
-
-        List<AgentInfoDto> chains = new ArrayList<>();
-        Set<String> visited = new HashSet<>(); // 防环
-
-        // 1) 先查当前用户，拿到起始 level
-        AgentInfoDto current = getAgentInfoByAgentId(agentId);
-        if (current == null) {
-            log.error("agent info is not exists, agentId {}", agentId);
-            return;
-        }
-
-        Integer startLevel = current.getLevel();
-        while (startLevel >= CommonConstant.AGENT_LEVEL_FIRST) {
-            // preventing the formation of circular links
-            if (current == null || visited.contains(current.getUserId())) {
-                log.warn("userId is duplicate");
-                break;
-            } else {
-                visited.add(current.getUserId());
-            }
-            // check agent enable status
-            if (CommonConstant.ENABLE_STATUS_ENABLE.equals(current.getStatus())) {
-                chains.add(current);
-            } else {
-                log.info("agent is not enable");
-                break;
-            }
-            // check agent parent id
-            if (!StringUtils.hasText(current.getParentId())) {
-                log.info("agent has not parent agent");
-                break;
-            }
-            // check agent level
-            if (current.getLevel() != null && current.getLevel() <= 1) {
-                log.info("agent level is {}", current.getLevel());
-                break;
-            }
-
-            current = getAgentInfoByAgentId(current.getParentId());
-            startLevel--;
-        }
-
-        setAgentInfoForTransaction(transactionInfo, orderType, chains);
-        log.info("calculateAgentFee end");
-    }
-
-    /**
-     * save agent's fee info
-     *
-     * @param transactionInfo transaction info
-     * @param orderType       order type
-     * @param chains          agent info list
-     */
-    private void setAgentInfoForTransaction(TransactionInfo transactionInfo, OrderType orderType, List<AgentInfoDto> chains) {
-        BigDecimal amount = transactionInfo.getAmount();
-        chains.forEach(info -> {
-
-            BigDecimal rate = OrderType.PAY_OUT_ORDER.equals(
-                    orderType) ? info.getPayRate() : info.getCollectionRate();
-            BigDecimal fixedFee = OrderType.PAY_OUT_ORDER.equals(
-                    orderType) ? info.getPayFixedFee() : info.getCollectionFixedFee();
-            BigDecimal agentFee = CommontUtil.calculate(
-                    amount, OrderType.PAY_OUT_ORDER.equals(
-                            orderType) ? info.getPayRate() : info.getCollectionRate(), 6);
-            // First level agent
-            if (CommonConstant.AGENT_LEVEL_FIRST.equals(info.getLevel())) {
-                transactionInfo.setAgent1Rate(rate);
-                transactionInfo.setAgent1FixedFee(fixedFee);
-                transactionInfo.setAgent1Fee(agentFee);
-            }
-            // Second level agent
-            if (CommonConstant.AGENT_LEVEL_SECOND.equals(info.getLevel())) {
-                transactionInfo.setAgent2Rate(rate);
-                transactionInfo.setAgent2FixedFee(fixedFee);
-                transactionInfo.setAgent2Fee(agentFee);
-            }
-            // Third level agent
-            if (CommonConstant.AGENT_LEVEL_THIRD.equals(info.getLevel())) {
-                transactionInfo.setAgent3Rate(rate);
-                transactionInfo.setAgent3FixedFee(fixedFee);
-                transactionInfo.setAgent3Fee(agentFee);
-            }
-        });
-    }
-
-    /**
-     * get agent info by agent id
-     *
-     * @param agentId agent id
-     * @return agent info
-     */
-    private AgentInfoDto getAgentInfoByAgentId(String agentId) {
-        try {
-            return agentInfoMapper.findByUserId(agentId);
-        } catch (Exception e) {
-            log.error("agentInfoMapper findByUserId failed, agentId: {} message: {}", agentId, e.getMessage());
-        }
-        return null;
-    }
-
-    public CommonResponse queryChannel(@Valid ChannelQueryRequest channelQueryRequest) throws PakGoPayException {
-        log.info("queryChannel start");
-        ChannelResponse response = queryChannelData(channelQueryRequest);
-        log.info("queryChannel end");
+    // =====================
+    // Channel/payment management
+    // =====================
+    @Override
+    public CommonResponse queryChannels(@Valid ChannelQueryRequest channelQueryRequest) throws PakGoPayException {
+        ChannelResponse response = fetchChannelPage(channelQueryRequest);
         return CommonResponse.success(response);
     }
 
-    private ChannelResponse queryChannelData(ChannelQueryRequest channelQueryRequest) throws PakGoPayException {
-        log.info("queryChannelData start");
+    private ChannelResponse fetchChannelPage(ChannelQueryRequest channelQueryRequest) throws PakGoPayException {
         ChannelEntity entity = new ChannelEntity();
         entity.setChannelId(channelQueryRequest.getChannelId());
         entity.setPaymentId(channelQueryRequest.getPaymentId());
@@ -668,7 +674,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         try {
             Integer totalNumber = channelMapper.countByQuery(entity);
             List<ChannelDto> channelDtoList = channelMapper.pageByQuery(entity);
-            getPaymentInfoUnderChannel(channelDtoList);
+            attachPaymentsToChannels(channelDtoList);
 
             response.setChannelDtoList(channelDtoList);
             response.setTotalNumber(totalNumber);
@@ -679,12 +685,10 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
         response.setPageNo(entity.getPageNo());
         response.setPageSize(entity.getPageSize());
-        log.info("queryChannelData end");
         return response;
     }
 
-    private void getPaymentInfoUnderChannel(List<ChannelDto> channelDtoList) {
-        log.info("getPaymentInfoUnderChannel start");
+    private void attachPaymentsToChannels(List<ChannelDto> channelDtoList) {
         Map<ChannelDto, List<Long>> channelPaymentIdsMap = new HashMap<>();
         Set<Long> allPaymentIds = new HashSet<>();
 
@@ -699,7 +703,6 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 : paymentMapper.findByPaymentIds(new ArrayList<>(allPaymentIds)).stream()
                 .filter(p -> p != null && p.getPaymentId() != null)
                 .collect(Collectors.toMap(PaymentDto::getPaymentId, v -> v, (a, b) -> a));
-        log.info("findByPaymentIds paymentMap size: {}", paymentMap.size());
         for (ChannelDto channel : channelDtoList) {
             List<Long> ids = channelPaymentIdsMap.getOrDefault(channel, Collections.emptyList());
 
@@ -716,17 +719,15 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 }
             }
         }
-        log.info("getPaymentInfoUnderChannel end");
     }
 
-    public CommonResponse queryPayment(@Valid PaymentQueryRequest paymentQueryRequest) throws PakGoPayException {
-        log.info("queryPayment start");
-        PaymentResponse response = queryPaymentData(paymentQueryRequest);
-        log.info("queryPayment end");
+    @Override
+    public CommonResponse queryPayments(@Valid PaymentQueryRequest paymentQueryRequest) throws PakGoPayException {
+        PaymentResponse response = fetchPaymentPage(paymentQueryRequest);
         return CommonResponse.success(response);
     }
 
-    private PaymentResponse queryPaymentData(PaymentQueryRequest paymentQueryRequest) throws PakGoPayException {
+    private PaymentResponse fetchPaymentPage(PaymentQueryRequest paymentQueryRequest) throws PakGoPayException {
         PaymentEntity entity = new PaymentEntity();
         entity.setPaymentName(paymentQueryRequest.getPaymentName());
         entity.setSupportType(paymentQueryRequest.getSupportType());
@@ -754,10 +755,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     }
 
     @Override
-    public void exportChannel(ChannelQueryRequest channelQueryRequest, HttpServletResponse response)
+    public void exportChannels(ChannelQueryRequest channelQueryRequest, HttpServletResponse response)
             throws PakGoPayException, IOException {
-        log.info("exportChannel start");
-
         // 1) Parse and validate export columns (must go through whitelist)
         ExportFileUtils.ColumnParseResult<ChannelDto> colRes =
                 ExportFileUtils.parseColumns(channelQueryRequest, ExportReportDataColumns.CHANNEL_ALLOWED);
@@ -771,18 +770,14 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 response,
                 colRes.getHead(),
                 channelQueryRequest,
-                (req) -> queryChannelData(req).getChannelDtoList(),
+                (req) -> fetchChannelPage(req).getChannelDtoList(),
                 colRes.getDefs(),
                 ExportReportDataColumns.CHANNEL_EXPORT_FILE_NAME);
-
-        log.info("exportChannel end");
     }
 
     @Override
-    public void exportPayment(PaymentQueryRequest paymentQueryRequest, HttpServletResponse response)
+    public void exportPayments(PaymentQueryRequest paymentQueryRequest, HttpServletResponse response)
             throws PakGoPayException, IOException {
-        log.info("exportPayment start");
-
         // 1) Parse and validate export columns (must go through whitelist)
         ExportFileUtils.ColumnParseResult<PaymentDto> colRes =
                 ExportFileUtils.parseColumns(paymentQueryRequest, ExportReportDataColumns.PAYMENT_ALLOWED);
@@ -796,35 +791,29 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 response,
                 colRes.getHead(),
                 paymentQueryRequest,
-                (req) -> queryPaymentData(req).getPaymentDtoList(),
+                (req) -> fetchPaymentPage(req).getPaymentDtoList(),
                 colRes.getDefs(),
                 ExportReportDataColumns.PAYMENT_EXPORT_FILE_NAME);
-
-        log.info("exportPayment end");
     }
 
     @Override
-    public CommonResponse editChannel(ChannelEditRequest channelEditRequest) throws PakGoPayException {
-        log.info("editChannel start, channelId={}", channelEditRequest.getChannelId());
-
-        ChannelDto channelDto = checkAndGenerateChannelDto(channelEditRequest);
+    public CommonResponse updateChannel(ChannelEditRequest channelEditRequest) throws PakGoPayException {
+        ChannelDto channelDto = buildChannelUpdateDto(channelEditRequest);
         try {
             int ret = channelMapper.updateByChannelId(channelDto);
-            log.info("editChannel updateByChannelId done, channelId={}, ret={}", channelEditRequest.getChannelId(), ret);
+            log.info("updateChannel updateByChannelId done, channelId={}, ret={}", channelEditRequest.getChannelId(), ret);
 
             if (ret <= 0) {
                 return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
             }
         } catch (Exception e) {
-            log.error("editChannel updateByChannelId failed, channelId={}", channelEditRequest.getChannelId(), e);
+            log.error("updateChannel updateByChannelId failed, channelId={}", channelEditRequest.getChannelId(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
-
-        log.info("editChannel end, channelId={}", channelEditRequest.getChannelId());
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
-    private ChannelDto checkAndGenerateChannelDto(ChannelEditRequest channelEditRequest) throws PakGoPayException {
+    private ChannelDto buildChannelUpdateDto(ChannelEditRequest channelEditRequest) throws PakGoPayException {
         ChannelDto dto = new ChannelDto();
         dto.setChannelId(PatchBuilderUtil.parseRequiredLong(channelEditRequest.getChannelId(), "channelId"));
         dto.setUpdateTime(System.currentTimeMillis() / 1000);
@@ -838,28 +827,24 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     }
 
     @Override
-    public CommonResponse editPayment(PaymentEditRequest paymentEditRequest) throws PakGoPayException {
-        log.info("editPayment start, paymentId={}", paymentEditRequest.getPaymentId());
-
-        PaymentDto paymentDto = checkAndGeneratePaymentDto(paymentEditRequest);
+    public CommonResponse updatePayment(PaymentEditRequest paymentEditRequest) throws PakGoPayException {
+        PaymentDto paymentDto = buildPaymentUpdateDto(paymentEditRequest);
 
         try {
             int ret = paymentMapper.updateByPaymentId(paymentDto);
-            log.info("editPayment updateByPaymentId done, paymentId={}, ret={}", paymentEditRequest.getPaymentId(), ret);
+            log.info("updatePayment updateByPaymentId done, paymentId={}, ret={}", paymentEditRequest.getPaymentId(), ret);
 
             if (ret <= 0) {
                 return CommonResponse.fail(ResultCode.FAIL, "payment not found or no rows updated");
             }
         } catch (Exception e) {
-            log.error("editPayment updateByChannelId failed, channelId={}", paymentEditRequest.getPaymentId(), e);
+            log.error("updatePayment updateByChannelId failed, channelId={}", paymentEditRequest.getPaymentId(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
-
-        log.info("editPayment end, channelId={}", paymentEditRequest.getPaymentId());
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
-    private PaymentDto checkAndGeneratePaymentDto(PaymentEditRequest paymentEditRequest) throws PakGoPayException {
+    private PaymentDto buildPaymentUpdateDto(PaymentEditRequest paymentEditRequest) throws PakGoPayException {
         PaymentDto dto = new PaymentDto();
         dto.setPaymentId(PatchBuilderUtil.parseRequiredLong(paymentEditRequest.getPaymentId(), "paymentId"));
         dto.setUpdateTime(System.currentTimeMillis() / 1000);
@@ -899,23 +884,19 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     }
 
     @Override
-    public CommonResponse addChannel(ChannelAddRequest channelAddRequest) throws PakGoPayException {
-        log.info("addChannel start");
-
-        ChannelDto channelDto = checkAndGenerateChannelDtoForAdd(channelAddRequest);
+    public CommonResponse createChannel(ChannelAddRequest channelAddRequest) throws PakGoPayException {
+        ChannelDto channelDto = buildChannelCreateDto(channelAddRequest);
         try {
             int ret = channelMapper.insert(channelDto);
-            log.info("addChannel insert done, ret={}", ret);
+            log.info("createChannel insert done, ret={}", ret);
         } catch (Exception e) {
-            log.error("addChannel insert failed", e);
+            log.error("createChannel insert failed", e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
-
-        log.info("addChannel end");
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
-    private ChannelDto checkAndGenerateChannelDtoForAdd(ChannelAddRequest channelAddRequest) {
+    private ChannelDto buildChannelCreateDto(ChannelAddRequest channelAddRequest) {
         ChannelDto dto = new ChannelDto();
         long now = System.currentTimeMillis() / 1000;
 
@@ -935,23 +916,19 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     }
 
     @Override
-    public CommonResponse addPayment(PaymentAddRequest paymentAddRequest) throws PakGoPayException {
-        log.info("addPayment start");
-
-        PaymentDto paymentDto = checkAndGeneratePaymentDtoForAdd(paymentAddRequest);
+    public CommonResponse createPayment(PaymentAddRequest paymentAddRequest) throws PakGoPayException {
+        PaymentDto paymentDto = buildPaymentCreateDto(paymentAddRequest);
         try {
             int ret = paymentMapper.insert(paymentDto);
-            log.info("addPayment insert done, ret={}", ret);
+            log.info("createPayment insert done, ret={}", ret);
         } catch (Exception e) {
-            log.error("addPayment insert failed", e);
+            log.error("createPayment insert failed", e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
-
-        log.info("addPayment end");
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
-    private PaymentDto checkAndGeneratePaymentDtoForAdd(
+    private PaymentDto buildPaymentCreateDto(
             PaymentAddRequest paymentAddRequest) throws PakGoPayException {
         PaymentDto dto = new PaymentDto();
         long now = System.currentTimeMillis() / 1000;
@@ -988,10 +965,10 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         // supportType routing
         Integer supportType = paymentAddRequest.getSupportType();
         if (supportType == 0 || supportType == 2) {
-            applyCollectRequired(builder, paymentAddRequest);
+            applyCollectionRequiredFields(builder, paymentAddRequest);
         }
         if (supportType == 1 || supportType == 2) {
-            applyPayRequired(builder, paymentAddRequest);
+            applyPayRequiredFields(builder, paymentAddRequest);
         }
 
         // Checkout counter requirement
@@ -1008,7 +985,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         return builder.build();
     }
 
-    private void applyPayRequired(
+    private void applyPayRequiredFields(
             PatchBuilderUtil<PaymentAddRequest, PaymentDto> builder, PaymentAddRequest req) throws PakGoPayException {
         PaymentDto dto = builder.dto();
 
@@ -1021,7 +998,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 .reqStr("payCallbackAddr", req::getPayCallbackAddr, dto::setPayCallbackAddr);
     }
 
-    private void applyCollectRequired(
+    private void applyCollectionRequiredFields(
             PatchBuilderUtil<PaymentAddRequest, PaymentDto> builder, PaymentAddRequest req) throws PakGoPayException {
         PaymentDto dto = builder.dto();
 

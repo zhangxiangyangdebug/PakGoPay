@@ -41,7 +41,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     }
 
     @Override
-    public CommonResponse roleList(String roleName) {
+    public CommonResponse listRoles(String roleName) {
         List<Role> roleList = null;
         if (StringUtils.isEmpty(roleName)) {
             roleList = roleMapper.getRoleList();
@@ -66,7 +66,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     }
 
     @Override
-    public CommonResponse loginUserList() {
+    public CommonResponse listLoginUsers() {
         List<UserDTO> loginUsers = userMapper.selectAllUser();
         if (loginUsers.isEmpty()) {
             return CommonResponse.success(null);
@@ -75,7 +75,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     }
 
     @Override
-    public CommonResponse manageLoginUserStatus(String userId, Integer status, Integer googleCode, String operatorId) {
+    public CommonResponse updateLoginUserStatus(String userId, Integer status, Integer googleCode, String operatorId) {
         // 校验Google
         String operatorSecretKey = userMapper.getSecretKeyByUserId(operatorId);
         boolean googleResult = GoogleUtil.verifyQrCode(operatorSecretKey, googleCode);
@@ -114,17 +114,17 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     }
 
     @Override
-    public CommonResponse loginUserByLoginName(String loginName) {
+    public CommonResponse fetchLoginUserByLoginName(String loginName) {
         UserDTO userDTO = userMapper.loginUserByLoginName(loginName);
         return CommonResponse.success(userDTO);
     }
 
     @Override
     @Transactional
-    public CommonResponse addRoleInfo(AddRoleRequest addRoleRequest, HttpServletRequest request) {
+    public CommonResponse createRole(AddRoleRequest addRoleRequest, HttpServletRequest request) {
         Long googleCode = addRoleRequest.getGoogleCode();
         try {
-            String userInfo = checkGoogleCode(googleCode, request);
+            String userInfo = verifyGoogleCode(googleCode, request);
             if (userInfo == null) {
                 return CommonResponse.fail(ResultCode.CODE_IS_EXPIRE);
             }
@@ -161,7 +161,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     }
 
     @Override
-    public CommonResponse getRoleMenuInfoByRoleId(Integer menuId) {
+    public CommonResponse fetchRoleMenuByRoleId(Integer menuId) {
 
         List<RoleMenuDTO> roleMenuByRoleId = roleMenuMapper.getRoleMenuInfoByRoleId(menuId);
         if (roleMenuByRoleId.isEmpty()) {
@@ -184,10 +184,10 @@ public class SystemConfigServiceImpl implements SystemConfigService {
 
     @Override
     @Transactional
-    public CommonResponse modifyRoleInfo(ModifyRoleRequest modifyRoleRequest, HttpServletRequest request) {
+    public CommonResponse updateRole(ModifyRoleRequest modifyRoleRequest, HttpServletRequest request) {
         String operatorInfo = null;
         try {
-            operatorInfo = checkGoogleCode(modifyRoleRequest.getGoogleCode(), request);
+            operatorInfo = verifyGoogleCode(modifyRoleRequest.getGoogleCode(), request);
             if (operatorInfo == null) {
                 return CommonResponse.fail(ResultCode.CODE_IS_EXPIRE);
             }
@@ -219,7 +219,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         }
     }
 
-    public String checkGoogleCode(Long googleCode, HttpServletRequest request) throws PakGoPayException {
+    public String verifyGoogleCode(Long googleCode, HttpServletRequest request) throws PakGoPayException {
         String header = request.getHeader("Authorization");
         String token = header.substring(7);
         String userInfo = AuthorizationService.verifyToken(token);
@@ -240,7 +240,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     @Transactional
     public CommonResponse deleteRole(DeleteRoleRequest deleteRoleRequest, HttpServletRequest request) {
         try {
-            String userInfo = checkGoogleCode(deleteRoleRequest.getGoogleCode(), request);
+            String userInfo = verifyGoogleCode(deleteRoleRequest.getGoogleCode(), request);
             if (userInfo == null) {
                 return CommonResponse.fail(ResultCode.CODE_IS_EXPIRE);
             }

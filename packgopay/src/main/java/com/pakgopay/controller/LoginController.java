@@ -73,7 +73,7 @@ public class LoginController {
 
     @RequestMapping(value = "db")
     public String test3(){
-        List<UserDTO> user = userService.selectAllUser();
+        List<UserDTO> user = userService.listUsers();
         System.out.println(user);
         return "test3";
     }
@@ -86,7 +86,7 @@ public class LoginController {
      */
     @GetMapping("/refreshToken")
     public CommonResponse accessTokenRefresh(@RequestParam String freshToken){
-        return loginService.refreshToken(freshToken);
+        return loginService.refreshAuthToken(freshToken);
     }
 
     /**
@@ -96,6 +96,6 @@ public class LoginController {
      */
     @RequestMapping(value = "/getCode")
     public CommonResponse verify(@RequestParam(value = "userName")String userName, @RequestParam(value = "password") String password){
-        return loginService.getQrCode(userName, password);
+        return loginService.generateLoginQrCode(userName, password);
     }
 }

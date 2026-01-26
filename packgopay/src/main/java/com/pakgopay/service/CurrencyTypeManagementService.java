@@ -7,9 +7,9 @@ import jakarta.servlet.http.HttpServletRequest;
 
 public interface CurrencyTypeManagementService {
 
-    CommonResponse getAllCurrencyType();
+    CommonResponse listCurrencyTypes();
 
-    CommonResponse getCurrencyById(Integer id);
+    CommonResponse fetchCurrencyById(Integer id);
 
-    CommonResponse addNewCurrencyType(CurrencyTypeRequest currencyTypeRequest, HttpServletRequest httpServletRequest);
+    CommonResponse createCurrencyType(CurrencyTypeRequest currencyTypeRequest, HttpServletRequest httpServletRequest);
 }
