@@ -1,5 +1,6 @@
 package com.pakgopay.controller;
 
+import com.pakgopay.data.entity.Message;
 import com.pakgopay.data.reqeust.LoginRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.entity.TestMessage;
@@ -16,7 +17,8 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @RestController
 @RequestMapping("/pakGoPay/server/Login")
@@ -39,16 +41,22 @@ public class LoginController {
     @Autowired
     private AuthorizationService authorizationService;
 
-
     @RequestMapping(value = "/hello")
-    public String test(HttpServletRequest request) {
+    public CommonResponse<Object> test(HttpServletRequest request) {
+        String userInfoFromToken = GoogleUtil.getUserInfoFromToken(request);
+        String userId = userInfoFromToken.split("&")[0];
         System.out.println("this is hello test");
-        TestMessage testMessage = new TestMessage();
-        testMessage.setContent("{'userId':'262132847035326464','messageInfo': '用户信息'}");
-        testMq.sendFanout("notice2", testMessage);
+        Message message = new Message();
+        message.setContent("this is message test");
+        message.setId(new SimpleDateFormat("yyyyMMddHHmmss").format(new Date())+ UUID.randomUUID().toString());
+        message.setTimestamp(Calendar.getInstance().getTimeInMillis());
+        message.setUserId(userId);
+        message.setRead(false);
+        redisUtil.saveMessage(message);
+        testMq.sendFanout("notice2", message);
         /*testMessage.setContent("你滴，大大的良民");*/
        /* testMq.sendDelay("test-delay-L10S", testMessage);*/
-        return "{'zf':'test'}";
+        return CommonResponse.success("success");
     }
 
     @PostMapping(value = "/login")

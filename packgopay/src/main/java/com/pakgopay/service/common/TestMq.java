@@ -1,5 +1,6 @@
 package com.pakgopay.service.common;
 
+import com.pakgopay.data.entity.Message;
 import com.pakgopay.data.entity.TestMessage;
 import com.pakgopay.thirdUtil.RabbitmqUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +22,7 @@ public class TestMq {
         rabbitmqUtil.sendDelay(queueName, message);
     }
 
-    public void sendFanout(String queueName, TestMessage message) {
+    public void sendFanout(String queueName, Message message) {
         rabbitmqUtil.sendFanout(queueName, message);
     }
 }

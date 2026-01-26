@@ -1,6 +1,7 @@
 package com.pakgopay.thirdUtil;
 
 import com.alibaba.fastjson.JSON;
+import com.pakgopay.data.entity.Message;
 import com.pakgopay.data.entity.TestMessage;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +32,7 @@ public class RabbitmqUtil {
         });
     }
 
-    public void sendFanout(String fanoutExchange, TestMessage testMq) {
-        rabbitTemplate.convertAndSend(fanoutExchange,"", JSON.toJSONString(testMq));
+    public void sendFanout(String fanoutExchange, Message message) {
+        rabbitTemplate.convertAndSend(fanoutExchange,"", JSON.toJSONString(message));
     }
 }
