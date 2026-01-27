@@ -39,6 +39,12 @@ public interface BalanceMapper {
                          @Param("currency") String currency,
                          @Param("updateTime") Long updateTime);
 
+    /** Release frozen balance back to available (total unchanged) */
+    int releaseFrozenBalance(@Param("userId") String userId,
+                             @Param("amount") BigDecimal amount,
+                             @Param("currency") String currency,
+                             @Param("updateTime") Long updateTime);
+
     int adjustBalance(@Param("userId") String userId,
                       @Param("amount") BigDecimal amount,
                       @Param("currency") String currency,
@@ -60,4 +66,10 @@ public interface BalanceMapper {
                        @Param("amount") BigDecimal amount,
                        @Param("currency") String currency,
                        @Param("now") long now);
+
+    /** Payout success: release frozen and deduct total in one update */
+    int comfirmPayoutBalance(@Param("userId") String userId,
+                             @Param("amount") BigDecimal amount,
+                             @Param("currency") String currency,
+                             @Param("now") long now);
 }

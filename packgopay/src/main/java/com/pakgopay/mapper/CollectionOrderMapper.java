@@ -1,5 +1,6 @@
 package com.pakgopay.mapper;
 
+import com.pakgopay.data.entity.OrderQueryEntity;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -31,4 +32,10 @@ public interface CollectionOrderMapper {
             @Param("startTime") Long startTime,
             @Param("endTime") Long endTime
     );
+
+    /** Count by query */
+    Integer countByQuery(@Param("q") OrderQueryEntity query);
+
+    /** Page query */
+    List<CollectionOrderDto> pageByQuery(@Param("q") OrderQueryEntity query);
 }

@@ -4,7 +4,6 @@ import com.pakgopay.data.reqeust.account.AccountStatementAddRequest;
 import com.pakgopay.data.reqeust.account.AccountStatementEditRequest;
 import com.pakgopay.data.reqeust.account.AccountStatementQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
-import jakarta.validation.Valid;
 
 public interface AccountStatementService {
 
@@ -12,5 +11,5 @@ public interface AccountStatementService {
 
     CommonResponse createMerchantStatement(AccountStatementAddRequest accountStatementAddRequest);
 
-    CommonResponse updateAccountStatement(@Valid AccountStatementEditRequest accountStatementEditRequest);
+    CommonResponse updateAccountStatement(AccountStatementEditRequest accountStatementEditRequest);
 }

@@ -4,6 +4,7 @@ import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
+import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.BalanceService;
@@ -95,6 +96,26 @@ public class TransactionController {
         });
 
         return task;
+    }
+
+    @PostMapping(value = "/queryCollectionOrders")
+    public CommonResponse queryCollectionOrders(@RequestBody @Valid OrderQueryRequest request) {
+        try {
+            return collectionOrderService.queryCollectionOrders(request);
+        } catch (PakGoPayException e) {
+            log.error("queryCollectionOrders failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryCollectionOrders failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "/queryPayOutOrders")
+    public CommonResponse queryPayOutOrders(@RequestBody @Valid OrderQueryRequest request) {
+        try {
+            return payOutOrderService.queryPayOutOrders(request);
+        } catch (PakGoPayException e) {
+            log.error("queryPayOutOrders failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryPayOutOrders failed: " + e.getMessage());
+        }
     }
 
     @GetMapping(value = "/queryOrder")
