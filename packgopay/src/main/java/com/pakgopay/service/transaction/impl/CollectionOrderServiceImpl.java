@@ -3,21 +3,20 @@ package com.pakgopay.service.transaction.impl;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.*;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.entity.OrderQueryEntity;
 import com.pakgopay.data.entity.TransactionInfo;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
+import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.response.CommonResponse;
-import com.pakgopay.data.response.http.PaymentHttpResponse;
+import com.pakgopay.data.response.CollectionOrderPageResponse;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.MerchantService;
-import com.pakgopay.service.transaction.CollectionOrderService;
-import com.pakgopay.service.transaction.MerchantCheckService;
-import com.pakgopay.service.transaction.OrderHandler;
-import com.pakgopay.service.transaction.OrderHandlerFactory;
+import com.pakgopay.service.transaction.*;
 import com.pakgopay.util.CommontUtil;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
@@ -33,7 +32,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 @Service
-public class CollectionOrderServiceImpl implements CollectionOrderService {
+public class CollectionOrderServiceImpl extends BaseOrderService implements CollectionOrderService {
 
     @Autowired
     MerchantCheckService merchantCheckService;
@@ -155,12 +154,12 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         result.put("updateTime", collectionOrderDto.getUpdateTime().toString());
 
         // TODO If the transaction fails, return the reason for the failure.
-        if (OrderStatus.FAILED.getCode().equals(collectionOrderDto.getOrderStatus())) {
+        if (OrderStatus.FAILED.getCode().toString().equals(collectionOrderDto.getOrderStatus())) {
             log.warn("order status is failed");
             result.put("failureReason", "");
         }
 
-        if (OrderStatus.SUCCESS.getCode().equals(collectionOrderDto.getOrderStatus())) {
+        if (OrderStatus.SUCCESS.getCode().toString().equals(collectionOrderDto.getOrderStatus())) {
             Long successCallBackTime = collectionOrderDto.getSuccessCallbackTime();
             if (successCallBackTime != null) {
                 result.put("successCallBackTime", successCallBackTime.toString());
@@ -205,6 +204,27 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         return CommonResponse.success(response);
     }
 
+    @Override
+    public CommonResponse queryCollectionOrders(OrderQueryRequest request) throws PakGoPayException {
+        log.info("queryCollectionOrders start, merchantUserId={}, transactionNo={}, merchantOrderNo={}",
+                request.getMerchantUserId(), request.getTransactionNo(), request.getMerchantOrderNo());
+        OrderQueryEntity entity = buildOrderQueryEntity(request);
+
+        CollectionOrderPageResponse response = new CollectionOrderPageResponse();
+        try {
+            Integer totalNumber = collectionOrderMapper.countByQuery(entity);
+            response.setTotalNumber(totalNumber);
+            response.setCollectionOrderDtoList(collectionOrderMapper.pageByQuery(entity));
+        } catch (Exception e) {
+            log.error("queryCollectionOrders failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+        response.setPageNo(entity.getPageNo());
+        response.setPageSize(entity.getPageSize());
+        log.info("queryCollectionOrders end, totalNumber={}", response.getTotalNumber());
+        return CommonResponse.success(response);
+    }
+
     private CollectionOrderDto validateNotifyOrder(NotifyRequest response) throws PakGoPayException {
         CollectionOrderDto collectionOrderDto = collectionOrderMapper.findByTransactionNo(response.getTransactionNo())
                 .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS,
@@ -213,8 +233,8 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
                 || !collectionOrderDto.getMerchantUserId().equals(response.getMerchantNo())) {
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "merchantNo does not match");
         }
-        if (TransactionStatus.SUCCESS.getCode().equals(collectionOrderDto.getOrderStatus())
-                || TransactionStatus.FAILED.getCode().equals(collectionOrderDto.getOrderStatus())) {
+        if (TransactionStatus.SUCCESS.getCode().toString().equals(collectionOrderDto.getOrderStatus())
+                || TransactionStatus.FAILED.getCode().toString().equals(collectionOrderDto.getOrderStatus())) {
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "order status can not be changed");
         }
         return collectionOrderDto;
@@ -228,7 +248,8 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         }
         TransactionInfo transactionInfo = new TransactionInfo();
         transactionInfo.setMerchantInfo(merchantInfo);
-        transactionInfo.setAmount(resolveOrderAmount(collectionOrderDto));
+        transactionInfo.setAmount(resolveOrderAmount(
+                collectionOrderDto.getActualAmount(), collectionOrderDto.getAmount()));
         channelPaymentService.calculateTransactionFees(transactionInfo, OrderType.COLLECTION_ORDER);
 
         CollectionOrderDto update = new CollectionOrderDto();
@@ -245,7 +266,8 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         update.setAgent3Rate(transactionInfo.getAgent3Rate());
         update.setAgent3FixedFee(transactionInfo.getAgent3FixedFee());
         update.setAgent3Fee(transactionInfo.getAgent3Fee());
-        update.setOrderStatus(targetStatus.getCode());
+        update.setOrderStatus(targetStatus.getCode().toString());
+        update.setOperateType("SYSTEM");
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
             update.setSuccessCallbackTime(System.currentTimeMillis() / 1000);
         }
@@ -260,7 +282,8 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
 
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
             BigDecimal creditAmount = CommontUtil.safeSubtract(
-                    resolveOrderAmount(collectionOrderDto), transactionInfo.getMerchantFee());
+                    resolveOrderAmount(collectionOrderDto.getActualAmount(), collectionOrderDto.getAmount()),
+                    transactionInfo.getMerchantFee());
             balanceService.creditBalance(
                     collectionOrderDto.getMerchantUserId(),
                     collectionOrderDto.getCurrencyType(),
@@ -268,37 +291,6 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         }
     }
 
-    private TransactionStatus resolveNotifyStatus(String status) throws PakGoPayException {
-        if (status == null || status.isBlank()) {
-            throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "status is empty");
-        }
-        if (TransactionStatus.SUCCESS.getMessage().equalsIgnoreCase(status)) {
-            return TransactionStatus.SUCCESS;
-        }
-        if (TransactionStatus.FAILED.getMessage().equalsIgnoreCase(status)) {
-            return TransactionStatus.FAILED;
-        }
-        if (TransactionStatus.PROCESSING.getMessage().equalsIgnoreCase(status)) {
-            return TransactionStatus.PROCESSING;
-        }
-        if (TransactionStatus.PENDING.getMessage().equalsIgnoreCase(status)) {
-            return TransactionStatus.PENDING;
-        }
-        if (TransactionStatus.EXPIRED.getMessage().equalsIgnoreCase(status)) {
-            return TransactionStatus.EXPIRED;
-        }
-        if (TransactionStatus.CANCELLED.getMessage().equalsIgnoreCase(status)) {
-            return TransactionStatus.CANCELLED;
-        }
-        throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "unsupported status");
-    }
-
-    private BigDecimal resolveOrderAmount(CollectionOrderDto dto) {
-        if (dto.getActualAmount() != null) {
-            return dto.getActualAmount();
-        }
-        return dto.getAmount();
-    }
 
     private void validateCollectionRequest(
             CollectionOrderRequest collectionOrderRequest, MerchantInfoDto merchantInfoDto) throws PakGoPayException {
@@ -395,7 +387,7 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         // 5) Callback & request metadata
         // -----------------------------
         builder.obj(() -> 1, dto::setOrderType) // order type: 1-system, 2-manual
-                .obj(() -> 1, dto::setOrderStatus) // order status: 1-processing, 2-failed
+                .obj(() -> OrderStatus.PROCESSING.getCode().toString(), dto::setOrderStatus) // order status: 1-processing, 2-failed
                 .obj(request::getNotificationUrl, dto::setCallbackUrl) // async callback url
                 .obj(() -> CommonConstant.ZERO, dto::setCallbackTimes) // initial callback times
                 .obj(request::getClientIp, dto::setRequestIp) // request ip
@@ -459,28 +451,6 @@ public class CollectionOrderServiceImpl implements CollectionOrderService {
         }
 
         return result;
-    }
-
-    private Map<String, Object> extractHandlerData(Object handlerResponse) {
-        if (handlerResponse == null) {
-            return null;
-        }
-        if (handlerResponse instanceof Map<?, ?> map) {
-            return (Map<String, Object>) map;
-        }
-        if (handlerResponse instanceof PaymentHttpResponse resp) {
-            Object data = resp.getData();
-            if (data instanceof Map<?, ?> dataMap) {
-                return (Map<String, Object>) dataMap;
-            }
-        }
-        return null;
-    }
-
-    private void mergeIfPresent(Map<String, Object> target, Map<String, Object> source, String key) {
-        if (source.containsKey(key) && source.get(key) != null) {
-            target.put(key, source.get(key));
-        }
     }
 
 }

@@ -14,11 +14,15 @@ public interface BalanceService {
     void freezeBalance(
             BigDecimal freezeFee, String userId, String currency) throws PakGoPayException;
 
+    void releaseFrozenBalance(String userId, String currency, BigDecimal amount);
+
     void creditBalance(String userId, String currency, BigDecimal amount);
 
     void applyWithdrawalOperation(String userId, String currency, BigDecimal amount, Integer oper);
 
     void adjustBalance(String userId, String currency, BigDecimal amount);
+
+    void comfirmPayoutBalance(String userId, String currency, BigDecimal amount);
 
     Map<String, Map<String, BigDecimal>> fetchBalanceSummaries(List<String> userId) throws PakGoPayException;
 

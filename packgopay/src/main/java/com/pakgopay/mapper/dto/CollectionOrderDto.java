@@ -107,7 +107,7 @@ public class CollectionOrderDto implements Serializable {
     private String callbackStatus;
 
     /** Order status: 1-processing, 2-failed */
-    private Integer orderStatus;
+    private String orderStatus;
 
     /** Order request time */
     private Long requestTime;

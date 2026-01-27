@@ -1,5 +1,6 @@
 package com.pakgopay.mapper;
 
+import com.pakgopay.data.entity.OrderQueryEntity;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -29,5 +30,10 @@ public interface PayOrderMapper {
     List<PayOrderDto> getPayOrderInfosByPaymentIds(@Param("paymentIds") List<Long> paymentIds,
                                                    @Param("startTime") Long startTime,
                                                    @Param("endTime") Long endTime);
-}
 
+    /** Count by query */
+    Integer countByQuery(@Param("q") OrderQueryEntity query);
+
+    /** Page query */
+    List<PayOrderDto> pageByQuery(@Param("q") OrderQueryEntity query);
+}

@@ -61,7 +61,7 @@ public class BalanceServiceImpl implements BalanceService {
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
-        if (freezeFee.compareTo(balanceDto.getAvailableBalance()) <= CommonConstant.ZERO) {
+        if (balanceDto == null || freezeFee.compareTo(balanceDto.getAvailableBalance()) > CommonConstant.ZERO) {
             log.warn("insufficient available balance, userId: {} currency: {}", userId, currency);
             throw new PakGoPayException(ResultCode.MERCHANT_BALANCE_NOT_ENOUGH);
         }
@@ -76,6 +76,23 @@ public class BalanceServiceImpl implements BalanceService {
             balanceMapper.updateByUserId(updateInfo);
         } catch (Exception e) {
             log.error("balance updateByUserId failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+    }
+
+    @Override
+    public void releaseFrozenBalance(String userId, String currency, BigDecimal amount) {
+        if (!checkParams(userId, currency, amount)) {
+            return;
+        }
+        try {
+            long now = System.currentTimeMillis() / 1000;
+            int ret = balanceMapper.releaseFrozenBalance(userId, amount, currency, now);
+            if (ret <= 0) {
+                throw new PakGoPayException(ResultCode.FAIL, "releaseFrozenBalance failed");
+            }
+        } catch (Exception e) {
+            log.error("releaseFrozenBalance failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
     }
@@ -151,6 +168,23 @@ public class BalanceServiceImpl implements BalanceService {
 
         if (ret <= 0) {
             throw new PakGoPayException(ResultCode.FAIL, "withdrawBalance failed");
+        }
+    }
+
+    public void comfirmPayoutBalance(String userId, String currency, BigDecimal amount) {
+        if (!checkParams(userId, currency, amount)) {
+            return;
+        }
+        int ret = 0;
+        try {
+            long now = System.currentTimeMillis() / 1000;
+            ret = balanceMapper.comfirmPayoutBalance(userId, amount, currency, now);
+        } catch (Exception e) {
+            log.error("comfirmPayoutBalance failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+        if (ret <= 0) {
+            throw new PakGoPayException(ResultCode.FAIL, "comfirmPayoutBalance failed");
         }
     }
 

@@ -68,7 +68,7 @@
         <!-- Order status -->
         <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
         <result column="callback_status" property="callbackStatus" javaType="java.lang.String"/>
-        <result column="order_status" property="orderStatus" javaType="java.lang.Integer"/>
+        <result column="order_status" property="orderStatus" javaType="java.lang.String"/>
 
         <!-- Callback times -->
         <result column="request_time" property="requestTime" javaType="java.lang.Long"/>
@@ -194,6 +194,83 @@
             AND create_time &lt;  #{endTime}
         </where>
 
+    </select>
+
+    <select id="countByQuery" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM collection_order
+        <where>
+            <if test="q != null and q.merchantUserId != null and q.merchantUserId != ''">
+                merchant_user_id = #{q.merchantUserId}
+            </if>
+            <if test="q != null and q.transactionNo != null and q.transactionNo != ''">
+                AND transaction_no = #{q.transactionNo}
+            </if>
+            <if test="q != null and q.merchantOrderNo != null and q.merchantOrderNo != ''">
+                AND merchant_order_no = #{q.merchantOrderNo}
+            </if>
+            <if test="q != null and q.currencyType != null and q.currencyType != ''">
+                AND currency_type = #{q.currencyType}
+            </if>
+            <if test="q != null and q.orderStatus != null and q.orderStatus != ''">
+                AND order_status = #{q.orderStatus}
+            </if>
+            <if test="q != null and q.orderType != null">
+                AND order_type = #{q.orderType}
+            </if>
+            <if test="q != null and q.amount != null">
+                AND amount = #{q.amount}
+            </if>
+            <if test="q != null and q.channelId != null">
+                AND channel_id = #{q.channelId}
+            </if>
+            <if test="q != null and q.startTime != null">
+                AND create_time &gt;= #{q.startTime}
+            </if>
+            <if test="q != null and q.endTime != null">
+                AND create_time &lt; #{q.endTime}
+            </if>
+        </where>
+    </select>
+
+    <select id="pageByQuery" resultMap="CollectionOrderResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM collection_order
+        <where>
+            <if test="q != null and q.merchantUserId != null and q.merchantUserId != ''">
+                merchant_user_id = #{q.merchantUserId}
+            </if>
+            <if test="q != null and q.transactionNo != null and q.transactionNo != ''">
+                AND transaction_no = #{q.transactionNo}
+            </if>
+            <if test="q != null and q.merchantOrderNo != null and q.merchantOrderNo != ''">
+                AND merchant_order_no = #{q.merchantOrderNo}
+            </if>
+            <if test="q != null and q.currencyType != null and q.currencyType != ''">
+                AND currency_type = #{q.currencyType}
+            </if>
+            <if test="q != null and q.orderStatus != null and q.orderStatus != ''">
+                AND order_status = #{q.orderStatus}
+            </if>
+            <if test="q != null and q.orderType != null">
+                AND order_type = #{q.orderType}
+            </if>
+            <if test="q != null and q.amount != null">
+                AND amount = #{q.amount}
+            </if>
+            <if test="q != null and q.channelId != null">
+                AND channel_id = #{q.channelId}
+            </if>
+            <if test="q != null and q.startTime != null">
+                AND create_time &gt;= #{q.startTime}
+            </if>
+            <if test="q != null and q.endTime != null">
+                AND create_time &lt; #{q.endTime}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{q.offset}, #{q.pageSize}
     </select>
 
 </mapper>

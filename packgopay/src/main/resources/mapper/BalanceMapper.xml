@@ -106,6 +106,17 @@
           AND currency = #{currency}
     </update>
 
+    <!-- Release frozen balance to available (total unchanged) -->
+    <update id="releaseFrozenBalance">
+        UPDATE balance
+        SET
+            frozen_balance = IFNULL(frozen_balance, 0) - #{amount},
+            available_balance = IFNULL(available_balance, 0) + #{amount},
+            update_time = #{updateTime}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+    </update>
+
     <select id="listByUserIds" resultMap="BalanceResultMap">
         SELECT
         <include refid="BaseColumns"/>
@@ -143,7 +154,6 @@
         UPDATE balance
         SET
             frozen_balance = frozen_balance - #{amount},
-            total_balance = total_balance - #{amount},
             update_time = #{now}
         WHERE user_id = #{userId}
           AND currency = #{currency}
@@ -155,6 +165,17 @@
         SET
             frozen_balance = frozen_balance - #{amount},
             available_balance = available_balance + #{amount},
+            update_time = #{now}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND frozen_balance >= #{amount}
+    </update>
+
+    <update id="comfirmPayoutBalance">
+        UPDATE balance
+        SET
+            frozen_balance = frozen_balance - #{amount},
+            total_balance = total_balance - #{amount},
             update_time = #{now}
         WHERE user_id = #{userId}
           AND currency = #{currency}

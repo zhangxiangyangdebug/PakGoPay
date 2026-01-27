@@ -21,7 +21,6 @@ import com.pakgopay.util.CommontUtil;
 import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.PatchBuilderUtil;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -391,6 +390,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     private List<PaymentDto> loadPaymentsByChannelIds(
             Integer paymentNo, String channelIds, Integer supportType, Map<Long, ChannelDto> paymentMap)
             throws PakGoPayException {
+        log.info("loadPaymentsByChannelIds start, paymentNo={}, supportType={}, channelIds={}",
+                paymentNo, supportType, channelIds);
         // 1. obtain merchant's channel id list
         if (!StringUtils.hasText(channelIds)) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not channel");
@@ -400,9 +401,11 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         if (channelIdList.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not channel");
         }
+        log.info("channelIds parsed, channelCount={}", channelIdList);
 
         // 2. obtain merchant's available payment ids by channel ids
         Set<Long> paymentIdList = collectPaymentIdsByChannelIds(channelIdList, paymentMap);
+        log.info("paymentIds resolved by channelIds, paymentCount={}", paymentIdList);
 
         // 3. obtain merchant's available payment infos by channel ids
         List<PaymentDto> paymentDtoList = paymentMapper.
@@ -410,7 +413,9 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         if (paymentDtoList == null || paymentDtoList.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "Merchants have no available matching payments");
         }
+        log.info("payments loaded, paymentCount={}", paymentDtoList.size());
         paymentDtoList = filterPaymentsByEnableTime(paymentDtoList);
+        log.info("payments filtered by enable time, paymentCount={}", paymentDtoList.size());
         return paymentDtoList;
     }
 
@@ -418,13 +423,44 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         // Filter payments by enableTimePeriod (format: HH:mm:ss,HH:mm:ss).
         LocalTime now = LocalTime.now(ZoneId.systemDefault());
         List<PaymentDto> availablePayments = paymentDtoList.stream()
-                .filter(payment -> isWithinEnableTimeWindow(now, payment.getEnableTimePeriod()))
+                .filter(payment -> {
+                    boolean allowed = isWithinEnableTimeWindow(now, payment.getEnableTimePeriod());
+                    if (!allowed) {
+                        log.warn("payment filtered by enableTimePeriod, paymentId={}, reason={}",
+                                payment.getPaymentId(),
+                                resolveEnableTimeRejectReason(now, payment.getEnableTimePeriod()));
+                    }
+                    return allowed;
+                })
                 .toList();
         if (availablePayments.isEmpty()) {
             log.warn("no available payments in enable time period, now={}", now);
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "no available payments in time period");
         }
         return availablePayments;
+    }
+
+    private String resolveEnableTimeRejectReason(LocalTime now, String enableTimePeriod) {
+        if (!StringUtils.hasText(enableTimePeriod)) {
+            return "missing enableTimePeriod";
+        }
+        String[] parts = enableTimePeriod.split(",");
+        if (parts.length != 2) {
+            return "invalid enableTimePeriod format";
+        }
+        try {
+            LocalTime start = LocalTime.parse(parts[0].trim());
+            LocalTime end = LocalTime.parse(parts[1].trim());
+            if (start.equals(end)) {
+                return "all-day enabled";
+            }
+            if (start.isBefore(end)) {
+                return "outside same-day window";
+            }
+            return "outside cross-midnight window";
+        } catch (Exception e) {
+            return "parse enableTimePeriod failed";
+        }
     }
 
     private boolean isWithinEnableTimeWindow(LocalTime now, String enableTimePeriod) {
@@ -487,9 +523,9 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         paymentDtoList = paymentDtoList.stream().filter(dto ->
                         // check payment min amount
                 {
-                    boolean result = amount.compareTo(dto.getPaymentMinAmount()) > 0
+                    boolean result = amount.compareTo(dto.getPaymentMinAmount()) >= 0
                             // check payment max amount
-                            && amount.compareTo(dto.getPaymentMaxAmount()) < 0;
+                            && amount.compareTo(dto.getPaymentMaxAmount()) <= 0;
 
                     if (!result) {
                         log.warn("paymentName: {}, amount max: {} min: {}, over limit amount: {}"
@@ -656,7 +692,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     // Channel/payment management
     // =====================
     @Override
-    public CommonResponse queryChannels(@Valid ChannelQueryRequest channelQueryRequest) throws PakGoPayException {
+    public CommonResponse queryChannels(ChannelQueryRequest channelQueryRequest) throws PakGoPayException {
         ChannelResponse response = fetchChannelPage(channelQueryRequest);
         return CommonResponse.success(response);
     }
@@ -722,7 +758,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     }
 
     @Override
-    public CommonResponse queryPayments(@Valid PaymentQueryRequest paymentQueryRequest) throws PakGoPayException {
+    public CommonResponse queryPayments(PaymentQueryRequest paymentQueryRequest) throws PakGoPayException {
         PaymentResponse response = fetchPaymentPage(paymentQueryRequest);
         return CommonResponse.success(response);
     }

@@ -12,19 +12,19 @@ import jakarta.validation.Valid;
 import java.io.IOException;
 
 public interface AgentService {
-    CommonResponse queryAgents(@Valid AgentQueryRequest agentQueryRequest) throws PakGoPayException;
+    CommonResponse queryAgents(AgentQueryRequest agentQueryRequest) throws PakGoPayException;
 
-    void exportAgents(@Valid AgentQueryRequest agentQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException;
+    void exportAgents(AgentQueryRequest agentQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 
-    CommonResponse updateAgent(@Valid AgentEditRequest agentEditRequest) throws PakGoPayException;
+    CommonResponse updateAgent(AgentEditRequest agentEditRequest) throws PakGoPayException;
 
-    CommonResponse createAgent(@Valid AgentAddRequest agentAddRequest) throws PakGoPayException;
+    CommonResponse createAgent(AgentAddRequest agentAddRequest) throws PakGoPayException;
 
-    CommonResponse queryAgentAccounts(@Valid AccountQueryRequest accountQueryRequest);
+    CommonResponse queryAgentAccounts(AccountQueryRequest accountQueryRequest);
 
-    void exportAgentAccounts(@Valid AccountQueryRequest agentQueryRequest, HttpServletResponse response) throws IOException;
+    void exportAgentAccounts(AccountQueryRequest agentQueryRequest, HttpServletResponse response) throws IOException;
 
-    CommonResponse updateAgentAccount(@Valid AccountEditRequest accountEditRequest);
+    CommonResponse updateAgentAccount(AccountEditRequest accountEditRequest);
 
-    CommonResponse createAgentAccount(@Valid AccountAddRequest accountAddRequest);
+    CommonResponse createAgentAccount(AccountAddRequest accountAddRequest);
 }
