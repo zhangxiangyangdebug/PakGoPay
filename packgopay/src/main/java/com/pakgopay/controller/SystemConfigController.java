@@ -4,6 +4,7 @@ import com.pakgopay.data.reqeust.CreateUserRequest;
 import com.pakgopay.data.reqeust.roleManagement.AddRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.DeleteRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.ModifyRoleRequest;
+import com.pakgopay.data.reqeust.systemConfig.LoginUserRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.SystemConfigService;
 import com.pakgopay.service.impl.UserService;
@@ -32,9 +33,9 @@ public class SystemConfigController {
         return systemConfigService.listRoles(roleName);
     }
 
-    @GetMapping("/loginUserList")
-    public CommonResponse loginUserList() {
-        return systemConfigService.listLoginUsers();
+    @PostMapping("/loginUserList")
+    public CommonResponse loginUserList(@RequestBody(required = false) LoginUserRequest loginUserRequest) {
+        return systemConfigService.listLoginUsers(loginUserRequest);
     }
 
     @GetMapping("/manageLoginUserStatus")

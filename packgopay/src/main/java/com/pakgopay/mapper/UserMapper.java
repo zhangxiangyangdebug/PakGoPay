@@ -1,5 +1,6 @@
 package com.pakgopay.mapper;
 
+import com.pakgopay.data.reqeust.systemConfig.LoginUserRequest;
 import com.pakgopay.mapper.dto.UserDTO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -9,7 +10,9 @@ import java.util.List;
 @Mapper
 public interface UserMapper {
 
-     List<UserDTO> selectAllUser();
+     List<UserDTO> selectAllUser(LoginUserRequest loginUserRequest);
+
+     Integer selectAllUserCount(LoginUserRequest loginUserRequest);
 
      UserDTO loginUserByLoginName(@Param(value = "loginName") String loginName);
 

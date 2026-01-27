@@ -5,9 +5,11 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.roleManagement.AddRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.DeleteRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.ModifyRoleRequest;
+import com.pakgopay.data.reqeust.systemConfig.LoginUserRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.RoleInfoResponse;
 import com.pakgopay.data.response.roleManagement.RoleMenuInfoResponse;
+import com.pakgopay.data.response.systemConfig.LoginUserResponse;
 import com.pakgopay.mapper.RoleMapper;
 import com.pakgopay.mapper.RoleMenuMapper;
 import com.pakgopay.mapper.UserMapper;
@@ -66,12 +68,27 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     }
 
     @Override
-    public CommonResponse listLoginUsers() {
-        List<UserDTO> loginUsers = userMapper.selectAllUser();
+    public CommonResponse listLoginUsers(LoginUserRequest loginUserRequest) {
+        if (loginUserRequest == null) {
+            loginUserRequest = new LoginUserRequest();
+        }
+        if (loginUserRequest.getPageNo() == null) {
+            loginUserRequest.setPageNo(1);
+        }
+        if (loginUserRequest.getPageSize() == null) {
+            loginUserRequest.setPageSize(10);
+        }
+        Integer count = userMapper.selectAllUserCount(loginUserRequest);
+        List<UserDTO> loginUsers = userMapper.selectAllUser(loginUserRequest);
+        LoginUserResponse loginUserResponse = new LoginUserResponse();
+        loginUserResponse.setLoginUsers(loginUsers);
+        loginUserResponse.setTotalNumber(count);
+        loginUserResponse.setPageNo(loginUserRequest.getPageNo());
+        loginUserResponse.setPageSize(loginUserRequest.getPageSize());
         if (loginUsers.isEmpty()) {
             return CommonResponse.success(null);
         }
-        return CommonResponse.success(loginUsers);
+        return CommonResponse.success(loginUserResponse);
     }
 
     @Override

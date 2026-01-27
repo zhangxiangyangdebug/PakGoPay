@@ -73,8 +73,8 @@ public class LoginController {
 
     @RequestMapping(value = "db")
     public String test3(){
-        List<UserDTO> user = userService.listUsers();
-        System.out.println(user);
+        /*List<UserDTO> user = userService.listUsers();
+        System.out.println(user);*/
         return "test3";
     }
 
