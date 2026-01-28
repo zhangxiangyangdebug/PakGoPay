@@ -24,7 +24,7 @@ import com.pakgopay.mapper.dto.WithdrawalAccountsDto;
 import com.pakgopay.service.AgentService;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.ExportReportDataColumns;
-import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.TransactionUtil;
@@ -114,14 +114,14 @@ public class AgentServiceImpl implements AgentService {
         Set<Long> allChannelIds = new HashSet<>();
         Map<String, List<Long>> channelIdsByUserId = new HashMap<>();
         for (AgentInfoDto agentInfo : parentAgentInfos) {
-            List<Long> ids = CommontUtil.parseIds(agentInfo.getChannelIds());
+            List<Long> ids = CommonUtil.parseIds(agentInfo.getChannelIds());
             agentInfoMap.put(agentInfo.getUserId(), agentInfo);
             channelIdsByUserId.put(agentInfo.getUserId(), ids);
             allChannelIds.addAll(ids);
         }
 
         for (AgentInfoDto agentInfo : agentInfoDtoList) {
-            List<Long> ids = CommontUtil.parseIds(agentInfo.getChannelIds());
+            List<Long> ids = CommonUtil.parseIds(agentInfo.getChannelIds());
             agentInfoMap.put(agentInfo.getUserId(), agentInfo);
             channelIdsByUserId.put(agentInfo.getUserId(), ids);
             allChannelIds.addAll(ids);
@@ -159,7 +159,7 @@ public class AgentServiceImpl implements AgentService {
      * Build ChannelDto list by channelId list and channel map.
      * Keeps the order of ids and ignores non-existing ids.
      */
-    private static List<ChannelDto> buildChannelListByIds(List<Long> ids, Map<Long, ChannelDto> channelMap) {
+    public static List<ChannelDto> buildChannelListByIds(List<Long> ids, Map<Long, ChannelDto> channelMap) {
         if (ids == null || ids.isEmpty() || channelMap == null || channelMap.isEmpty()) {
             return Collections.emptyList();
         }

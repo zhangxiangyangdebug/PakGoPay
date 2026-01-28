@@ -110,6 +110,12 @@
         limit 1
     </select>
 
+    <select id="listEnabledMerchants" resultMap="MerchantInfoDtoMap">
+        select <include refid="BaseColumns"/>
+        from merchant_info
+        where status = 1
+    </select>
+
     <insert id="insert" parameterType="com.pakgopay.mapper.dto.MerchantInfoDto">
         INSERT INTO merchant_info (
         <include refid="BaseColumns"/>

@@ -21,7 +21,7 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.common.ExportReportDataColumns;
 import com.pakgopay.service.transaction.MerchantCheckService;
-import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.TransactionUtil;
@@ -77,7 +77,7 @@ public class MerchantServiceImpl implements MerchantService {
             }
             if (StringUtils.hasText(merchantInfoDto.getParentId())) {
                 List<AgentInfoDto> agentInfoDtoList = agentInfoMapper.getAllAgentInfo();
-                Map<String, AgentInfoDto> agentByUserIdMap = safeList(agentInfoDtoList).stream()
+                Map<String, AgentInfoDto> agentByUserIdMap = CommonUtil.safeList(agentInfoDtoList).stream()
                         .collect(Collectors.toMap(AgentInfoDto::getUserId, Function.identity(), (a, b) -> a));
                 List<AgentInfoDto> agentChain = buildAgentChain(agentByUserIdMap, merchantInfoDto.getParentId());
                 merchantInfoDto.setAgentInfos(agentChain);
@@ -139,13 +139,13 @@ public class MerchantServiceImpl implements MerchantService {
         List<AgentInfoDto> agentInfoDtoList = agentInfoMapper.getAllAgentInfo();
 
         // Build quick lookup maps for O(1) access
-        Map<String, AgentInfoDto> agentByUserIdMap = safeList(agentInfoDtoList).stream()
+        Map<String, AgentInfoDto> agentByUserIdMap = CommonUtil.safeList(agentInfoDtoList).stream()
                 .collect(Collectors.toMap(AgentInfoDto::getUserId, Function.identity(), (a, b) -> a));
 
-        Map<Long, ChannelDto> channelByIdMap = safeList(channelDtoList).stream()
+        Map<Long, ChannelDto> channelByIdMap = CommonUtil.safeList(channelDtoList).stream()
                 .collect(Collectors.toMap(ChannelDto::getChannelId, Function.identity(), (a, b) -> a));
 
-        Map<Long, PaymentDto> paymentByIdMap = safeList(paymentDtoList).stream()
+        Map<Long, PaymentDto> paymentByIdMap = CommonUtil.safeList(paymentDtoList).stream()
                 .collect(Collectors.toMap(PaymentDto::getPaymentId, Function.identity(), (a, b) -> a));
 
         for (MerchantInfoDto merchant : merchantInfoDtoList) {
@@ -160,12 +160,12 @@ public class MerchantServiceImpl implements MerchantService {
             if (merchant.getParentId() != null && !merchant.getParentId().isBlank()) {
                 // Merchant has an agent, use agent's channelIds
                 AgentInfoDto parentAgent = agentByUserIdMap.get(merchant.getParentId());
-                channelIds = CommontUtil.parseIds(parentAgent == null ? null : parentAgent.getChannelIds());
+                channelIds = CommonUtil.parseIds(parentAgent == null ? null : parentAgent.getChannelIds());
                 List<AgentInfoDto> agentChain = buildAgentChain(agentByUserIdMap, merchant.getParentId());
                 merchant.setAgentInfos(agentChain);
             } else {
                 // No agent, use merchant's own channelIds
-                channelIds = CommontUtil.parseIds(merchant.getChannelIds());
+                channelIds = CommonUtil.parseIds(merchant.getChannelIds());
                 List<ChannelDto> channelInfos = buildAgentChain(channelByIdMap, channelIds);
                 merchant.setChannelDtoList(channelInfos);
             }
@@ -197,7 +197,7 @@ public class MerchantServiceImpl implements MerchantService {
      * Build agent chain list: [parentAgent, upperAgent]
      * Upper agent is defined as parentAgent.parentId (one level up).
      */
-    private static List<AgentInfoDto> buildAgentChain(Map<String, AgentInfoDto> agentByUserId, String parentId) {
+    public static List<AgentInfoDto> buildAgentChain(Map<String, AgentInfoDto> agentByUserId, String parentId) {
         if (parentId == null || parentId.isBlank()) {
             return Collections.emptyList();
         }
@@ -232,7 +232,7 @@ public class MerchantServiceImpl implements MerchantService {
      * channelIds -> channels -> paymentIds -> payments -> currency
      * Returns a de-duplicated list (preserves insertion order).
      */
-    private static List<String> resolveCurrenciesByChannelIds(
+    public static List<String> resolveCurrenciesByChannelIds(
             List<Long> channelIds,
             Map<Long, ChannelDto> channelById,
             Map<Long, PaymentDto> paymentById
@@ -247,7 +247,7 @@ public class MerchantServiceImpl implements MerchantService {
             ChannelDto channel = channelById.get(channelId);
             if (channel == null) continue;
 
-            List<Long> paymentIds = CommontUtil.parseIds(channel.getPaymentIds());
+            List<Long> paymentIds = CommonUtil.parseIds(channel.getPaymentIds());
             if (paymentIds.isEmpty()) continue;
 
             for (Long pid : paymentIds) {
@@ -261,10 +261,6 @@ public class MerchantServiceImpl implements MerchantService {
             }
         }
         return new ArrayList<>(currencySet);
-    }
-
-    private static <T> List<T> safeList(List<T> list) {
-        return list == null ? Collections.emptyList() : list;
     }
 
     @Override
@@ -364,7 +360,7 @@ public class MerchantServiceImpl implements MerchantService {
                 // =====================
                 // 4) Collection Fee Configuration
                 // =====================
-                .ifTrue(CommontUtil.supportsCollection(req.getSupportType()))
+                .ifTrue(CommonUtil.supportsCollection(req.getSupportType()))
                 .reqObj("collectionRate", req::getCollectionRate, dto::setCollectionRate)
                 .reqObj("collectionFixedFee", req::getCollectionFixedFee, dto::setCollectionFixedFee)
                 .reqObj("collectionMaxFee", req::getCollectionMaxFee, dto::setCollectionMaxFee)
@@ -375,7 +371,7 @@ public class MerchantServiceImpl implements MerchantService {
                 // =====================
                 // 5) Payout Fee Configuration
                 // =====================
-                .ifTrue(CommontUtil.supportsPay(req.getSupportType()))
+                .ifTrue(CommonUtil.supportsPay(req.getSupportType()))
                 .reqObj("payRate", req::getPayRate, dto::setPayRate)
                 .reqObj("payFixedFee", req::getPayFixedFee, dto::setPayFixedFee)
                 .reqObj("payMaxFee", req::getPayMaxFee, dto::setPayMaxFee)

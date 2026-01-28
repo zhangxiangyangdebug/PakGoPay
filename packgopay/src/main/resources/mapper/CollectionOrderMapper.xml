@@ -79,6 +79,46 @@
 
     </resultMap>
 
+    <resultMap id="MerchantReportResultMap" type="com.pakgopay.mapper.dto.MerchantReportDto">
+        <result column="merchant_user_id" property="userId"/>
+        <result column="currency_type" property="currency"/>
+        <result column="order_quantity" property="orderQuantity"/>
+        <result column="success_quantity" property="successQuantity"/>
+        <result column="merchant_fee" property="merchantFee"/>
+        <result column="agent1_fee" property="agent1Fee"/>
+        <result column="agent2_fee" property="agent2Fee"/>
+        <result column="agent3_fee" property="agent3Fee"/>
+    </resultMap>
+
+    <resultMap id="ChannelReportResultMap" type="com.pakgopay.mapper.dto.ChannelReportDto">
+        <result column="channel_id" property="channelId"/>
+        <result column="currency_type" property="currency"/>
+        <result column="order_quantity" property="orderQuantity"/>
+        <result column="success_quantity" property="successQuantity"/>
+        <result column="order_balance" property="orderBalance"/>
+        <result column="merchant_fee" property="merchantFee"/>
+        <result column="order_profit" property="orderProfit"/>
+    </resultMap>
+
+    <resultMap id="PaymentReportResultMap" type="com.pakgopay.mapper.dto.PaymentReportDto">
+        <result column="payment_id" property="paymentId"/>
+        <result column="currency_type" property="currency"/>
+        <result column="order_quantity" property="orderQuantity"/>
+        <result column="success_quantity" property="successQuantity"/>
+        <result column="order_balance" property="orderBalance"/>
+        <result column="merchant_fee" property="merchantFee"/>
+        <result column="order_profit" property="orderProfit"/>
+    </resultMap>
+
+    <resultMap id="CurrencyReportResultMap" type="com.pakgopay.mapper.dto.CurrencyReportDto">
+        <result column="currency_type" property="currency"/>
+        <result column="order_quantity" property="orderQuantity"/>
+        <result column="success_quantity" property="successQuantity"/>
+        <result column="order_balance" property="orderBalance"/>
+        <result column="merchant_fee" property="merchantFee"/>
+        <result column="order_profit" property="orderProfit"/>
+    </resultMap>
+
 
     <!-- Base columns -->
     <sql id="BaseColumns">
@@ -194,6 +234,119 @@
             AND create_time &lt;  #{endTime}
         </where>
 
+    </select>
+
+    <select id="sumMerchantReport" resultMap="MerchantReportResultMap">
+        SELECT
+            #{userId} merchant_user_id,
+            #{currency} currency_type,
+            <include refid="CommonReportAggColumns"/>
+        FROM collection_order
+        WHERE merchant_user_id = #{userId}
+          AND currency_type = #{currency}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
+    </select>
+
+    <select id="sumChannelReport" resultMap="ChannelReportResultMap">
+        SELECT
+            #{channelId} channel_id,
+            #{currency} currency_type,
+            <include refid="CommonReportAggColumnsWithBalance"/>
+        FROM collection_order
+        WHERE channel_id = #{channelId}
+          AND currency_type = #{currency}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
+    </select>
+
+    <select id="sumPaymentReport" resultMap="PaymentReportResultMap">
+        SELECT
+            #{paymentId} payment_id,
+            #{currency} currency_type,
+            <include refid="CommonReportAggColumnsWithBalance"/>
+        FROM collection_order
+        WHERE payment_id = #{paymentId}
+          AND currency_type = #{currency}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
+    </select>
+
+    <select id="sumCurrencyReport" resultMap="CurrencyReportResultMap">
+        SELECT
+            #{currency} currency_type,
+            <include refid="CommonReportAggColumnsWithBalance"/>
+        FROM collection_order
+        WHERE currency_type = #{currency}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
+    </select>
+
+    <sql id="CommonReportAggColumns">
+        COUNT(1) order_quantity,
+        IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN 1 ELSE 0 END), 0) success_quantity,
+        IFNULL(SUM(merchant_fee), 0) merchant_fee,
+        IFNULL(SUM(agent1_fee), 0) agent1_fee,
+        IFNULL(SUM(agent2_fee), 0) agent2_fee,
+        IFNULL(SUM(agent3_fee), 0) agent3_fee
+    </sql>
+
+    <sql id="CommonReportAggColumnsWithBalance">
+        COUNT(1) order_quantity,
+        IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN 1 ELSE 0 END), 0) success_quantity,
+        IFNULL(SUM(IFNULL(actual_amount, amount)), 0) order_balance,
+        IFNULL(SUM(merchant_fee), 0) merchant_fee,
+        IFNULL(SUM(merchant_fee), 0)
+          - IFNULL(SUM(agent1_fee), 0)
+          - IFNULL(SUM(agent2_fee), 0)
+          - IFNULL(SUM(agent3_fee), 0) order_profit
+    </sql>
+
+    <select id="listMerchantReportStats" resultMap="MerchantReportResultMap">
+        SELECT
+            merchant_user_id,
+            currency_type,
+            <include refid="CommonReportAggColumns"/>
+        FROM collection_order
+        WHERE currency_type = #{currency}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
+        GROUP BY merchant_user_id, currency_type
+    </select>
+
+    <select id="listChannelReportStats" resultMap="ChannelReportResultMap">
+        SELECT
+            channel_id,
+            currency_type,
+            <include refid="CommonReportAggColumnsWithBalance"/>
+        FROM collection_order
+        WHERE currency_type = #{currency}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
+        GROUP BY channel_id, currency_type
+    </select>
+
+    <select id="listPaymentReportStats" resultMap="PaymentReportResultMap">
+        SELECT
+            payment_id,
+            currency_type,
+            <include refid="CommonReportAggColumnsWithBalance"/>
+        FROM collection_order
+        WHERE currency_type = #{currency}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
+        GROUP BY payment_id, currency_type
+    </select>
+
+    <select id="listCurrencyReportStats" resultMap="CurrencyReportResultMap">
+        SELECT
+            currency_type,
+            <include refid="CommonReportAggColumnsWithBalance"/>
+        FROM collection_order
+        WHERE currency_type = #{currency}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
+        GROUP BY currency_type
     </select>
 
     <select id="countByQuery" resultType="java.lang.Integer">

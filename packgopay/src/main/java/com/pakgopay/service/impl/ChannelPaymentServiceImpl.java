@@ -17,7 +17,7 @@ import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.common.ExportReportDataColumns;
-import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.PatchBuilderUtil;
 import jakarta.servlet.http.HttpServletResponse;
@@ -191,12 +191,12 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         BigDecimal transactionFee = BigDecimal.ZERO;
         // fixed fee
         if (fixedFee != null && !fixedFee.equals(BigDecimal.ZERO)) {
-            transactionFee = CommontUtil.safeAdd(transactionFee, fixedFee);
+            transactionFee = CommonUtil.safeAdd(transactionFee, fixedFee);
         }
 
         // percentage rate
         if (rate != null && !rate.equals(BigDecimal.ZERO)) {
-            transactionFee = CommontUtil.safeAdd(transactionFee, CommontUtil.calculate(amount, rate, 6));
+            transactionFee = CommonUtil.safeAdd(transactionFee, CommonUtil.calculate(amount, rate, 6));
         }
 
         calculateAgentFees(transactionInfo, orderType);
@@ -271,7 +271,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                     orderType) ? info.getPayRate() : info.getCollectionRate();
             BigDecimal fixedFee = OrderType.PAY_OUT_ORDER.equals(
                     orderType) ? info.getPayFixedFee() : info.getCollectionFixedFee();
-            BigDecimal agentFee = CommontUtil.calculate(
+            BigDecimal agentFee = CommonUtil.calculate(
                     amount, OrderType.PAY_OUT_ORDER.equals(
                             orderType) ? info.getPayRate() : info.getCollectionRate(), 6);
             // First level agent
@@ -397,7 +397,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not channel");
         }
 
-        List<Long> channelIdList = CommontUtil.parseIds(channelIds);
+        List<Long> channelIdList = CommonUtil.parseIds(channelIds);
         if (channelIdList.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not channel");
         }
@@ -548,10 +548,10 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         // filter no limit payment
         List<PaymentDto> availablePayments = paymentDtoList.stream().filter(dto ->
                         // compare daily limit amount
-                        CommontUtil.safeAdd(currentDayAmountSum.get(dto.getPaymentId()), amount).
+                        CommonUtil.safeAdd(currentDayAmountSum.get(dto.getPaymentId()), amount).
                                 compareTo(CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType) ? dto.getCollectionDailyLimit() : dto.getPayDailyLimit()) < 0
                                 // compare monthly limit amount
-                                && CommontUtil.safeAdd(currentMonthAmountSum.get(dto.getPaymentId()), amount).
+                                && CommonUtil.safeAdd(currentMonthAmountSum.get(dto.getPaymentId()), amount).
                                 compareTo(CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType) ? dto.getCollectionMonthlyLimit() : dto.getPayDailyLimit()) < 0
                                 // check payment min amount
                                 && amount.compareTo(dto.getPaymentMinAmount()) > 0
@@ -677,7 +677,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             if (!StringUtils.hasText(ids)) {
                 return;
             }
-            List<Long> tempSet = CommontUtil.parseIds(ids);
+            List<Long> tempSet = CommonUtil.parseIds(ids);
             tempSet.forEach(id -> paymentMap.put(id, dto));
             paymentIdList.addAll(tempSet);
         });
@@ -729,7 +729,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         Set<Long> allPaymentIds = new HashSet<>();
 
         for (ChannelDto channel : channelDtoList) {
-            List<Long> ids = CommontUtil.parseIds(channel.getPaymentIds());
+            List<Long> ids = CommonUtil.parseIds(channel.getPaymentIds());
             channelPaymentIdsMap.put(channel, ids);
             allPaymentIds.addAll(ids);
         }

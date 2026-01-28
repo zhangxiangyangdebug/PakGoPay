@@ -14,7 +14,7 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.CommonService;
 import com.pakgopay.service.common.ExportReportDataColumns;
 import com.pakgopay.service.ReportService;
-import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.ExportFileUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -97,7 +97,9 @@ public class ReportServiceImpl implements ReportService {
     private ChannelReportResponse buildChannelReportResponse(
             ChannelReportRequest channelReportRequest) throws PakGoPayException {
         ChannelReportEntity entity = new ChannelReportEntity();
-        entity.setChannelId(Long.valueOf(channelReportRequest.getChannelId()));
+        if (channelReportRequest.getChannelId() != null && !channelReportRequest.getChannelId().isEmpty()) {
+            entity.setChannelId(Long.valueOf(channelReportRequest.getChannelId()));
+        }
         entity.setOrderType(channelReportRequest.getOrderType());
         entity.setCurrency(channelReportRequest.getCurrency());
         entity.setStartTime(Long.valueOf(channelReportRequest.getStartTime()));
@@ -248,7 +250,7 @@ public class ReportServiceImpl implements ReportService {
                 Map<String, BigDecimal> currencyMap =
                         cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
 
-                currencyMap.put("total", CommontUtil.sum(balanceInfos));
+                currencyMap.put("total", CommonUtil.sum(balanceInfos));
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
@@ -282,7 +284,7 @@ public class ReportServiceImpl implements ReportService {
                 Map<String, BigDecimal> currencyMap =
                         cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
 
-                currencyMap.put("total", CommontUtil.sum(balanceInfos));
+                currencyMap.put("total", CommonUtil.sum(balanceInfos));
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
@@ -315,7 +317,7 @@ public class ReportServiceImpl implements ReportService {
                 Map<String, BigDecimal> currencyMap =
                         cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
 
-                currencyMap.put("total", CommontUtil.sum(balanceInfos));
+                currencyMap.put("total", CommonUtil.sum(balanceInfos));
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
@@ -348,7 +350,7 @@ public class ReportServiceImpl implements ReportService {
                 Map<String, BigDecimal> currencyMap =
                         cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
 
-                currencyMap.put("total", CommontUtil.sum(balanceInfos));
+                currencyMap.put("total", CommonUtil.sum(balanceInfos));
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {

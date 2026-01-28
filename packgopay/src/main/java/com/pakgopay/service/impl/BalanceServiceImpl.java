@@ -7,7 +7,7 @@ import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.BalanceMapper;
 import com.pakgopay.mapper.dto.BalanceDto;
 import com.pakgopay.service.BalanceService;
-import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.CommonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -68,8 +68,8 @@ public class BalanceServiceImpl implements BalanceService {
 
         BalanceDto updateInfo = new BalanceDto();
         updateInfo.setUserId(balanceDto.getUserId());
-        updateInfo.setAvailableBalance(CommontUtil.safeSubtract(balanceDto.getAvailableBalance(), freezeFee));
-        updateInfo.setFrozenBalance(CommontUtil.safeAdd(balanceDto.getFrozenBalance(), freezeFee));
+        updateInfo.setAvailableBalance(CommonUtil.safeSubtract(balanceDto.getAvailableBalance(), freezeFee));
+        updateInfo.setFrozenBalance(CommonUtil.safeAdd(balanceDto.getFrozenBalance(), freezeFee));
         updateInfo.setUpdateTime(Instant.now().getEpochSecond());
 
         try {

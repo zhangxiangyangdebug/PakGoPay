@@ -8,9 +8,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.time.ZoneId;
 import java.util.stream.Collectors;
 
-public class CommontUtil {
+public class CommonUtil {
 
     private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
 
@@ -50,6 +51,37 @@ public class CommontUtil {
             }
         }
         return total;
+    }
+
+    /**
+     * Safe empty list fallback.
+     *
+     * @param list input list
+     * @return safe list
+     */
+    public static <T> List<T> safeList(List<T> list) {
+        return list == null ? Collections.emptyList() : list;
+    }
+
+    /**
+     * Default integer fallback.
+     *
+     * @param value input value
+     * @param defaultValue fallback value
+     * @return resolved integer
+     */
+    public static Integer defaultInt(Integer value, Integer defaultValue) {
+        return value == null ? defaultValue : value;
+    }
+
+    /**
+     * Default BigDecimal fallback.
+     *
+     * @param value input value
+     * @return resolved BigDecimal
+     */
+    public static BigDecimal defaultBigDecimal(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     public static BigDecimal calculate(
@@ -93,5 +125,19 @@ public class CommontUtil {
     public static boolean supportsPay(Integer supportType) {
         return CommonConstant.SUPPORT_TYPE_PAY.equals(supportType)
                 || CommonConstant.SUPPORT_TYPE_ALL.equals(supportType);
+    }
+
+    public static ZoneId resolveZoneIdByCurrency(String currency) {
+        if (currency == null) {
+            return ZoneId.systemDefault();
+        }
+        switch (currency.toUpperCase()) {
+            case "US":
+            case "USD":
+                return ZoneId.of("America/New_York");
+            default:
+                // TODO add currency -> timezone mapping.
+                return ZoneId.systemDefault();
+        }
     }
 }

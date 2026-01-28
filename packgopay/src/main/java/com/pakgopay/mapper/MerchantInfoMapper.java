@@ -46,4 +46,7 @@ public interface MerchantInfoMapper {
     List<MerchantInfoDto> pageByQuery(MerchantEntity entity);
 
     List<String> userIdsByQueryMerchant(MerchantEntity entity);
+
+    /** Query enabled merchants */
+    List<MerchantInfoDto> listEnabledMerchants();
 }

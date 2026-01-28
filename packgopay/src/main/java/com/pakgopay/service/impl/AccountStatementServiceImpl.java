@@ -13,7 +13,7 @@ import com.pakgopay.mapper.AccountStatementsMapper;
 import com.pakgopay.mapper.dto.AccountStatementsDto;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.AccountStatementService;
-import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import com.pakgopay.util.TransactionUtil;
@@ -160,16 +160,16 @@ public class AccountStatementServiceImpl implements AccountStatementService {
 
         if (2 == req.getOrderType()) {
             dto.setStatus(0);
-            dto.setFrozenBalanceAfter(CommontUtil.safeAdd(frozenBalanceBefore, req.getAmount()));
+            dto.setFrozenBalanceAfter(CommonUtil.safeAdd(frozenBalanceBefore, req.getAmount()));
         } else {
             dto.setStatus(1);
             dto.setFrozenBalanceAfter(frozenBalanceBefore);
         }
         dto.setFrozenBalanceBefore(frozenBalanceBefore);
         dto.setAvailableBalanceBefore(availableBalanceBefore);
-        dto.setAvailableBalanceAfter(CommontUtil.safeAdd(availableBalanceBefore, req.getAmount()));
+        dto.setAvailableBalanceAfter(CommonUtil.safeAdd(availableBalanceBefore, req.getAmount()));
         dto.setTotalBalanceBefore(totalBalanceBefore);
-        dto.setTotalBalanceAfter(CommontUtil.safeAdd(totalBalanceBefore, req.getAmount()));
+        dto.setTotalBalanceAfter(CommonUtil.safeAdd(totalBalanceBefore, req.getAmount()));
 
         return b.build();
     }

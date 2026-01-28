@@ -1,15 +1,22 @@
 package com.pakgopay.service.transaction;
 
+import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.OrderQueryEntity;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
+import com.pakgopay.mapper.dto.AgentInfoDto;
+import com.pakgopay.mapper.dto.MerchantInfoDto;
+import com.pakgopay.service.BalanceService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
+@Slf4j
 public abstract class BaseOrderService {
 
     protected TransactionStatus resolveNotifyStatus(String status) throws PakGoPayException {
@@ -79,5 +86,38 @@ public abstract class BaseOrderService {
         entity.setPageNo(request.getPageNo());
         entity.setPageSize(request.getPageSize());
         return entity;
+    }
+
+    protected void updateAgentFeeBalance(BalanceService balanceService,
+                                         MerchantInfoDto merchantInfo,
+                                         String currency,
+                                         BigDecimal agent1Fee,
+                                         BigDecimal agent2Fee,
+                                         BigDecimal agent3Fee) {
+        if (balanceService == null || merchantInfo == null
+                || merchantInfo.getAgentInfos() == null || merchantInfo.getAgentInfos().isEmpty()) {
+            return;
+        }
+        applyAgentFee(balanceService, merchantInfo.getAgentInfos(), CommonConstant.AGENT_LEVEL_FIRST, agent1Fee, currency);
+        applyAgentFee(balanceService, merchantInfo.getAgentInfos(), CommonConstant.AGENT_LEVEL_SECOND, agent2Fee, currency);
+        applyAgentFee(balanceService, merchantInfo.getAgentInfos(), CommonConstant.AGENT_LEVEL_THIRD, agent3Fee, currency);
+    }
+
+    protected void applyAgentFee(BalanceService balanceService,
+                                 List<AgentInfoDto> agentInfos,
+                                 Integer targetLevel,
+                                 BigDecimal fee,
+                                 String currency) {
+        if (fee == null || fee.compareTo(BigDecimal.ZERO) <= CommonConstant.ZERO) {
+            return;
+        }
+        for (AgentInfoDto agent : agentInfos) {
+            if (agent != null && targetLevel.equals(agent.getLevel())) {
+                balanceService.creditBalance(agent.getUserId(), currency, fee);
+                log.info("agent fee credited, agentUserId={}, level={}, amount={}",
+                        agent.getUserId(), targetLevel, fee);
+                return;
+            }
+        }
     }
 }

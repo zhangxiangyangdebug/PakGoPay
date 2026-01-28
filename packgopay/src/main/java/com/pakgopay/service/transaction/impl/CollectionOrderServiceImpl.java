@@ -17,7 +17,7 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.transaction.*;
-import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import lombok.extern.slf4j.Slf4j;
@@ -281,13 +281,17 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         }
 
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
-            BigDecimal creditAmount = CommontUtil.safeSubtract(
+            BigDecimal creditAmount = CommonUtil.safeSubtract(
                     resolveOrderAmount(collectionOrderDto.getActualAmount(), collectionOrderDto.getAmount()),
                     transactionInfo.getMerchantFee());
             balanceService.creditBalance(
                     collectionOrderDto.getMerchantUserId(),
                     collectionOrderDto.getCurrencyType(),
                     creditAmount);
+            updateAgentFeeBalance(balanceService, merchantInfo, collectionOrderDto.getCurrencyType(),
+                    transactionInfo.getAgent1Fee(),
+                    transactionInfo.getAgent2Fee(),
+                    transactionInfo.getAgent3Fee());
         }
     }
 
@@ -347,7 +351,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         if (merchantInfo.getIsFloat() == 1) {
             BigDecimal floatingAmount = generateFloatAmount(merchantInfo.getFloatRange());
             builder.obj(() -> floatingAmount, dto::setFloatingAmount) // floating amount
-                    .obj(() -> CommontUtil.safeSubtract(request.getAmount(), floatingAmount), dto::setActualAmount); // floating amount
+                    .obj(() -> CommonUtil.safeSubtract(request.getAmount(), floatingAmount), dto::setActualAmount); // floating amount
         }
 
         // -----------------------------

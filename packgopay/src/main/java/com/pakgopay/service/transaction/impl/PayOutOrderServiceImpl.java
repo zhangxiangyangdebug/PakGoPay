@@ -21,7 +21,7 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.*;
-import com.pakgopay.util.CommontUtil;
+import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import lombok.extern.slf4j.Slf4j;
@@ -104,7 +104,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     transactionInfo.getAgent2Fee(),
                     transactionInfo.getAgent3Fee());
 
-            frozenAmount = CommontUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
+            frozenAmount = CommonUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
             balanceService.freezeBalance(frozenAmount, payOrderRequest.getUserId(), payOrderRequest.getCurrency());
             frozen = true;
             log.info("balance frozen, userId={}, currency={}, frozenAmount={}",
@@ -303,6 +303,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         }
 
         PayOrderDto update = new PayOrderDto();
+        update.setTransactionNo(payOrderDto.getTransactionNo());
         update.setOrderStatus(targetStatus.getCode().toString());
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
             update.setSuccessCallbackTime(System.currentTimeMillis() / 1000);
@@ -319,7 +320,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
         BigDecimal payoutAmount = resolveOrderAmount(payOrderDto.getActualAmount(), payOrderDto.getAmount());
         BigDecimal merchantFee = payOrderDto.getMerchantFee() == null ? BigDecimal.ZERO : payOrderDto.getMerchantFee();
-        BigDecimal frozenAmount = CommontUtil.safeAdd(payoutAmount, merchantFee);
+        BigDecimal frozenAmount = CommonUtil.safeAdd(payoutAmount, merchantFee);
 
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
             balanceService.comfirmPayoutBalance(
@@ -328,6 +329,10 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     frozenAmount);
             log.info("balance payout confirmed, transactionNo={}, frozenAmount={}",
                     payOrderDto.getTransactionNo(), frozenAmount);
+            updateAgentFeeBalance(balanceService, merchantInfo, payOrderDto.getCurrencyType(),
+                    payOrderDto.getAgent1Fee(),
+                    payOrderDto.getAgent2Fee(),
+                    payOrderDto.getAgent3Fee());
         }
         if (TransactionStatus.FAILED.equals(targetStatus)) {
             balanceService.releaseFrozenBalance(
@@ -338,6 +343,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     payOrderDto.getTransactionNo(), frozenAmount);
         }
     }
+
 
     private Object dispatchPayOutOrder(PayOrderDto dto, PayOutOrderRequest request) {
         OrderScope scope = Integer.valueOf(1).equals(dto.getPaymentMode())

@@ -87,6 +87,7 @@
         WHERE channel_id = #{channelId}
         AND record_date = #{recordDate}
         AND order_type = #{orderType}
+        AND currency = #{currency}
     </update>
 
     <!-- Common WHERE conditions for ChannelReportEntity -->
