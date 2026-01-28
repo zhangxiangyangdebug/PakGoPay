@@ -1,5 +1,6 @@
 package com.pakgopay.data.reqeust.account;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.pakgopay.data.reqeust.BaseRequest;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -16,6 +17,7 @@ public class AccountStatementEditRequest extends BaseRequest  {
     /**
      * is agree?
      */
+    @JsonProperty("isAgree")
     private boolean isAgree;
 
     /**

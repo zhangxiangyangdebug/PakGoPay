@@ -17,7 +17,9 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.ToIntFunction;
@@ -851,7 +853,15 @@ public class ReportTask {
         private long resolveDayStart(String currency) {
             return dayStartByCurrency.computeIfAbsent(currency, key -> {
                 ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(key);
-                return LocalDate.now(zoneId).atStartOfDay(zoneId).toEpochSecond();
+                // Use a consistent timestamp for the whole report run (fallback to system time).
+                ZonedDateTime now = nowEpochSecond > 0
+                        ? Instant.ofEpochSecond(nowEpochSecond).atZone(zoneId)
+                        : ZonedDateTime.now(zoneId);
+                // Treat 00:00:00 ~ 00:50:00 as "midnight trigger": report previous day.
+                LocalDate baseDate = now.toLocalTime().isBefore(LocalTime.of(0, 50, 0))
+                        ? now.toLocalDate().minusDays(1)
+                        : now.toLocalDate();
+                return baseDate.atStartOfDay(zoneId).toEpochSecond();
             });
         }
 
@@ -864,7 +874,15 @@ public class ReportTask {
         private long resolveNextDayStart(String currency) {
             return nextDayStartByCurrency.computeIfAbsent(currency, key -> {
                 ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(key);
-                return LocalDate.now(zoneId).plusDays(1).atStartOfDay(zoneId).toEpochSecond();
+                // Use a consistent timestamp for the whole report run (fallback to system time).
+                ZonedDateTime now = nowEpochSecond > 0
+                        ? Instant.ofEpochSecond(nowEpochSecond).atZone(zoneId)
+                        : ZonedDateTime.now(zoneId);
+                // Treat 00:00:00 ~ 00:50:00 as "midnight trigger": report previous day.
+                LocalDate baseDate = now.toLocalTime().isBefore(LocalTime.of(0, 50, 0))
+                        ? now.toLocalDate().minusDays(1)
+                        : now.toLocalDate();
+                return baseDate.plusDays(1).atStartOfDay(zoneId).toEpochSecond();
             });
         }
 
