@@ -23,9 +23,9 @@ public class UserService {
     @Autowired
     private BalanceMapper balanceMapper;
 
-    public List<UserDTO> listUsers() {
+    /*public List<UserDTO> listUsers() {
         return userMapper.selectAllUser();
-    }
+    }*/
 
     public CommonResponse createLoginUser(CreateUserRequest user) {
 

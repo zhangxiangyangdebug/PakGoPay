@@ -50,8 +50,64 @@
         <result column="status" property="status" javaType="java.lang.Integer"/>
         <result column="login_ips" property="loginIps" javaType="java.lang.String"/>
     </resultMap>
-    <select id="selectAllUser" resultMap="userResultMap">
-        SELECT * FROM user_info
+    <sql id="BaseColumn">
+        user_id,
+        login_name,
+        contact_name,
+        contact_email,
+        contact_phone,
+        login_secret,
+        login_secret_expire,
+        api_secret,
+        api_secret_expire,
+        password,
+        last_login_ip,
+        last_login_time,
+        create_time,
+        create_by,
+        update_time,
+        update_by,
+        remark,
+        icon,
+        role_id,
+        status,
+        login_ips
+    </sql>
+    <select id="selectAllUser" parameterType="com.pakgopay.data.reqeust.systemConfig.LoginUserRequest" resultMap="userResultMap">
+        SELECT
+        m.user_id,
+        m.login_name,
+        m.contact_name,
+        m.contact_email,
+        m.contact_phone,
+        m.login_secret,
+        m.login_secret_expire,
+        m.api_secret,
+        m.api_secret_expire,
+        m.password,
+        m.last_login_ip,
+        m.last_login_time,
+        m.create_time,
+        m.create_by,
+        m.update_time,
+        m.update_by,
+        m.remark,
+        m.icon,
+        m.role_id,
+        m.status,
+        m.login_ips,
+        n.role_name
+        FROM user_info m  left join role n on m.role_id = n.role_id where 1 = 1
+        <if test="loginName != null and loginName != ''">
+            and login_name = #{loginName}
+        </if>
+        limit #{pageSize} offset #{offSet}
+    </select>
+    <select id="selectAllUserCount" parameterType="com.pakgopay.data.reqeust.systemConfig.LoginUserRequest" resultType="int">
+        SELECT count(1) FROM user_info where 1 = 1
+        <if test="loginName != null and loginName != ''">
+            and login_name = #{loginName}
+        </if>
     </select>
     <select id="getOneUser" resultMap="userResultMap">
         SELECT m.user_id, m.login_name, m.login_secret, m.status, n.role_name from user_info m left join role n on m.role_id = n.role_id where login_name = #{userName} and password = #{password}
