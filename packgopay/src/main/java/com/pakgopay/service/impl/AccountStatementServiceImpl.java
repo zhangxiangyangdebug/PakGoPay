@@ -182,10 +182,12 @@ public class AccountStatementServiceImpl implements AccountStatementService {
         transactionUtil.runInTransaction(() -> {
             accountStatementsMapper.updateById(accountStatementsDto);
 
+            AccountStatementsDto dto = accountStatementsMapper.selectById(accountStatementsDto.getId());
+
             balanceService.applyWithdrawalOperation(
-                    accountStatementsDto.getUserId(),
-                    accountStatementsDto.getCurrency(),
-                    request.getAmount(),
+                    dto.getUserId(),
+                    dto.getCurrency(),
+                    dto.getAmount(),
                     request.isAgree() ? 1 : 2);
         });
 
