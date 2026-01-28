@@ -15,21 +15,6 @@ public class ReportTimer {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
-    @Autowired
-    private MerchantReportTask merchantReportTask;
-
-    @Autowired
-    private AgentReportTask agentReportTask;
-
-    @Autowired
-    private ChannelReportTask channelReportTask;
-
-    @Autowired
-    private CurrencyReportTask currencyReportTask;
-
-    @Autowired
-    private PaymentReportTask paymentReportTask;
-
     // every hour on the hour
     @Scheduled(cron = "0 0 * * * ?")
     public void run() {
@@ -59,18 +44,5 @@ public class ReportTimer {
 
     private void doHourlyReport() {
 
-        try {
-            merchantReportTask.doHourlyReport();
-
-            agentReportTask.doHourlyReport();
-
-            channelReportTask.doHourlyReport();
-
-            currencyReportTask.doHourlyReport();
-
-            paymentReportTask.doHourlyReport();
-        } catch (Exception e) {
-            log.error("doHourlyReport failed, error message: {}", e.getMessage());
-        }
     }
 }

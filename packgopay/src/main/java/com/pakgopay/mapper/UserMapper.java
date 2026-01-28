@@ -16,7 +16,7 @@ public interface UserMapper {
 
      UserDTO loginUserByLoginName(@Param(value = "loginName") String loginName);
 
-     UserDTO getOneUser(@Param(value = "userName") String userName, @Param(value = "password") String password);
+     UserDTO getOneUser(@Param(value = "userName") String userName);
 
      UserDTO getOneUserByUserId(@Param(value = "userId") String userId);
 

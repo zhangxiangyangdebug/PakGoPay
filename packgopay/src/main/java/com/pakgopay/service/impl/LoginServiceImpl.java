@@ -41,7 +41,7 @@ public class LoginServiceImpl implements LoginService {
         UserDTO user = null;
         if (ObjectUtils.isEmpty(value)) {
             // 缓存没有用户数据，从数据库获取
-            user = userMapper.getOneUser(userName, password);
+            user = userMapper.getOneUser(userName);
         } else {
             //
             user = new Gson().fromJson(value, UserDTO.class);
@@ -49,6 +49,10 @@ public class LoginServiceImpl implements LoginService {
         // 对象依旧为空，则用户不存在
         if (ObjectUtils.isEmpty(user)) {
             return CommonResponse.fail(ResultCode.USER_IS_NOT_EXIST);
+        }
+
+        if(!user.getPassword().equals(password)) {
+            return CommonResponse.fail(ResultCode.USER_PASSWORD_ERROR);
         }
 
         // 用户状态是否启用
