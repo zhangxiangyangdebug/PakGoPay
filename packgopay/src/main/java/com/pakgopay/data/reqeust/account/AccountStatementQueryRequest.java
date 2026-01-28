@@ -14,7 +14,7 @@ public class AccountStatementQueryRequest extends ExportBaseRequest {
     /**
      * merchant/agent user Id
      */
-    private String userId;
+    private String merchantAgentId;
 
     /**
      * order type

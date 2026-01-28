@@ -205,7 +205,7 @@
         FROM account_statements
         <include refid="StatementQueryWhere"/>
         ORDER BY create_time DESC
-        LIMIT #{pageNo}, #{offset}
+        LIMIT #{offset}, #{pageSize}
     </select>
 
 </mapper>

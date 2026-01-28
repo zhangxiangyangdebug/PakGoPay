@@ -52,7 +52,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
         log.info("queryMerchantRechargeData start");
         AccountStatementEntity entity = new AccountStatementEntity();
         entity.setId(accountStatementQueryRequest.getId());
-        entity.setUserId(accountStatementQueryRequest.getUserId());
+        entity.setUserId(accountStatementQueryRequest.getMerchantAgentId());
         entity.setOrderType(accountStatementQueryRequest.getOrderType());
         entity.setCurrency(accountStatementQueryRequest.getCurrency());
         entity.setStartTime(accountStatementQueryRequest.getStartTime());
