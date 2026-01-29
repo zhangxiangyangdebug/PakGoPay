@@ -10,6 +10,7 @@ import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.mapper.dto.AgentInfoDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.util.CommonUtil;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
@@ -113,7 +114,9 @@ public abstract class BaseOrderService {
         }
         for (AgentInfoDto agent : agentInfos) {
             if (agent != null && targetLevel.equals(agent.getLevel())) {
-                balanceService.creditBalance(agent.getUserId(), currency, fee);
+                CommonUtil.withBalanceLogContext("agent.fee", null, () -> {
+                    balanceService.creditBalance(agent.getUserId(), currency, fee);
+                });
                 log.info("agent fee credited, agentUserId={}, level={}, amount={}",
                         agent.getUserId(), targetLevel, fee);
                 return;

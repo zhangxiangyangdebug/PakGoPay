@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import java.time.ZoneId;
 import java.util.Set;
+import org.slf4j.MDC;
 import java.util.stream.Collectors;
 
 public class CommonUtil {
@@ -132,6 +133,41 @@ public class CommonUtil {
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
+    }
+
+    /**
+     * Apply MDC context for balance logging during a runnable execution.
+     *
+     * @param source source label (e.g. interface name)
+     * @param transactionNo system transaction no
+     * @param runnable execution block
+     */
+    public static void withBalanceLogContext(String source, String transactionNo, Runnable runnable) {
+        if (runnable == null) {
+            return;
+        }
+        String prevSource = MDC.get("balanceSource");
+        String prevTransactionNo = MDC.get("balanceTransactionNo");
+        boolean setSource = false;
+        boolean setTransactionNo = false;
+        if (prevSource == null && source != null && !source.isBlank()) {
+            MDC.put("balanceSource", source);
+            setSource = true;
+        }
+        if (prevTransactionNo == null && transactionNo != null && !transactionNo.isBlank()) {
+            MDC.put("balanceTransactionNo", transactionNo);
+            setTransactionNo = true;
+        }
+        try {
+            runnable.run();
+        } finally {
+            if (setSource) {
+                MDC.remove("balanceSource");
+            }
+            if (setTransactionNo) {
+                MDC.remove("balanceTransactionNo");
+            }
+        }
     }
 
     public static boolean supportsCollection(Integer supportType) {

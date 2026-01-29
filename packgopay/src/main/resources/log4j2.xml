@@ -18,6 +18,14 @@
                 <SizeBasedTriggeringPolicy size="100MB"/>
             </Policies>
         </RollingFile>
+
+        <RollingFile name="BalanceFile" fileName="${LOG_DIR}/balance.log" filePattern="${LOG_DIR}/balance-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+        </RollingFile>
     </Appenders>
 
     <loggers>
@@ -27,6 +35,9 @@
         </root>
         <logger name="RollingFile" level="INFO" additivity="false">
             <AppenderRef ref="RollingFile"/>
+        </logger>
+        <logger name="balance-change" level="INFO" additivity="false">
+            <AppenderRef ref="BalanceFile"/>
         </logger>
     </loggers>
 </Configuration>

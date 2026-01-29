@@ -22,7 +22,7 @@ public interface BalanceService {
 
     void adjustBalance(String userId, String currency, BigDecimal amount);
 
-    void comfirmPayoutBalance(String userId, String currency, BigDecimal amount);
+    void confirmPayoutBalance(String userId, String currency, BigDecimal amount);
 
     Map<String, Map<String, BigDecimal>> fetchBalanceSummaries(List<String> userId) throws PakGoPayException;
 

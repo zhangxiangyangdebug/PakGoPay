@@ -68,8 +68,8 @@ public interface BalanceMapper {
                        @Param("now") long now);
 
     /** Payout success: release frozen and deduct total in one update */
-    int comfirmPayoutBalance(@Param("userId") String userId,
-                             @Param("amount") BigDecimal amount,
-                             @Param("currency") String currency,
-                             @Param("now") long now);
+    int confirmPayoutBalance(@Param("userId") String userId,
+            @Param("amount") BigDecimal amount,
+            @Param("currency") String currency,
+            @Param("now") long now);
 }

@@ -11,6 +11,9 @@ import com.pakgopay.util.CommonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -21,6 +24,8 @@ import java.util.Map;
 @Slf4j
 @Service
 public class BalanceServiceImpl implements BalanceService {
+
+    private static final Logger BALANCE_LOG = LoggerFactory.getLogger("balance-change");
 
     @Autowired
     private BalanceMapper balanceMapper;
@@ -78,6 +83,8 @@ public class BalanceServiceImpl implements BalanceService {
             log.error("balance updateByUserId failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
+        BalanceDto after = fetchBalanceSnapshot(userId, currency);
+        logBalanceChange("freezeBalance", balanceDto, after, freezeFee, userId, currency);
     }
 
     @Override
@@ -85,6 +92,7 @@ public class BalanceServiceImpl implements BalanceService {
         if (!checkParams(userId, currency, amount)) {
             return;
         }
+        BalanceDto before = fetchBalanceSnapshot(userId, currency);
         try {
             long now = System.currentTimeMillis() / 1000;
             int ret = balanceMapper.releaseFrozenBalance(userId, amount, currency, now);
@@ -95,6 +103,8 @@ public class BalanceServiceImpl implements BalanceService {
             log.error("releaseFrozenBalance failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
+        BalanceDto after = fetchBalanceSnapshot(userId, currency);
+        logBalanceChange("releaseFrozenBalance", before, after, amount, userId, currency);
     }
 
     @Override
@@ -105,7 +115,10 @@ public class BalanceServiceImpl implements BalanceService {
 
         try {
             long now = System.currentTimeMillis() / 1000;
+            BalanceDto before = fetchBalanceSnapshot(userId, currency);
             upsertCreditBalance(userId, currency, amount, now);
+            BalanceDto after = fetchBalanceSnapshot(userId, currency);
+            logBalanceChange("creditBalance", before, after, amount, userId, currency);
         } catch (Exception e) {
             log.error("creditBalance failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -151,6 +164,7 @@ public class BalanceServiceImpl implements BalanceService {
         int ret = 0;
         try {
             long now = System.currentTimeMillis() / 1000;
+            BalanceDto before = fetchBalanceSnapshot(userId, currency);
             if (oper == 0) {
                 // freeze
                 ret = balanceMapper.freezeForWithdraw(userId, amount, currency, now);
@@ -161,6 +175,8 @@ public class BalanceServiceImpl implements BalanceService {
                 // cancel
                 ret = balanceMapper.cancelWithdraw(userId, amount, currency, now);
             }
+            BalanceDto after = fetchBalanceSnapshot(userId, currency);
+            logBalanceChange("applyWithdrawalOperation(" + oper + ")", before, after, amount, userId, currency);
         } catch (Exception e) {
             log.error("applyWithdrawalOperation failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -171,20 +187,23 @@ public class BalanceServiceImpl implements BalanceService {
         }
     }
 
-    public void comfirmPayoutBalance(String userId, String currency, BigDecimal amount) {
+    public void confirmPayoutBalance(String userId, String currency, BigDecimal amount) {
         if (!checkParams(userId, currency, amount)) {
             return;
         }
         int ret = 0;
         try {
             long now = System.currentTimeMillis() / 1000;
-            ret = balanceMapper.comfirmPayoutBalance(userId, amount, currency, now);
+            BalanceDto before = fetchBalanceSnapshot(userId, currency);
+            ret = balanceMapper.confirmPayoutBalance(userId, amount, currency, now);
+            BalanceDto after = fetchBalanceSnapshot(userId, currency);
+            logBalanceChange("confirmPayoutBalance", before, after, amount, userId, currency);
         } catch (Exception e) {
-            log.error("comfirmPayoutBalance failed, message {}", e.getMessage());
+            log.error("confirmPayoutBalance failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
         if (ret <= 0) {
-            throw new PakGoPayException(ResultCode.FAIL, "comfirmPayoutBalance failed");
+            throw new PakGoPayException(ResultCode.FAIL, "confirmPayoutBalance failed");
         }
     }
 
@@ -197,7 +216,10 @@ public class BalanceServiceImpl implements BalanceService {
         int ret = 0;
         try {
             long now = System.currentTimeMillis() / 1000;
+            BalanceDto before = fetchBalanceSnapshot(userId, currency);
             ret = balanceMapper.adjustBalance(userId, amount, currency, now);
+            BalanceDto after = fetchBalanceSnapshot(userId, currency);
+            logBalanceChange("adjustBalance", before, after, amount, userId, currency);
         } catch (Exception e) {
             log.error("adjustBalance failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -259,6 +281,7 @@ public class BalanceServiceImpl implements BalanceService {
     @Override
     public void createBalanceRecord(String userId, String currency) {
         try {
+            BalanceDto before = fetchBalanceSnapshot(userId, currency);
             BalanceDto dto = new BalanceDto();
             dto.setUserId(userId);
             dto.setCurrency(currency);
@@ -270,6 +293,8 @@ public class BalanceServiceImpl implements BalanceService {
             dto.setUpdateTime(now);
 
             int ret = balanceMapper.insert(dto);
+            BalanceDto after = fetchBalanceSnapshot(userId, currency);
+            logBalanceChange("createBalanceRecord", before, after, BigDecimal.ZERO, userId, currency);
         } catch (Exception e) {
             log.error("createBalanceRecord failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -278,5 +303,54 @@ public class BalanceServiceImpl implements BalanceService {
 
     private static BigDecimal amountDefaultValue(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private BalanceDto fetchBalanceSnapshot(String userId, String currency) {
+        if (userId == null || userId.isBlank() || currency == null || currency.isBlank()) {
+            return null;
+        }
+        try {
+            return balanceMapper.findByUserIdAndCurrency(userId, currency);
+        } catch (Exception e) {
+            log.error("fetchBalanceSnapshot failed, message {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private void logBalanceChange(String operation,
+                                  BalanceDto before,
+                                  BalanceDto after,
+                                  BigDecimal amount,
+                                  String userId,
+                                  String currency) {
+        String source = MDC.get("balanceSource");
+        String transactionNo = MDC.get("balanceTransactionNo");
+        String op = operation;
+        if (source != null && !source.isBlank()) {
+            op = source + ":" + operation;
+        }
+        BigDecimal beforeAvailable = before == null ? BigDecimal.ZERO : amountDefaultValue(before.getAvailableBalance());
+        BigDecimal beforeFrozen = before == null ? BigDecimal.ZERO : amountDefaultValue(before.getFrozenBalance());
+        BigDecimal beforeTotal = before == null ? BigDecimal.ZERO : amountDefaultValue(before.getTotalBalance());
+        BigDecimal beforeWithdraw = before == null ? BigDecimal.ZERO : amountDefaultValue(before.getWithdrawAmount());
+
+        BigDecimal afterAvailable = after == null ? BigDecimal.ZERO : amountDefaultValue(after.getAvailableBalance());
+        BigDecimal afterFrozen = after == null ? BigDecimal.ZERO : amountDefaultValue(after.getFrozenBalance());
+        BigDecimal afterTotal = after == null ? BigDecimal.ZERO : amountDefaultValue(after.getTotalBalance());
+        BigDecimal afterWithdraw = after == null ? BigDecimal.ZERO : amountDefaultValue(after.getWithdrawAmount());
+
+        BigDecimal deltaAvailable = afterAvailable.subtract(beforeAvailable);
+        BigDecimal deltaFrozen = afterFrozen.subtract(beforeFrozen);
+        BigDecimal deltaTotal = afterTotal.subtract(beforeTotal);
+        BigDecimal deltaWithdraw = afterWithdraw.subtract(beforeWithdraw);
+
+        BALANCE_LOG.info("balance op={}, source={}, transactionNo={}, userId={}, currency={}, amount={}\n" +
+                        "before[available={}, frozen={}, total={}, withdraw={}]\n" +
+                        "after[available={}, frozen={}, total={}, withdraw={}]\n" +
+                        "delta[available={}, frozen={}, total={}, withdraw={}]",
+                op, source, transactionNo, userId, currency, amountDefaultValue(amount),
+                beforeAvailable, beforeFrozen, beforeTotal, beforeWithdraw,
+                afterAvailable, afterFrozen, afterTotal, afterWithdraw,
+                deltaAvailable, deltaFrozen, deltaTotal, deltaWithdraw);
     }
 }
