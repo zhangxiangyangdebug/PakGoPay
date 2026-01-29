@@ -154,7 +154,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
 
         Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(new ArrayList<>() {{
             add(dto.getUserId());
-        }});
+        }}).getTotalData();
         String currency = dto.getCurrency();
         Map<String, BigDecimal> balanceInfo = cardInfo.get(currency);
 

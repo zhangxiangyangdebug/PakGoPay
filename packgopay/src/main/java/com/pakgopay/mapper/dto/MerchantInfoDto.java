@@ -5,6 +5,7 @@ import lombok.Data;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class MerchantInfoDto implements Serializable {
@@ -16,6 +17,15 @@ public class MerchantInfoDto implements Serializable {
 
     /** User account name */
     private String accountName;
+
+    /** Contact name */
+    private String contactName;
+
+    /** Contact email */
+    private String contactEmail;
+
+    /** Contact phone */
+    private String contactPhone;
 
     /** Parent ID (upper-level ID) */
     private String parentId;
@@ -92,13 +102,16 @@ public class MerchantInfoDto implements Serializable {
     // ---------------------- external info -----------------
 
     /** Merchant's agent infos */
-    List<AgentInfoDto> agentInfos;
+    private List<AgentInfoDto> agentInfos;
 
     /** Merchant's agent infos */
-    List<ChannelDto> channelDtoList;
+    private List<ChannelDto> channelDtoList;
 
     /** Merchant's support currency */
-    List<String> currencyList;
+    private List<String> currencyList;
+
+    /** Merchant's balance infos */
+    private Map<String, Map<String, BigDecimal>> balanceInfo;
 
     public AgentInfoDto getCurrentAgentInfo() {
         if (parentId == null || parentId.isBlank() || agentInfos == null) {

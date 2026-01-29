@@ -12,6 +12,7 @@ import com.pakgopay.data.reqeust.account.AccountQueryRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
+import com.pakgopay.data.response.BalanceUserInfo;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.account.WithdrawalAccountResponse;
 import com.pakgopay.data.response.merchant.MerchantResponse;
@@ -20,7 +21,6 @@ import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.common.ExportReportDataColumns;
-import com.pakgopay.service.transaction.MerchantCheckService;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.PatchBuilderUtil;
@@ -66,7 +66,7 @@ public class MerchantServiceImpl implements MerchantService {
     private TransactionUtil transactionUtil;
 
     @Autowired
-    private MerchantCheckService merchantCheckService;
+    private UserMapper userMapper;
 
     @Override
     public MerchantInfoDto fetchMerchantInfo(String userId) throws PakGoPayException {
@@ -115,7 +115,12 @@ public class MerchantServiceImpl implements MerchantService {
             if (merchantQueryRequest.getIsNeedCardData()) {
                 List<String> userIds = merchantInfoMapper.userIdsByQueryMerchant(entity);
                 if (userIds != null && !userIds.isEmpty()) {
-                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds);
+                    BalanceUserInfo balanceUserInfo = balanceService.fetchBalanceSummaries(userIds);
+                    Map<String, Map<String, BigDecimal>> cardInfo = balanceUserInfo.getTotalData();
+                    Map<String, Map<String, Map<String, BigDecimal>>> userDataMap = balanceUserInfo.getUserDataMap();
+                    merchantInfoDtoList.forEach(info -> {
+                        info.setBalanceInfo(userDataMap.get(info.getUserId()));
+                    });
                     response.setCardInfo(cardInfo);
                 }
             }
@@ -450,7 +455,7 @@ public class MerchantServiceImpl implements MerchantService {
                 if (accountQueryRequest.getUserId() != null && !accountQueryRequest.getUserId().isEmpty()) {
                     List<String> userIds = new ArrayList<>();
                     userIds.add(userId);
-                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds);
+                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds).getTotalData();
                     response.setCardInfo(cardInfo);
                 }
             }

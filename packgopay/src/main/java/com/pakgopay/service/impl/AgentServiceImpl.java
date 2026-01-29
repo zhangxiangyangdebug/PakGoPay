@@ -362,7 +362,7 @@ public class AgentServiceImpl implements AgentService {
                 if (accountQueryRequest.getUserId() != null && !accountQueryRequest.getUserId().isEmpty()) {
                     List<String> userIds = new ArrayList<>();
                     userIds.add(userId);
-                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds);
+                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds).getTotalData();
                     response.setCardInfo(cardInfo);
                 }
             }

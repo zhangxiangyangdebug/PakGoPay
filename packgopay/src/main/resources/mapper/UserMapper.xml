@@ -137,8 +137,14 @@
     </select>
 
     <insert id="createUser" parameterType="com.pakgopay.mapper.dto.UserDTO">
-        INSERT INTO user_info (user_id, login_name, password, role_id, status, login_ips, withdrawal_ips)
-        VALUES ( #{user.userId}, #{user.loginName}, #{user.password}, #{user.roleId}, #{user.status}, #{user.loginIps}, #{user.withdrawalIps} )
+        INSERT INTO user_info (
+        user_id, login_name, password, role_id, status, login_ips, withdrawal_ips,
+        contact_name, contact_email, contact_phone
+        )
+        VALUES (
+        #{user.userId}, #{user.loginName}, #{user.password}, #{user.roleId}, #{user.status}, #{user.loginIps}, #{user.withdrawalIps},
+        #{user.contactName}, #{user.contactEmail}, #{user.contactPhone}
+        )
     </insert>
 
     <update id="stopLoginUser">

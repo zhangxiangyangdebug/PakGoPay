@@ -3,6 +3,7 @@ package com.pakgopay.service.impl;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.response.BalanceUserInfo;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.BalanceMapper;
 import com.pakgopay.mapper.dto.BalanceDto;
@@ -248,9 +249,10 @@ public class BalanceServiceImpl implements BalanceService {
         return true;
     }
 
-    public Map<String, Map<String, BigDecimal>> fetchBalanceSummaries(List<String> userIds) throws PakGoPayException {
-        Map<String, Map<String, BigDecimal>> result = new HashMap<>();
-
+    public BalanceUserInfo fetchBalanceSummaries(List<String> userIds) throws PakGoPayException {
+        Map<String, Map<String, BigDecimal>> totalData = new HashMap<>();
+        Map<String, Map<String, Map<String, BigDecimal>>> userDataMap = new HashMap<>();
+        
         List<BalanceDto> balanceDtoList;
         try {
             balanceDtoList = balanceMapper.listByUserIds(userIds);
@@ -261,21 +263,38 @@ public class BalanceServiceImpl implements BalanceService {
 
         if (balanceDtoList == null || balanceDtoList.isEmpty()) {
             log.error("fetchBalanceSummaries record is not exists, userId {}", userIds);
-            return result;
+            BalanceUserInfo empty = new BalanceUserInfo();
+            empty.setTotalData(totalData);
+            empty.setUserDataMap(userDataMap);
+            return empty;
         }
 
         for (BalanceDto info : balanceDtoList) {
             String currency = info.getCurrency();
+            String userId = info.getUserId();
 
             Map<String, BigDecimal> currencyMap =
-                    result.computeIfAbsent(currency, k -> new HashMap<>());
+                    totalData.computeIfAbsent(currency, k -> new HashMap<>());
 
             currencyMap.merge("total", amountDefaultValue(info.getTotalBalance()), BigDecimal::add);
             currencyMap.merge("available", amountDefaultValue(info.getAvailableBalance()), BigDecimal::add);
             currencyMap.merge("withdraw", amountDefaultValue(info.getWithdrawAmount()), BigDecimal::add);
             currencyMap.merge("frozen", amountDefaultValue(info.getFrozenBalance()), BigDecimal::add);
+
+
+            Map<String, Map<String, BigDecimal>> userCurrencyMap =
+                    userDataMap.computeIfAbsent(userId, k -> new HashMap<>());
+            Map<String, BigDecimal> userBalance =
+                    userCurrencyMap.computeIfAbsent(currency, k -> new HashMap<>());
+            userBalance.put("total", amountDefaultValue(info.getTotalBalance()));
+            userBalance.put("available", amountDefaultValue(info.getAvailableBalance()));
+            userBalance.put("withdraw", amountDefaultValue(info.getWithdrawAmount()));
+            userBalance.put("frozen", amountDefaultValue(info.getFrozenBalance()));
         }
-        return result;
+        BalanceUserInfo info = new BalanceUserInfo();
+        info.setTotalData(totalData);
+        info.setUserDataMap(userDataMap);
+        return info;
     }
 
     @Override

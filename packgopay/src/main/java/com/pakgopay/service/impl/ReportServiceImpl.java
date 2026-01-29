@@ -221,7 +221,7 @@ public class ReportServiceImpl implements ReportService {
             if(entity.getUserId() != null){
                 userIds.add(entity.getUserId());
             }
-            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds);
+            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds).getTotalData();
             response.setCardInfo(cardInfo);
         }
 
