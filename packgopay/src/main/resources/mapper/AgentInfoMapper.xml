@@ -13,6 +13,9 @@
 
         <result column="user_id" property="userId" javaType="java.lang.String"/>
         <result column="user_name" property="accountName" javaType="java.lang.String"/>
+        <result column="contact_name" property="contactName" javaType="java.lang.String"/>
+        <result column="contact_email" property="contactEmail" javaType="java.lang.String"/>
+        <result column="contact_phone" property="contactPhone" javaType="java.lang.String"/>
 
         <result column="parent_id" property="parentId" javaType="java.lang.String"/>
         <result column="top_agent_id" property="topAgentId" javaType="java.lang.String"/>
@@ -69,6 +72,35 @@
         upeate_by,
         version,
         remark
+    </sql>
+
+    <sql id="BaseColumnsForJoin">
+        ai.agent_no,
+        ai.agent_name,
+        ai.user_id,
+        ai.user_name,
+        ui.contact_name,
+        ui.contact_email,
+        ui.contact_phone,
+        ai.parent_id,
+        ai.top_agent_id,
+        ai.channel_ids,
+        ai.status,
+        ai.level,
+        ai.collection_rate,
+        ai.collection_fixed_fee,
+        ai.collection_max_fee,
+        ai.collection_min_fee,
+        ai.pay_rate,
+        ai.pay_fixed_fee,
+        ai.pay_max_fee,
+        ai.pay_min_fee,
+        ai.create_time,
+        ai.create_by,
+        ai.update_time,
+        ai.upeate_by,
+        ai.version,
+        ai.remark
     </sql>
 
 
@@ -161,6 +193,24 @@
         </where>
     </sql>
 
+    <sql id="AgentQueryWhereForJoin">
+        <where>
+
+            <if test="accountName != null and accountName != ''">
+                AND ai.user_name = #{accountName}
+            </if>
+
+            <if test="agentName != null and agentName != ''">
+                AND ai.agent_name = #{agentName}
+            </if>
+
+            <if test="status != null">
+                AND ai.status = #{status}
+            </if>
+
+        </where>
+    </sql>
+
     <select id="countByQuery"
             parameterType="com.pakgopay.data.entity.agent.AgentInfoEntity"
             resultType="int">
@@ -173,10 +223,11 @@
             parameterType="com.pakgopay.data.entity.agent.AgentInfoEntity"
             resultMap="AgentInfoResultMap">
         SELECT
-        <include refid="BaseColumns"/>
-        FROM agent_info
-        <include refid="AgentQueryWhere"/>
-        ORDER BY agent_no DESC
+        <include refid="BaseColumnsForJoin"/>
+        FROM agent_info ai
+        LEFT JOIN user_info ui ON ai.user_id = ui.user_id
+        <include refid="AgentQueryWhereForJoin"/>
+        ORDER BY ai.agent_no DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 

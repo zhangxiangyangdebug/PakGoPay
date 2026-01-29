@@ -12,6 +12,7 @@ import com.pakgopay.data.reqeust.account.AccountQueryRequest;
 import com.pakgopay.data.reqeust.agent.AgentAddRequest;
 import com.pakgopay.data.reqeust.agent.AgentEditRequest;
 import com.pakgopay.data.reqeust.agent.AgentQueryRequest;
+import com.pakgopay.data.response.BalanceUserInfo;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.account.WithdrawalAccountResponse;
 import com.pakgopay.data.response.agent.AgentResponse;
@@ -152,6 +153,15 @@ public class AgentServiceImpl implements AgentService {
             agentInfo.setParentChannelDtoList(buildChannelListByIds(parentChannelIds,channelMap));
             agentInfo.setParentAgentName(agentInfoDto.getAgentName());
             agentInfo.setParentUserName(agentInfoDto.getAccountName());
+        }
+
+        List<String> userIds = agentInfoDtoList.stream().map(AgentInfoDto::getUserId).collect(Collectors.toList());
+        if (!userIds.isEmpty()) {
+            BalanceUserInfo balanceUserInfo = balanceService.fetchBalanceSummaries(userIds);
+            Map<String, Map<String, Map<String, BigDecimal>>> userDataMap = balanceUserInfo.getUserDataMap();
+            agentInfoDtoList.forEach(info -> {
+                info.setBalanceInfo(userDataMap.get(info.getUserId()));
+            });
         }
     }
 
