@@ -23,6 +23,15 @@ public class AgentInfoDto implements Serializable {
     /** Account name */
     private String accountName;
 
+    /** Contact name */
+    private String contactName;
+
+    /** Contact email */
+    private String contactEmail;
+
+    /** Contact phone */
+    private String contactPhone;
+
     /** Parent agent ID */
     private String parentId;
 
