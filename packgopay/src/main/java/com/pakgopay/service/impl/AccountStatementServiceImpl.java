@@ -96,31 +96,38 @@ public class AccountStatementServiceImpl implements AccountStatementService {
             accountStatementsMapper.insert(accountStatementsDto);
             // recharge
             if (accountStatementsDto.getOrderType() == 1) {
-                balanceService.creditBalance(
-                        accountStatementsDto.getUserId(),
-                        accountStatementsDto.getCurrency(),
-                        accountStatementsDto.getAmount());
+                CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getId(), () -> {
+                    balanceService.creditBalance(
+                            accountStatementsDto.getUserId(),
+                            accountStatementsDto.getCurrency(),
+                            accountStatementsDto.getAmount());
+                });
             }
             // withdrawal
             if (accountStatementsDto.getOrderType() == 2) {
-                balanceService.applyWithdrawalOperation(
-                        accountStatementsDto.getUserId(),
-                        accountStatementsDto.getCurrency(),
-                        accountStatementsDto.getAmount(),
-                        0);
+                CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getId(), () -> {
+                    balanceService.applyWithdrawalOperation(
+                            accountStatementsDto.getUserId(),
+                            accountStatementsDto.getCurrency(),
+                            accountStatementsDto.getAmount(),
+                            0);
+                });
             }
             // adjust
             if (accountStatementsDto.getOrderType() == 3) {
-                balanceService.adjustBalance(
-                        accountStatementsDto.getUserId(),
-                        accountStatementsDto.getCurrency(),
-                        accountStatementsDto.getAmount());
+                CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getId(), () -> {
+                    balanceService.adjustBalance(
+                            accountStatementsDto.getUserId(),
+                            accountStatementsDto.getCurrency(),
+                            accountStatementsDto.getAmount());
+                });
             }
         });
 
         log.info("createAccountStatement end");
         return CommonResponse.success(ResultCode.SUCCESS);
     }
+
 
     private AccountStatementsDto generateAccountStatementForAdd(AccountStatementAddRequest req) {
         AccountStatementsDto dto = new AccountStatementsDto();
@@ -147,7 +154,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
 
         Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(new ArrayList<>() {{
             add(dto.getUserId());
-        }});
+        }}).getTotalData();
         String currency = dto.getCurrency();
         Map<String, BigDecimal> balanceInfo = cardInfo.get(currency);
 
@@ -193,11 +200,13 @@ public class AccountStatementServiceImpl implements AccountStatementService {
 
             AccountStatementsDto dto = accountStatementsMapper.selectById(accountStatementsDto.getId());
 
-            balanceService.applyWithdrawalOperation(
-                    dto.getUserId(),
-                    dto.getCurrency(),
-                    dto.getAmount(),
-                    request.isAgree() ? 1 : 2);
+            CommonUtil.withBalanceLogContext("accountStatement.update", dto.getId(), () -> {
+                balanceService.applyWithdrawalOperation(
+                        dto.getUserId(),
+                        dto.getCurrency(),
+                        dto.getAmount(),
+                        request.isAgree() ? 1 : 2);
+            });
         });
 
         log.info("editAccountStatement end, id={}", request.getId());

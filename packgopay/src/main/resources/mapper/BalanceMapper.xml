@@ -171,7 +171,7 @@
           AND frozen_balance >= #{amount}
     </update>
 
-    <update id="comfirmPayoutBalance">
+    <update id="confirmPayoutBalance">
         UPDATE balance
         SET
             frozen_balance = frozen_balance - #{amount},

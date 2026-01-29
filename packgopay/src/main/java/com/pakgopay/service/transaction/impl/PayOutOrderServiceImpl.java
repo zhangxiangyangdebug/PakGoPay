@@ -105,7 +105,10 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     transactionInfo.getAgent3Fee());
 
             frozenAmount = CommonUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
-            balanceService.freezeBalance(frozenAmount, payOrderRequest.getUserId(), payOrderRequest.getCurrency());
+            BigDecimal frozenAmountSnapshot = frozenAmount;
+            CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
+                balanceService.freezeBalance(frozenAmountSnapshot, payOrderRequest.getUserId(), payOrderRequest.getCurrency());
+            });
             frozen = true;
             log.info("balance frozen, userId={}, currency={}, frozenAmount={}",
                     payOrderRequest.getUserId(), payOrderRequest.getCurrency(), frozenAmount);
@@ -134,10 +137,13 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         } catch (Exception e) {
             if (frozen) {
                 try {
-                    balanceService.releaseFrozenBalance(
-                            payOrderRequest.getUserId(),
-                            payOrderRequest.getCurrency(),
-                            frozenAmount);
+                    BigDecimal frozenAmountSnapshot = frozenAmount;
+                    CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
+                        balanceService.releaseFrozenBalance(
+                                payOrderRequest.getUserId(),
+                                payOrderRequest.getCurrency(),
+                                frozenAmountSnapshot);
+                    });
                 } catch (Exception ex) {
                     log.error("releaseFrozenBalance failed, message {}", ex.getMessage());
                 }
@@ -323,10 +329,12 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         BigDecimal frozenAmount = CommonUtil.safeAdd(payoutAmount, merchantFee);
 
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
-            balanceService.comfirmPayoutBalance(
-                    payOrderDto.getMerchantUserId(),
-                    payOrderDto.getCurrencyType(),
-                    frozenAmount);
+            CommonUtil.withBalanceLogContext("payout.handleNotify", payOrderDto.getTransactionNo(), () -> {
+                balanceService.confirmPayoutBalance(
+                        payOrderDto.getMerchantUserId(),
+                        payOrderDto.getCurrencyType(),
+                        frozenAmount);
+            });
             log.info("balance payout confirmed, transactionNo={}, frozenAmount={}",
                     payOrderDto.getTransactionNo(), frozenAmount);
             updateAgentFeeBalance(balanceService, merchantInfo, payOrderDto.getCurrencyType(),
@@ -335,10 +343,12 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     payOrderDto.getAgent3Fee());
         }
         if (TransactionStatus.FAILED.equals(targetStatus)) {
-            balanceService.releaseFrozenBalance(
-                    payOrderDto.getMerchantUserId(),
-                    payOrderDto.getCurrencyType(),
-                    frozenAmount);
+            CommonUtil.withBalanceLogContext("payout.handleNotify", payOrderDto.getTransactionNo(), () -> {
+                balanceService.releaseFrozenBalance(
+                        payOrderDto.getMerchantUserId(),
+                        payOrderDto.getCurrencyType(),
+                        frozenAmount);
+            });
             log.info("balance payout released, transactionNo={}, frozenAmount={}",
                     payOrderDto.getTransactionNo(), frozenAmount);
         }

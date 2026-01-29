@@ -1,6 +1,7 @@
 package com.pakgopay.service;
 
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.response.BalanceUserInfo;
 import com.pakgopay.data.response.CommonResponse;
 
 import java.math.BigDecimal;
@@ -22,9 +23,9 @@ public interface BalanceService {
 
     void adjustBalance(String userId, String currency, BigDecimal amount);
 
-    void comfirmPayoutBalance(String userId, String currency, BigDecimal amount);
+    void confirmPayoutBalance(String userId, String currency, BigDecimal amount);
 
-    Map<String, Map<String, BigDecimal>> fetchBalanceSummaries(List<String> userId) throws PakGoPayException;
+    BalanceUserInfo fetchBalanceSummaries(List<String> userId) throws PakGoPayException;
 
     void createBalanceRecord(String userId, String currency);
 }

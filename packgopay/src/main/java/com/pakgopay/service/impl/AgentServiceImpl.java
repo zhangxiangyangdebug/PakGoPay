@@ -248,6 +248,9 @@ public class AgentServiceImpl implements AgentService {
         AgentInfoDto agentInfoDto = buildAgentCreateDto(agentAddRequest);
 
         transactionUtil.runInTransaction(() -> {
+            if (agentInfoMapper.findByAgentName(agentAddRequest.getAgentName()).isPresent()) {
+                throw new PakGoPayException(ResultCode.FAIL, "agent name already exists");
+            }
             Long userId = userService.createUser(createUserRequest);
 
             agentInfoDto.setUserId(userId.toString());
@@ -359,7 +362,7 @@ public class AgentServiceImpl implements AgentService {
                 if (accountQueryRequest.getUserId() != null && !accountQueryRequest.getUserId().isEmpty()) {
                     List<String> userIds = new ArrayList<>();
                     userIds.add(userId);
-                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds);
+                    Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(userIds).getTotalData();
                     response.setCardInfo(cardInfo);
                 }
             }

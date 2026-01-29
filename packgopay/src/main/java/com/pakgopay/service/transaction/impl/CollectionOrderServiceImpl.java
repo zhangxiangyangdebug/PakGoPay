@@ -284,10 +284,12 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             BigDecimal creditAmount = CommonUtil.safeSubtract(
                     resolveOrderAmount(collectionOrderDto.getActualAmount(), collectionOrderDto.getAmount()),
                     transactionInfo.getMerchantFee());
-            balanceService.creditBalance(
-                    collectionOrderDto.getMerchantUserId(),
-                    collectionOrderDto.getCurrencyType(),
-                    creditAmount);
+            CommonUtil.withBalanceLogContext("collection.handleNotify", collectionOrderDto.getTransactionNo(), () -> {
+                balanceService.creditBalance(
+                        collectionOrderDto.getMerchantUserId(),
+                        collectionOrderDto.getCurrencyType(),
+                        creditAmount);
+            });
             updateAgentFeeBalance(balanceService, merchantInfo, collectionOrderDto.getCurrencyType(),
                     transactionInfo.getAgent1Fee(),
                     transactionInfo.getAgent2Fee(),

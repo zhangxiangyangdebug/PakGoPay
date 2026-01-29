@@ -71,6 +71,9 @@ public class UserService {
         newUser.setRoleId(user.getRoleId());
         newUser.setLoginIps(user.getLoginIps());
         newUser.setWithdrawalIps(user.getWithdrawalIps());
+        newUser.setContactName(user.getContactName());
+        newUser.setContactEmail(user.getContactEmail());
+        newUser.setContactPhone(user.getContactPhone());
         int result = 0;
         /*try {*/
         result = userMapper.createUser(newUser);
