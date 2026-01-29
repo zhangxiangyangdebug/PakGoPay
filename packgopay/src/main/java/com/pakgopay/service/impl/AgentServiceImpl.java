@@ -327,7 +327,8 @@ public class AgentServiceImpl implements AgentService {
                 .reqStr("contactEmail", agentAddRequest::getContactEmail, dto::setContactEmail)
                 .reqStr("contactPhone", agentAddRequest::getContactPhone, dto::setContactPhone)
                 .obj(agentAddRequest::getStatus, dto::setStatus)
-                .str(agentAddRequest::getLoginIps, dto::setLoginIps);
+                .str(agentAddRequest::getLoginIps, dto::setLoginIps)
+                .str(agentAddRequest::getWithdrawalIps, dto::setWithdrawalIps);
 
         return builder.build();
     }

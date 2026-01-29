@@ -149,25 +149,25 @@ public class MerchantStatementController {
         }
     }
 
-    @PostMapping("/queryMerchantStatement")
-    public CommonResponse queryMerchantStatement(
+    @PostMapping("/queryAccountStatement")
+    public CommonResponse queryAccountStatement(
             @RequestBody @Valid AccountStatementQueryRequest accountStatementQueryRequest) {
         try {
-            return accountStatementService.queryMerchantStatements(accountStatementQueryRequest);
+            return accountStatementService.queryAccountStatement(accountStatementQueryRequest);
         } catch (PakGoPayException e) {
-            log.error("queryMerchantStatement failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            return CommonResponse.fail(e.getCode(), "queryMerchantStatement failed: " + e.getMessage());
+            log.error("queryAccountStatement failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryAccountStatement failed: " + e.getMessage());
         }
     }
 
-    @PostMapping("/addMerchantStatement")
-    public CommonResponse addMerchantStatement(
+    @PostMapping("/createAccountStatement")
+    public CommonResponse createAccountStatement(
             @RequestBody @Valid AccountStatementAddRequest accountStatementAddRequest) {
         try {
-            return accountStatementService.createMerchantStatement(accountStatementAddRequest);
+            return accountStatementService.createAccountStatement(accountStatementAddRequest);
         } catch (PakGoPayException e) {
-            log.error("addMerchantStatement failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            return CommonResponse.fail(e.getCode(), "addMerchantStatement failed: " + e.getMessage());
+            log.error("createAccountStatement failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "createAccountStatement failed: " + e.getMessage());
         }
     }
 

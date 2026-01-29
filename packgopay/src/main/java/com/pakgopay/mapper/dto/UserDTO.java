@@ -29,5 +29,5 @@ public class UserDTO implements Serializable {
     private String roleName;
     private Integer status;
     private String loginIps;
-
+    private String withdrawalIps;
 }

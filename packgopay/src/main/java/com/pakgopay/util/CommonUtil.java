@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.time.ZoneId;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class CommonUtil {
@@ -115,6 +116,22 @@ public class CommonUtil {
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Parse IP whitelist string to set.
+     *
+     * @param ipWhitelist comma-separated IPs
+     * @return allowed IP set
+     */
+    public static Set<String> parseIpWhitelist(String ipWhitelist) {
+        if (ipWhitelist == null || ipWhitelist.trim().isEmpty()) {
+            return Set.of("127.0.0.1");
+        }
+        return Arrays.stream(ipWhitelist.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
     }
 
     public static boolean supportsCollection(Integer supportType) {

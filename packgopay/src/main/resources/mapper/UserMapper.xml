@@ -49,6 +49,7 @@
         <result column="role_name" property="roleName" javaType="java.lang.String"/>
         <result column="status" property="status" javaType="java.lang.Integer"/>
         <result column="login_ips" property="loginIps" javaType="java.lang.String"/>
+        <result column="withdrawal_ips" property="withdrawalIps" javaType="java.lang.String"/>
     </resultMap>
     <sql id="BaseColumn">
         user_id,
@@ -71,7 +72,8 @@
         icon,
         role_id,
         status,
-        login_ips
+        login_ips,
+        withdrawal_ips
     </sql>
     <select id="selectAllUser" parameterType="com.pakgopay.data.reqeust.systemConfig.LoginUserRequest" resultMap="userResultMap">
         SELECT
@@ -96,6 +98,7 @@
         m.role_id,
         m.status,
         m.login_ips,
+        m.withdrawal_ips,
         n.role_name
         FROM user_info m  left join role n on m.role_id = n.role_id where 1 = 1
         <if test="loginName != null and loginName != ''">
@@ -134,7 +137,8 @@
     </select>
 
     <insert id="createUser" parameterType="com.pakgopay.mapper.dto.UserDTO">
-        INSERT INTO user_info (user_id, login_name, password, role_id, status, login_ips) VALUES ( #{user.userId}, #{user.loginName}, #{user.password}, #{user.roleId}, #{user.status}, #{user.loginIps} )
+        INSERT INTO user_info (user_id, login_name, password, role_id, status, login_ips, withdrawal_ips)
+        VALUES ( #{user.userId}, #{user.loginName}, #{user.password}, #{user.roleId}, #{user.status}, #{user.loginIps}, #{user.withdrawalIps} )
     </insert>
 
     <update id="stopLoginUser">

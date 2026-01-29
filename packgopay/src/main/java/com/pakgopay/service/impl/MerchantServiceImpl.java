@@ -415,7 +415,8 @@ public class MerchantServiceImpl implements MerchantService {
                 .str(merchantAddRequest::getContactPhone, dto::setContactPhone)
                 .str(merchantAddRequest::getUserId, dto::setOperatorId)
                 .obj(merchantAddRequest::getStatus, dto::setStatus)
-                .str(merchantAddRequest::getLoginIps, dto::setLoginIps);
+                .str(merchantAddRequest::getLoginIps, dto::setLoginIps)
+                .str(merchantAddRequest::getWithdrawalIps, dto::setWithdrawalIps);
 
         return builder.build();
     }

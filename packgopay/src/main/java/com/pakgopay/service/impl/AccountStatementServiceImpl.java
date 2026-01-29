@@ -37,14 +37,17 @@ public class AccountStatementServiceImpl implements AccountStatementService {
     private BalanceService balanceService;
 
     @Autowired
+    private UserService userService;
+
+    @Autowired
     private TransactionUtil transactionUtil;
 
     @Override
-    public CommonResponse queryMerchantStatements(AccountStatementQueryRequest accountStatementQueryRequest) {
-        log.info("queryMerchantRecharge start");
+    public CommonResponse queryAccountStatement(AccountStatementQueryRequest accountStatementQueryRequest) {
+        log.info("queryAccountStatement start");
         AccountStatementsResponse response = queryMerchantRechargeData(
                 accountStatementQueryRequest);
-        log.info("queryMerchantRecharge end");
+        log.info("queryAccountStatement end");
         return CommonResponse.success(response);
     }
 
@@ -79,8 +82,14 @@ public class AccountStatementServiceImpl implements AccountStatementService {
     }
 
     @Override
-    public CommonResponse createMerchantStatement(AccountStatementAddRequest accountStatementAddRequest) {
-        log.info("addMerchantRecharge start");
+    public CommonResponse createAccountStatement(AccountStatementAddRequest accountStatementAddRequest) {
+        log.info("createAccountStatement start");
+
+        if (accountStatementAddRequest.getOrderType() == 2) {
+            userService.validateWithdrawalPermission(
+                    accountStatementAddRequest.getMerchantAgentId(),
+                    accountStatementAddRequest.getClientIp());
+        }
         AccountStatementsDto accountStatementsDto = generateAccountStatementForAdd(accountStatementAddRequest);
 
         transactionUtil.runInTransaction(() -> {
@@ -109,7 +118,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
             }
         });
 
-        log.info("addMerchantRecharge end");
+        log.info("createAccountStatement end");
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 

@@ -131,6 +131,11 @@ public class MerchantAddRequest extends BaseRequest {
     @NotBlank(message = "loginIps is empty")
     private String loginIps;
 
+    /** withdrawal white ips (comma separated) */
+    @NotBlank(message = "withdrawalIps is empty")
+    private String withdrawalIps;
+
+
     // =====================
     // 7) Channel Configuration
     // =====================
