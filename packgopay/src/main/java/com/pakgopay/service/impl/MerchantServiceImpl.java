@@ -325,6 +325,10 @@ public class MerchantServiceImpl implements MerchantService {
         MerchantInfoDto merchantInfoDto = generateMerchantInfoForAdd(merchantAddRequest);
 
         transactionUtil.runInTransaction(() -> {
+            if (merchantInfoMapper.findByMerchantName(merchantAddRequest.getMerchantName()).isPresent()) {
+                throw new PakGoPayException(ResultCode.FAIL, "merchant name already exists");
+            }
+
             Long userId = userService.createUser(createUserRequest);
 
             merchantInfoDto.setUserId(userId.toString());

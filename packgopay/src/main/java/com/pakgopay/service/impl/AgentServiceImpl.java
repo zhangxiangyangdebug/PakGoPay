@@ -248,6 +248,9 @@ public class AgentServiceImpl implements AgentService {
         AgentInfoDto agentInfoDto = buildAgentCreateDto(agentAddRequest);
 
         transactionUtil.runInTransaction(() -> {
+            if (agentInfoMapper.findByAgentName(agentAddRequest.getAgentName()).isPresent()) {
+                throw new PakGoPayException(ResultCode.FAIL, "agent name already exists");
+            }
             Long userId = userService.createUser(createUserRequest);
 
             agentInfoDto.setUserId(userId.toString());
