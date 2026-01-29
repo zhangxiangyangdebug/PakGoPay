@@ -17,10 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -59,7 +56,7 @@ public class MenuItemServiceImpl {
             return CommonResponse.fail(ResultCode.USER_HAS_NO_ROLE_PERMISSION);
         }
         List<MenuItem> menuItems = new ArrayList<>();
-        Map<String,MenuItem> menuItem = new HashMap<>();
+        Map<String,MenuItem> menuItem = new TreeMap<>();
         List<Children> children = menuItemMapper.queryMenuItem(allMenuIdsByRoleId);
         // 将所有的一级菜单放到list最外层,key用一级菜单ID
         children.stream().filter(s -> s.getParentId() == null).forEach(s -> {

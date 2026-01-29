@@ -50,7 +50,10 @@ public class UserService {
 
         UserDTO operator = userMapper.getOneUserByUserId(user.getOperatorId());
 
-
+        UserDTO checkUser = userMapper.getOneUser(user.getLoginName());
+        if (checkUser != null) {
+            throw new PakGoPayException(ResultCode.FAIL, "user already exist");
+        }
         //verify google code TODO 转移至filter
 //        boolean googleResult = GoogleUtil.verifyQrCode(operator.getLoginSecret(), user.getGoogleCode());
 //
