@@ -82,7 +82,7 @@ public class MerchantCheckService {
      */
     public boolean isColIpAllowed(String clientIp, String whiteIps) {
         log.info("validateCollectionRequest start");
-        Set<String> allowedIps = parseIpWhitelist(whiteIps);
+        Set<String> allowedIps = CommonUtil.parseIpWhitelist(whiteIps);
         return allowedIps.contains(clientIp);
     }
 
@@ -93,17 +93,7 @@ public class MerchantCheckService {
      * @return check result
      */
     public boolean isPayIpAllowed(String clientIp, String whiteIps) {
-        Set<String> allowedIps = parseIpWhitelist(whiteIps);
+        Set<String> allowedIps = CommonUtil.parseIpWhitelist(whiteIps);
         return allowedIps.contains(clientIp);
-    }
-
-    private Set<String> parseIpWhitelist(String ipWhitelist) {
-        if (ipWhitelist == null || ipWhitelist.trim().isEmpty()) {
-            return Set.of("127.0.0.1");
-        }
-
-        return Arrays.stream(ipWhitelist.split(",")).map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toSet());
     }
 }

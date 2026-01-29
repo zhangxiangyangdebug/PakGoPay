@@ -7,12 +7,11 @@ import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.BalanceMapper;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.UserDTO;
+import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Slf4j
 @Service
@@ -68,6 +67,7 @@ public class UserService {
         newUser.setLoginName(user.getLoginName());
         newUser.setRoleId(user.getRoleId());
         newUser.setLoginIps(user.getLoginIps());
+        newUser.setWithdrawalIps(user.getWithdrawalIps());
         int result = 0;
         /*try {*/
         result = userMapper.createUser(newUser);
@@ -82,5 +82,21 @@ public class UserService {
         }
 
         return userId;
+    }
+
+    public void validateWithdrawalPermission(String merchantAgentId, String clientIp) {
+        if (merchantAgentId == null || merchantAgentId.isBlank()) {
+            throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
+        }
+        if (clientIp == null || clientIp.isBlank()) {
+            throw new PakGoPayException(ResultCode.IS_NOT_WHITE_IP, "client ip is empty");
+        }
+        UserDTO user = userMapper.getOneUserByUserId(merchantAgentId);
+        if (user == null) {
+            throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
+        }
+        if (!CommonUtil.parseIpWhitelist(user.getWithdrawalIps()).contains(clientIp)) {
+            throw new PakGoPayException(ResultCode.IS_NOT_WHITE_IP);
+        }
     }
 }

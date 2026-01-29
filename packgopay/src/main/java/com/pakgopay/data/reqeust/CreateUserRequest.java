@@ -26,6 +26,8 @@ public class CreateUserRequest implements Serializable {
     @NotNull
     private String loginIps;
 
+    private String withdrawalIps;
+
     /** Contact name */
     @NotBlank(message = "contactName is empty")
     private String contactName;

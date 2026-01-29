@@ -7,9 +7,9 @@ import com.pakgopay.data.response.CommonResponse;
 
 public interface AccountStatementService {
 
-    CommonResponse queryMerchantStatements(AccountStatementQueryRequest accountStatementQueryRequest);
+    CommonResponse queryAccountStatement(AccountStatementQueryRequest accountStatementQueryRequest);
 
-    CommonResponse createMerchantStatement(AccountStatementAddRequest accountStatementAddRequest);
+    CommonResponse createAccountStatement(AccountStatementAddRequest accountStatementAddRequest);
 
     CommonResponse updateAccountStatement(AccountStatementEditRequest accountStatementEditRequest);
 }
