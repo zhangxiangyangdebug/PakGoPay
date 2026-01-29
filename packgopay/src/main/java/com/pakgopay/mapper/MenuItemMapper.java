@@ -9,4 +9,6 @@ import java.util.List;
 @Mapper
 public interface MenuItemMapper {
     List<Children> queryMenuItem(@Param(value="menuIds") List<String> allMenuIdsByRoleId);
+
+    List<String> queryAllMenus();
 }

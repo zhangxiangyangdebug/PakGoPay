@@ -2,6 +2,7 @@ package com.pakgopay.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.data.entity.Children;
 import com.pakgopay.data.entity.MenuItem;
 import com.pakgopay.common.enums.ResultCode;
@@ -45,8 +46,15 @@ public class MenuItemServiceImpl {
             return CommonResponse.fail(ResultCode.NO_ROLE_INFO_FOUND);
         }
         System.out.println("roleId = " + roleId);
+        List<String> allMenuIdsByRoleId = new ArrayList<>();
         // 根据角色ID查询role-menu拿到menu
-        List<String> allMenuIdsByRoleId = roleMenuMapper.getAllMenuIdsByRoleId(roleId);
+        if (roleId == CommonConstant.ROLE_ADMIN) {
+            //管理员直接拿全部菜单
+            allMenuIdsByRoleId = menuItemMapper.queryAllMenus();
+        } else {
+            allMenuIdsByRoleId = roleMenuMapper.getAllMenuIdsByRoleId(roleId);
+        }
+
         if (ObjectUtils.isEmpty(allMenuIdsByRoleId)) {
             return CommonResponse.fail(ResultCode.USER_HAS_NO_ROLE_PERMISSION);
         }

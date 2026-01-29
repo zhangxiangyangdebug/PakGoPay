@@ -26,5 +26,9 @@
                    #{data, jdbcType=VARCHAR}
                </foreach>
            </if>
+        ORDER BY menu_id
+    </select>
+    <select id="queryAllMenus" resultType="java.lang.String">
+        SELECT menu_id from menus
     </select>
 </mapper>
