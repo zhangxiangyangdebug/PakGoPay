@@ -128,6 +128,61 @@ public class ReportTask {
     }
 
     /**
+     * Refresh reports for a specified date (daily/monthly/yearly) by currency timezone.
+     *
+     * @param targetDate target date (yyyy-MM-dd)
+     */
+    private void refreshReportsByDate(LocalDate targetDate) {
+        if (targetDate == null) {
+            log.warn("refreshReportsByDate skipped, targetDate is null");
+            return;
+        }
+        log.info("refreshReportsByDate start, targetDate={}", targetDate);
+        // Reset caches and reload base data
+        resolveHelper.resetReportCache();
+        resolveHelper.loadMerchantSnapshot();
+        nowEpochSecond = Instant.now().getEpochSecond();
+
+        // Fix base date for this run (by currency timezone)
+        Set<String> currencySet = new LinkedHashSet<>();
+        currencySet.addAll(resolveHelper.resolveAllCurrencies());
+        currencySet.addAll(resolveHelper.resolveMerchantCurrencySet());
+        resolveHelper.applyFixedReportDate(targetDate, currencySet);
+
+        // Regenerate reports
+        reportMerchant();
+        agentHelper.upsertAgentReports();
+        opsHelper.reportOpsDaily();
+        opsHelper.reportOpsMonthly();
+        opsHelper.reportOpsYearly();
+        reportChannel();
+        reportPayment();
+        reportCurrency();
+
+        log.info("refreshReportsByDate end, targetDate={}, merchantCount={}", targetDate, merchantInfoCache.size());
+    }
+
+    /**
+     * Refresh reports by order record time and currency timezone.
+     *
+     * @param recordDateEpoch record date epoch seconds
+     * @param currency currency code
+     */
+    public void refreshReportsByEpoch(long recordDateEpoch, String currency) {
+        if (currency == null || currency.isBlank()) {
+            log.warn("refreshReportsByEpoch skipped, currency is blank");
+            return;
+        }
+        ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+        LocalDate targetDate = Instant.ofEpochSecond(recordDateEpoch).atZone(zoneId).toLocalDate();
+        log.info("refreshReportsByEpoch start, recordDateEpoch={}, currency={}, targetDate={}",
+                recordDateEpoch, currency, targetDate);
+        refreshReportsByDate(targetDate);
+        log.info("refreshReportsByEpoch end, recordDateEpoch={}, currency={}, targetDate={}",
+                recordDateEpoch, currency, targetDate);
+    }
+
+    /**
      * Build and persist merchant reports.
      */
     private void reportMerchant() {
@@ -1340,6 +1395,29 @@ public class ReportTask {
             baseDateByCurrency.clear();
             agentReportMap.clear();
             nowEpochSecond = 0L;
+        }
+
+        /**
+         * Fix report base date for all currencies (daily/monthly/yearly).
+         *
+         * @param targetDate target date
+         * @param currencies currency set
+         */
+        private void applyFixedReportDate(LocalDate targetDate, Set<String> currencies) {
+            if (targetDate == null) {
+                return;
+            }
+            for (String currency : CommonUtil.safeList(new ArrayList<>(currencies))) {
+                if (currency == null || currency.isBlank()) {
+                    continue;
+                }
+                String key = currency.trim();
+                baseDateByCurrency.put(key, targetDate);
+                baseDateByCurrency.put("M:" + key, targetDate);
+                baseDateByCurrency.put("Y:" + key, targetDate);
+                dayStartByCurrency.remove(key);
+                nextDayStartByCurrency.remove(key);
+            }
         }
 
         /**
