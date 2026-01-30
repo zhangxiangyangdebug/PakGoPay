@@ -32,7 +32,10 @@
         <if test="name != null">
             and name = #{name}
         </if>
-        LIMIT #{pageSize} OFFSET #{offSet}
+        <if test="!allData">
+            LIMIT #{pageSize} OFFSET #{offSet}
+        </if>
+
     </select>
 
     <insert id="addNewCurrency">

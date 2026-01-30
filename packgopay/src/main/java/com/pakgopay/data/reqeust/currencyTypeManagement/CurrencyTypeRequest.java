@@ -16,6 +16,7 @@ public class CurrencyTypeRequest extends BaseRequest {
     private BigDecimal exchangeRate;
     private Integer pageNo;
     private Integer pageSize;
+    private boolean allData;
     public Integer getOffSet() {
         return (pageNo - 1) * pageSize;
     }
