@@ -21,10 +21,21 @@
     <sql id="insertColumn">
         currency_type, name, icon, create_time, create_by, update_time, update_by, remark, currency_scale
     </sql>
-    <select id="getAllCurrencyType" resultMap="currencyTypeMap">
+    <select id="getAllCurrencyType" parameterType="com.pakgopay.data.reqeust.currencyTypeManagement.CurrencyTypeRequest" resultMap="currencyTypeMap">
         SELECT
         <include refid="allColumn"/>
         FROM currency
+        WHERE 1 = 1
+        <if test="id != null">
+            and id = #{id}
+        </if>
+        <if test="name != null">
+            and name = #{name}
+        </if>
+        <if test="!allData">
+            LIMIT #{pageSize} OFFSET #{offSet}
+        </if>
+
     </select>
 
     <insert id="addNewCurrency">
@@ -37,5 +48,18 @@
         SELECT
           <include refid="allColumn"/>
             FROM currency WHERE id = #{id}
+    </select>
+
+    <select id="getCount" resultType="java.lang.Integer"
+            parameterType="com.pakgopay.data.reqeust.currencyTypeManagement.CurrencyTypeRequest"
+    >
+        SELECT count(1) from currency where 1 = 1
+        <if test="id != null">
+            and id = #{id}
+        </if>
+        <if test="name != null">
+            and name = #{name}
+        </if>
+
     </select>
 </mapper>

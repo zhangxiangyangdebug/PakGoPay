@@ -4,6 +4,7 @@ import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.currencyTypeManagement.CurrencyTypeRequest;
 import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.data.response.currencyManagement.CurrencyReponse;
 import com.pakgopay.mapper.CurrencyTypeMapper;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.CurrencyTypeDTO;
@@ -29,33 +30,25 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
     private UserMapper userMapper;
 
     @Override
-    public CommonResponse listCurrencyTypes() {
+    public CommonResponse listCurrencyTypes(CurrencyTypeRequest currencyTypeRequest, HttpServletRequest request) {
        try {
            log.info("start getAllCurrencyType");
-           List<CurrencyTypeDTO> allCurrencyType = currencyTypeMapper.getAllCurrencyType();
+           Integer totalNumber = currencyTypeMapper.getCount(currencyTypeRequest);
+           if (totalNumber == null) {
+               totalNumber = 0;
+           }
+           List<CurrencyTypeDTO> allCurrencyType = currencyTypeMapper.getAllCurrencyType(currencyTypeRequest);
+           CurrencyReponse currencyReponse = new CurrencyReponse();
+           currencyReponse.setTotalNumber(totalNumber);
+           currencyReponse.setCurrencyTypeDTOList(allCurrencyType);
+           currencyReponse.setPageNo(currencyTypeRequest.getPageNo());
+           currencyReponse.setPageSize(currencyTypeRequest.getPageSize());
            log.info("end getAllCurrencyType");
-           return CommonResponse.success(allCurrencyType);
+           return CommonResponse.success(currencyReponse);
        } catch (Exception e) {
            log.error(e.toString());
            return CommonResponse.fail(ResultCode.FAIL,"get currency type failed");
        }
-    }
-
-    @Override
-    public CommonResponse fetchCurrencyById(Integer id) {
-        try{
-            List<CurrencyTypeDTO> allCurrencyType= new ArrayList<>();
-            if (id == null) {
-                allCurrencyType = currencyTypeMapper.getAllCurrencyType();
-            } else {
-                allCurrencyType = currencyTypeMapper.getCurrencyById(id);
-            }
-            return CommonResponse.success(allCurrencyType);
-        } catch (Exception e) {
-            return CommonResponse.fail(ResultCode.FAIL,"get currency type failed"+e.getMessage());
-        }
-
-
     }
 
     @Override
@@ -79,7 +72,6 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
             return CommonResponse.fail(ResultCode.FAIL,"add currency type failed "+ e.getMessage());
         }
     }
-
 
     public String verifyGoogleCode(Long googleCode, HttpServletRequest request) throws PakGoPayException {
         String userInfo = GoogleUtil.getUserInfoFromToken(request);

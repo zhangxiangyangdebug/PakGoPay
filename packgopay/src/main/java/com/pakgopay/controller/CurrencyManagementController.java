@@ -14,9 +14,15 @@ public class CurrencyManagementController {
     @Autowired
     private CurrencyTypeManagementService currencyTypeManagementService;
 
-    @GetMapping("/currencyTypeInfo")
-    public CommonResponse currencyTypeInfo() {
-        return currencyTypeManagementService.listCurrencyTypes();
+    @PostMapping("/currencyTypeInfo")
+    public CommonResponse currencyTypeInfo(@RequestBody CurrencyTypeRequest currencyTypeRequest, HttpServletRequest request) {
+        if (currencyTypeRequest.getPageNo() == null) {
+            currencyTypeRequest.setPageNo(1) ;
+        }
+        if (currencyTypeRequest.getPageSize() == null) {
+            currencyTypeRequest.setPageSize(10);
+        }
+        return currencyTypeManagementService.listCurrencyTypes(currencyTypeRequest, request);
     }
 
     @PostMapping("/addCurrencyType")
@@ -24,8 +30,8 @@ public class CurrencyManagementController {
         return currencyTypeManagementService.createCurrencyType(currencyTypeRequest, request);
     }
 
-    @GetMapping("/getCurrencyById")
+    /*@GetMapping("/getCurrencyById")
     public CommonResponse updateCurrencyType(Integer id) {
         return currencyTypeManagementService.fetchCurrencyById(id);
-    }
+    }*/
 }
