@@ -57,6 +57,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
         entity.setId(accountStatementQueryRequest.getId());
         entity.setUserId(accountStatementQueryRequest.getMerchantAgentId());
         entity.setOrderType(accountStatementQueryRequest.getOrderType());
+        entity.setUserRole(accountStatementQueryRequest.getUserRole());
         entity.setCurrency(accountStatementQueryRequest.getCurrency());
         entity.setStartTime(accountStatementQueryRequest.getStartTime());
         entity.setEndTime(accountStatementQueryRequest.getEndTime());
@@ -141,6 +142,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                 .reqStr("currency", req::getCurrency, dto::setCurrency)
                 .reqObj("amount", req::getAmount, dto::setAmount)
                 .reqObj("orderType", req::getOrderType, dto::setOrderType)
+                .obj(req::getUserRole, dto::setUserRole)
                 .ifTrue(2 == req.getOrderType())
                 .reqStr("walletAddr", req::getWalletAddr, dto::setWalletAddr)
                 .endSkip()

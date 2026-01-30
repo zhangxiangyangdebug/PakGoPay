@@ -20,6 +20,10 @@ public class AccountStatementEntity {
      */
     private Integer orderType;
 
+    /**
+     * user role
+     */
+    private Integer userRole;
 
     /**
      * currency

@@ -41,6 +41,11 @@ public class AccountStatementAddRequest extends BaseRequest  {
     private Integer orderType;
 
     /**
+     * user role
+     */
+    private Integer userRole;
+
+    /**
      * walletAddr
      */
     private String walletAddr;

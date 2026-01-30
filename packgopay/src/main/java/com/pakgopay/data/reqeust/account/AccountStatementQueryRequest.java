@@ -21,6 +21,10 @@ public class AccountStatementQueryRequest extends ExportBaseRequest {
      */
     private Integer orderType;
 
+    /**
+     * user role
+     */
+    private Integer userRole;
 
     /**
      * currency
