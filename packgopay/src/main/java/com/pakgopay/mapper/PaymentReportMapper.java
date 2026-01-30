@@ -16,6 +16,9 @@ public interface PaymentReportMapper {
     /** Update report by paymentId + recordDate + orderType + currency */
     int update(PaymentReportDto dto);
 
+    /** Batch upsert reports */
+    int batchUpsert(List<PaymentReportDto> list);
+
     /** balance infos */
     List<BigDecimal> balanceInfosByQuery(PaymentReportEntity query);
 

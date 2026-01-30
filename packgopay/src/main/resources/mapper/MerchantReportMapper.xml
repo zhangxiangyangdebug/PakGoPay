@@ -92,6 +92,40 @@
         AND currency = #{currency}
     </update>
 
+    <insert id="batchUpsert" parameterType="java.util.List">
+        INSERT INTO merchant_report (
+        <include refid="BaseColumns"/>
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.userId},
+            #{item.merchantName},
+            #{item.orderType},
+            #{item.currency},
+            #{item.orderQuantity},
+            #{item.successQuantity},
+            #{item.merchantFee},
+            #{item.agent1Fee},
+            #{item.agent2Fee},
+            #{item.agent3Fee},
+            #{item.orderProfit},
+            #{item.recordDate},
+            #{item.createTime},
+            #{item.updateTime}
+            )
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        merchant_name = VALUES(merchant_name),
+        order_quantity = VALUES(order_quantity),
+        success_quantity = VALUES(success_quantity),
+        merchant_fee = VALUES(merchant_fee),
+        agent1_fee = VALUES(agent1_fee),
+        agent2_fee = VALUES(agent2_fee),
+        agent3_fee = VALUES(agent3_fee),
+        order_profit = VALUES(order_profit),
+        update_time = VALUES(update_time)
+    </insert>
+
     <!-- Common WHERE conditions -->
     <sql id="MerchantReportWhere">
         <where>

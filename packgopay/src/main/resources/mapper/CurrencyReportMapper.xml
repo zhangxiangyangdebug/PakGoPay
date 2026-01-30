@@ -78,6 +78,35 @@
         AND order_type = #{orderType}
     </update>
 
+    <insert id="batchUpsert" parameterType="java.util.List">
+        INSERT INTO currency_report (
+        <include refid="BaseColumns"/>
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.currency},
+            #{item.orderType},
+            #{item.orderBalance},
+            #{item.merchantFee},
+            #{item.orderProfit},
+            #{item.orderQuantity},
+            #{item.successQuantity},
+            #{item.createTime},
+            #{item.updateTime},
+            #{item.recordDate},
+            #{item.remark}
+            )
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        order_balance = VALUES(order_balance),
+        merchant_fee = VALUES(merchant_fee),
+        order_profit = VALUES(order_profit),
+        order_quantity = VALUES(order_quantity),
+        success_quantity = VALUES(success_quantity),
+        remark = VALUES(remark),
+        update_time = VALUES(update_time)
+    </insert>
+
     <!-- Common WHERE conditions for BaseReportEntity -->
     <sql id="CurrencyReportWhere">
         <where>

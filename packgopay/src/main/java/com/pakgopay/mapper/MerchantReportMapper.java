@@ -15,6 +15,9 @@ public interface MerchantReportMapper {
     /** Update report (by userId + recordDate + orderType + currency) */
     int update(MerchantReportDto dto);
 
+    /** Batch upsert reports */
+    int batchUpsert(List<MerchantReportDto> list);
+
     /** Total count */
     Integer countByQuery(MerchantReportEntity query);
 

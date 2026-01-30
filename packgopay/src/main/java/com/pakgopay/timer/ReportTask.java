@@ -1,9 +1,7 @@
 package com.pakgopay.timer;
 
 import com.pakgopay.common.constant.CommonConstant;
-import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.enums.TransactionStatus;
-import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.impl.AgentServiceImpl;
@@ -14,15 +12,24 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.pakgopay.timer.data.OpsContext;
+import com.pakgopay.timer.data.OpsOrderContext;
+import com.pakgopay.timer.data.OpsPeriod;
+import com.pakgopay.timer.data.OpsRecord;
+import com.pakgopay.timer.data.OpsScope;
+import com.pakgopay.timer.data.OpsTotals;
+
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.BiFunction;
-import java.util.function.ToIntFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -63,11 +70,21 @@ public class ReportTask {
     @Autowired
     private AgentInfoMapper agentInfoMapper;
 
+    @Autowired
+    private OpsOrderDailyMapper opsOrderDailyMapper;
+
+    @Autowired
+    private OpsOrderMonthlyMapper opsOrderMonthlyMapper;
+
+    @Autowired
+    private OpsOrderYearlyMapper opsOrderYearlyMapper;
+
     private final ResolveHelper resolveHelper = new ResolveHelper();
     private final ComputeHelper computeHelper = new ComputeHelper();
     private final FillHelper fillHelper = new FillHelper();
     private final PersistHelper persistHelper = new PersistHelper();
     private final AgentHelper agentHelper = new AgentHelper();
+    private final OpsHelper opsHelper = new OpsHelper();
 
     private List<MerchantInfoDto> merchantInfoCache = Collections.emptyList();
     private List<ChannelDto> channelInfoCache = Collections.emptyList();
@@ -76,8 +93,10 @@ public class ReportTask {
     private Map<Long, ChannelDto> channelByIdCache = Collections.emptyMap();
     private Map<Long, PaymentDto> paymentByIdCache = Collections.emptyMap();
     private Map<String, AgentInfoDto> agentByUserIdCache = Collections.emptyMap();
+    private Map<String, MerchantInfoDto> merchantByUserIdCache = Collections.emptyMap();
     private Map<String, Long> dayStartByCurrency = new HashMap<>();
     private Map<String, Long> nextDayStartByCurrency = new HashMap<>();
+    private Map<String, LocalDate> baseDateByCurrency = new HashMap<>();
     private long nowEpochSecond = 0L;
     private Map<String, AgentReportDto> agentReportMap = new HashMap<>();
 
@@ -96,6 +115,10 @@ public class ReportTask {
         reportMerchant();
         // Persist accumulated agent reports after merchant reports.
         agentHelper.upsertAgentReports();
+        // Build and persist ops overview reports (daily/monthly/yearly).
+        opsHelper.reportOpsDaily();
+        opsHelper.reportOpsMonthly();
+        opsHelper.reportOpsYearly();
         // Build remaining report types.
         reportChannel();
         reportPayment();
@@ -124,11 +147,12 @@ public class ReportTask {
                 (dto, currency) -> resolveHelper.buildKey(dto == null ? null : dto.getUserId(), currency));
 
         // Process collection and payout reports for each merchant/currency.
-        computeHelper.processDualSupportReports(
+        List<MerchantReportDto> reports = computeHelper.processDualSupportReports(
                 merchantInfoCache,
                 resolveHelper::resolveMerchantCurrenciesForSupport,
                 (merchant, currency, isCollection) -> computeHelper.applyMerchantReport(
                         merchant, currency, isCollection, collectionStats, payoutStats));
+        persistHelper.batchUpsertMerchantReports(reports);
         log.info("reportMerchant done, merchantCount={}, currencyCount={}, collectionStats={}, payoutStats={}",
                 merchantInfoCache.size(),
                 currencies.size(),
@@ -152,11 +176,12 @@ public class ReportTask {
                 (dto, currency) -> resolveHelper.buildKey(dto == null ? null : dto.getChannelId(), currency));
 
         // Process channel reports for collection and payout directions.
-        computeHelper.processDualSupportReports(
+        List<ChannelReportDto> reports = computeHelper.processDualSupportReports(
                 channelInfoCache,
                 resolveHelper::resolveChannelCurrencies,
                 (channel, currency, isCollection) -> computeHelper.applyChannelReport(
                         channel, currency, isCollection, collectionStats, payoutStats));
+        persistHelper.batchUpsertChannelReports(reports);
         log.info("reportChannel done, channelCount={}, currencyCount={}, collectionStats={}, payoutStats={}",
                 channelInfoCache.size(),
                 currencies.size(),
@@ -180,11 +205,12 @@ public class ReportTask {
                 (dto, currency) -> resolveHelper.buildKey(dto == null ? null : dto.getPaymentId(), currency));
 
         // Process payment reports for collection and payout directions.
-        computeHelper.processDualSupportReports(
+        List<PaymentReportDto> reports = computeHelper.processDualSupportReports(
                 paymentInfoCache,
                 resolveHelper::resolvePaymentCurrencies,
                 (payment, currency, isCollection) -> computeHelper.applyPaymentReport(
                         payment, currency, isCollection, collectionStats, payoutStats));
+        persistHelper.batchUpsertPaymentReports(reports);
         log.info("reportPayment done, paymentCount={}, currencyCount={}, collectionStats={}, payoutStats={}",
                 paymentInfoCache.size(),
                 currencies.size(),
@@ -208,11 +234,12 @@ public class ReportTask {
                 (dto, currency) -> currency);
 
         // Process currency reports for collection and payout directions.
-        computeHelper.processDualSupportReports(
+        List<CurrencyReportDto> reports = computeHelper.processDualSupportReports(
                 new ArrayList<>(currencies),
                 (currency, isCollection) -> Collections.singleton(currency),
                 (currency, reportCurrency, isCollection) -> computeHelper.applyCurrencyReport(
                         reportCurrency, isCollection, collectionStats, payoutStats));
+        persistHelper.batchUpsertCurrencyReports(reports);
         log.info("reportCurrency done, currencyCount={}, collectionStats={}, payoutStats={}",
                 currencies.size(),
                 collectionStats.size(),
@@ -245,15 +272,16 @@ public class ReportTask {
     }
 
     @FunctionalInterface
-    private interface SupportReportApplier<E> {
+    private interface SupportReportApplier<E, R> {
         /**
          * Apply report generation for an entity and currency.
          *
          * @param entity entity instance
          * @param currency currency code
          * @param isCollection true for collection, false for payout
+         * @return report dto
          */
-        void apply(E entity, String currency, boolean isCollection);
+        R apply(E entity, String currency, boolean isCollection);
     }
 
     private final class ComputeHelper {
@@ -266,21 +294,21 @@ public class ReportTask {
          * @param collectionStats collection stats map
          * @param payoutStats payout stats map
          */
-        private void applyMerchantReport(MerchantInfoDto merchant,
-                                         String currency,
-                                         boolean isCollection,
-                                         Map<String, MerchantReportDto> collectionStats,
-                                         Map<String, MerchantReportDto> payoutStats) {
+        private MerchantReportDto applyMerchantReport(MerchantInfoDto merchant,
+                                                      String currency,
+                                                      boolean isCollection,
+                                                      Map<String, MerchantReportDto> collectionStats,
+                                                      Map<String, MerchantReportDto> payoutStats) {
             if (merchant == null || merchant.getUserId() == null) {
-                return;
+                return null;
             }
             long dayStart = resolveHelper.resolveDayStart(currency);
             int orderType = isCollection ? CommonConstant.SUPPORT_TYPE_COLLECTION : CommonConstant.SUPPORT_TYPE_PAY;
             Map<String, MerchantReportDto> stats = isCollection ? collectionStats : payoutStats;
             MerchantReportDto report = stats.get(merchant.getUserId() + "|" + currency);
             MerchantReportDto dto = fillHelper.fillReportDefaults(report, merchant, currency, orderType, dayStart);
-            persistHelper.upsertMerchantReport(dto);
             agentHelper.accumulateAgentReport(merchant, dto, currency, orderType, dayStart);
+            return dto;
         }
 
         /**
@@ -292,20 +320,20 @@ public class ReportTask {
          * @param collectionStats collection stats map
          * @param payoutStats payout stats map
          */
-        private void applyChannelReport(ChannelDto channel,
-                                        String currency,
-                                        boolean isCollection,
-                                        Map<String, ChannelReportDto> collectionStats,
-                                        Map<String, ChannelReportDto> payoutStats) {
+        private ChannelReportDto applyChannelReport(ChannelDto channel,
+                                                    String currency,
+                                                    boolean isCollection,
+                                                    Map<String, ChannelReportDto> collectionStats,
+                                                    Map<String, ChannelReportDto> payoutStats) {
             if (channel == null || channel.getChannelId() == null) {
-                return;
+                return null;
             }
             long dayStart = resolveHelper.resolveDayStart(currency);
             int orderType = isCollection ? CommonConstant.SUPPORT_TYPE_COLLECTION : CommonConstant.SUPPORT_TYPE_PAY;
             Map<String, ChannelReportDto> stats = isCollection ? collectionStats : payoutStats;
             ChannelReportDto report = stats.get(channel.getChannelId() + "|" + currency);
             ChannelReportDto dto = fillHelper.fillChannelReportDefaults(report, channel, currency, orderType, dayStart);
-            persistHelper.upsertChannelReport(dto);
+            return dto;
         }
 
         /**
@@ -317,20 +345,20 @@ public class ReportTask {
          * @param collectionStats collection stats map
          * @param payoutStats payout stats map
          */
-        private void applyPaymentReport(PaymentDto payment,
-                                        String currency,
-                                        boolean isCollection,
-                                        Map<String, PaymentReportDto> collectionStats,
-                                        Map<String, PaymentReportDto> payoutStats) {
+        private PaymentReportDto applyPaymentReport(PaymentDto payment,
+                                                    String currency,
+                                                    boolean isCollection,
+                                                    Map<String, PaymentReportDto> collectionStats,
+                                                    Map<String, PaymentReportDto> payoutStats) {
             if (payment == null || payment.getPaymentId() == null) {
-                return;
+                return null;
             }
             long dayStart = resolveHelper.resolveDayStart(currency);
             int orderType = isCollection ? CommonConstant.SUPPORT_TYPE_COLLECTION : CommonConstant.SUPPORT_TYPE_PAY;
             Map<String, PaymentReportDto> stats = isCollection ? collectionStats : payoutStats;
             PaymentReportDto report = stats.get(payment.getPaymentId() + "|" + currency);
             PaymentReportDto dto = fillHelper.fillPaymentReportDefaults(report, payment, currency, orderType, dayStart);
-            persistHelper.upsertPaymentReport(dto);
+            return dto;
         }
 
         /**
@@ -341,16 +369,16 @@ public class ReportTask {
          * @param collectionStats collection stats map
          * @param payoutStats payout stats map
          */
-        private void applyCurrencyReport(String currency,
-                                         boolean isCollection,
-                                         Map<String, CurrencyReportDto> collectionStats,
-                                         Map<String, CurrencyReportDto> payoutStats) {
+        private CurrencyReportDto applyCurrencyReport(String currency,
+                                                      boolean isCollection,
+                                                      Map<String, CurrencyReportDto> collectionStats,
+                                                      Map<String, CurrencyReportDto> payoutStats) {
             long dayStart = resolveHelper.resolveDayStart(currency);
             int orderType = isCollection ? CommonConstant.SUPPORT_TYPE_COLLECTION : CommonConstant.SUPPORT_TYPE_PAY;
             Map<String, CurrencyReportDto> stats = isCollection ? collectionStats : payoutStats;
             CurrencyReportDto report = stats.get(currency);
             CurrencyReportDto dto = fillHelper.fillCurrencyReportDefaults(report, currency, orderType, dayStart);
-            persistHelper.upsertCurrencyReport(dto);
+            return dto;
         }
 
         /**
@@ -360,20 +388,32 @@ public class ReportTask {
          * @param currencyResolver currency resolver
          * @param applier report applier
          */
-        private <E> void processDualSupportReports(
+        private <E, R> List<R> processDualSupportReports(
                 List<E> entities,
                 SupportCurrencyResolver<E> currencyResolver,
-                SupportReportApplier<E> applier) {
+                SupportReportApplier<E, R> applier) {
             log.info("processDualSupportReports start, entityCount={}", entities == null ? 0 : entities.size());
+            if (entities == null || entities.isEmpty()) {
+                log.info("processDualSupportReports end, reportCount=0");
+                return Collections.emptyList();
+            }
+            List<R> reports = new ArrayList<>(entities.size() * 2);
             for (E entity : CommonUtil.safeList(entities)) {
                 for (String currency : safeSet(currencyResolver.resolve(entity, true))) {
-                    applier.apply(entity, currency, true);
+                    R dto = applier.apply(entity, currency, true);
+                    if (dto != null) {
+                        reports.add(dto);
+                    }
                 }
                 for (String currency : safeSet(currencyResolver.resolve(entity, false))) {
-                    applier.apply(entity, currency, false);
+                    R dto = applier.apply(entity, currency, false);
+                    if (dto != null) {
+                        reports.add(dto);
+                    }
                 }
             }
-            log.info("processDualSupportReports end");
+            log.info("processDualSupportReports end, reportCount={}", reports.size());
+            return reports;
         }
 
         /**
@@ -577,70 +617,78 @@ public class ReportTask {
     }
 
     private final class PersistHelper {
+        private static final int REPORT_UPSERT_BATCH_SIZE = 1000;
+
         /**
-         * Upsert merchant report.
+         * Batch upsert merchant reports.
          *
-         * @param dto report dto
+         * @param list report list
          */
-        private void upsertMerchantReport(MerchantReportDto dto) {
-            upsertReport(dto, merchantReportMapper::update, merchantReportMapper::insert, "merchantReport");
+        private void batchUpsertMerchantReports(List<MerchantReportDto> list) {
+            batchUpsert(list, merchantReportMapper::batchUpsert, "merchantReport");
         }
 
         /**
-         * Upsert channel report.
+         * Batch upsert channel reports.
          *
-         * @param dto report dto
+         * @param list report list
          */
-        private void upsertChannelReport(ChannelReportDto dto) {
-            upsertReport(dto, channelReportMapper::update, channelReportMapper::insert, "channelReport");
+        private void batchUpsertChannelReports(List<ChannelReportDto> list) {
+            batchUpsert(list, channelReportMapper::batchUpsert, "channelReport");
         }
 
         /**
-         * Upsert payment report.
+         * Batch upsert payment reports.
          *
-         * @param dto report dto
+         * @param list report list
          */
-        private void upsertPaymentReport(PaymentReportDto dto) {
-            upsertReport(dto, paymentReportMapper::update, paymentReportMapper::insert, "paymentReport");
+        private void batchUpsertPaymentReports(List<PaymentReportDto> list) {
+            batchUpsert(list, paymentReportMapper::batchUpsert, "paymentReport");
         }
 
         /**
-         * Upsert currency report.
+         * Batch upsert currency reports.
          *
-         * @param dto report dto
+         * @param list report list
          */
-        private void upsertCurrencyReport(CurrencyReportDto dto) {
-            upsertReport(dto, currencyReportMapper::update, currencyReportMapper::insert, "currencyReport");
+        private void batchUpsertCurrencyReports(List<CurrencyReportDto> list) {
+            batchUpsert(list, currencyReportMapper::batchUpsert, "currencyReport");
         }
 
         /**
-         * Update then insert for a report dto.
+         * Batch upsert agent reports.
          *
-         * @param dto report dto
-         * @param updateFn update function
-         * @param insertFn insert function
+         * @param list report list
+         */
+        private void batchUpsertAgentReports(List<AgentReportDto> list) {
+            batchUpsert(list, agentReportMapper::batchUpsert, "agentReport");
+        }
+
+        /**
+         * Batch upsert reports with chunking.
+         *
+         * @param list report list
+         * @param runner batch upsert runner
          * @param reportName report name
+         * @param <T> report type
          */
-        private <T> void upsertReport(
-                T dto,
-                ToIntFunction<T> updateFn,
-                ToIntFunction<T> insertFn,
+        private <T> int batchUpsert(
+                List<T> list,
+                java.util.function.Function<List<T>, Integer> runner,
                 String reportName) {
-            if (dto == null) {
-                return;
+            if (list == null || list.isEmpty()) {
+                log.info("batchUpsert {} skipped, recordCount=0", reportName);
+                return 0;
             }
-            try {
-                int updated = updateFn.applyAsInt(dto);
-                if (updated <= 0) {
-                    int inserted = insertFn.applyAsInt(dto);
-                    if (inserted <= 0) {
-                        throw new PakGoPayException(ResultCode.DATA_BASE_ERROR, reportName + " insert failed");
-                    }
-                }
-            } catch (Exception e) {
-                log.error("upsert{} failed, message {}", reportName, e.getMessage());
-                throw e;
+            int affected = 0;
+            int total = list.size();
+            for (int i = 0; i < total; i += REPORT_UPSERT_BATCH_SIZE) {
+                int end = Math.min(i + REPORT_UPSERT_BATCH_SIZE, total);
+                List<T> slice = list.subList(i, end);
+                affected += runner.apply(slice);
             }
+            log.info("batchUpsert {} done, recordCount={}, affected={}", reportName, total, affected);
+            return affected;
         }
     }
 
@@ -752,10 +800,525 @@ public class ReportTask {
                 return;
             }
             log.info("upsertAgentReports start, reportCount={}", agentReportMap.size());
-            for (AgentReportDto dto : agentReportMap.values()) {
-                persistHelper.upsertReport(dto, agentReportMapper::update, agentReportMapper::insert, "agentReport");
-            }
+            List<AgentReportDto> list = new ArrayList<>(agentReportMap.values());
+            persistHelper.batchUpsertAgentReports(list);
             log.info("upsertAgentReports end");
+        }
+    }
+
+    private final class OpsHelper {
+        private static final int SCOPE_ALL = 0;
+        private static final int SCOPE_MERCHANT = 1;
+        private static final int SCOPE_AGENT = 2;
+        private static final String ALL_SCOPE_ID = "0";
+        private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM");
+
+        /**
+         * Generate and upsert daily ops reports.
+         */
+        private void reportOpsDaily() {
+            log.info("ops report daily start");
+            Map<String, OpsRecord> records = buildOpsRecords(OpsPeriod.DAILY);
+            upsertDaily(records);
+            log.info("ops report daily end, recordCount={}", records.size());
+        }
+
+        /**
+         * Generate and upsert monthly ops reports.
+         */
+        private void reportOpsMonthly() {
+            log.info("ops report monthly start");
+            Map<String, OpsRecord> records = buildOpsRecords(OpsPeriod.MONTHLY);
+            upsertMonthly(records);
+            log.info("ops report monthly end, recordCount={}", records.size());
+        }
+
+        /**
+         * Generate and upsert yearly ops reports.
+         */
+        private void reportOpsYearly() {
+            log.info("ops report yearly start");
+            Map<String, OpsRecord> records = buildOpsRecords(OpsPeriod.YEARLY);
+            upsertYearly(records);
+            log.info("ops report yearly end, recordCount={}", records.size());
+        }
+
+        /**
+         * Build ops records for the target period.
+         *
+         * @param period report period
+         * @return ops record map
+         */
+        private Map<String, OpsRecord> buildOpsRecords(OpsPeriod period) {
+            Map<String, OpsRecord> records = new HashMap<>();
+            Set<String> currencies = resolveHelper.resolveAllCurrencies();
+            log.info("build ops records start, period={}, currencyCount={}", period, currencies.size());
+            for (String currency : currencies) {
+                long startTime = resolvePeriodStart(period, currency);
+                long endTime = resolvePeriodEnd(period, currency);
+                LocalDate baseDate = resolveReportBaseDate(currency);
+                String reportMonth = baseDate.format(MONTH_FORMAT);
+                String reportYear = String.valueOf(baseDate.getYear());
+                OpsContext baseContext = buildOpsContext(period, baseDate, reportMonth, reportYear, currency);
+                log.info("build ops records currency scope, period={}, currency={}, startTime={}, endTime={}, baseDate={}",
+                        period, currency, startTime, endTime, baseDate);
+
+                OpsOrderContext collectionContext = buildOpsOrderContext(baseContext,
+                        CommonConstant.SUPPORT_TYPE_COLLECTION, startTime, endTime);
+                buildOpsByOrderType(records, collectionContext, collectionOrderMapper::listMerchantReportStats);
+
+                OpsOrderContext payoutContext = buildOpsOrderContext(baseContext,
+                        CommonConstant.SUPPORT_TYPE_PAY, startTime, endTime);
+                buildOpsByOrderType(records, payoutContext, payOrderMapper::listMerchantReportStats);
+            }
+            log.info("build ops records end, period={}, recordCount={}", period, records.size());
+            return records;
+        }
+
+        /**
+         * Build ops records by order type for a period and currency.
+         *
+         * @param records record map
+         * @param context order context
+         * @param loader stats loader
+         */
+        private void buildOpsByOrderType(Map<String, OpsRecord> records,
+                                         OpsOrderContext context,
+                                         ReportStatsLoader<MerchantReportDto> loader) {
+            String successStatus = TransactionStatus.SUCCESS.getCode().toString();
+            List<MerchantReportDto> stats = loader.load(context.currency, context.startTime, context.endTime, successStatus);
+            log.info("build ops by orderType loaded, period={}, currency={}, orderType={}, statsCount={}",
+                    context.period, context.currency, context.orderType, stats == null ? 0 : stats.size());
+            for (MerchantReportDto dto : CommonUtil.safeList(stats)) {
+                if (dto == null || dto.getUserId() == null) {
+                    continue;
+                }
+                OpsTotals totals = buildOpsTotals(dto, sumAgentCommission(dto));
+
+                OpsScope merchantScope = buildOpsScope(SCOPE_MERCHANT, dto.getUserId());
+                String merchantKey = buildOpsKey(context, merchantScope);
+                accumulateOps(records, merchantKey, context, merchantScope, totals);
+
+                OpsScope allScope = buildOpsScope(SCOPE_ALL, ALL_SCOPE_ID);
+                String allKey = buildOpsKey(context, allScope);
+                accumulateOps(records, allKey, context, allScope, totals);
+
+                MerchantInfoDto merchantInfo = merchantByUserIdCache.get(dto.getUserId());
+                if (merchantInfo == null || merchantInfo.getAgentInfos() == null) {
+                    continue;
+                }
+                accumulateAgentOps(records, context, merchantInfo.getAgentInfos(), dto, totals);
+            }
+        }
+
+        /**
+         * Accumulate ops records for agent scope.
+         *
+         * @param records record map
+         * @param period report period
+         * @param reportDate report date
+         * @param reportMonth report month
+         * @param reportYear report year
+         * @param orderType order type
+         * @param currency currency code
+         * @param agentInfos agent chain
+         * @param merchantReport merchant report
+         * @param total order total
+         * @param success order success
+         */
+        /**
+         * Accumulate ops records for agent scope.
+         *
+         * @param records record map
+         * @param context order context
+         * @param agentInfos agent chain
+         * @param merchantReport merchant report
+         * @param totals order totals
+         */
+        private void accumulateAgentOps(Map<String, OpsRecord> records,
+                                        OpsOrderContext context,
+                                        List<AgentInfoDto> agentInfos,
+                                        MerchantReportDto merchantReport,
+                                        OpsTotals totals) {
+            if (agentInfos == null || agentInfos.isEmpty()) {
+                return;
+            }
+            for (AgentInfoDto agent : agentInfos) {
+                if (agent == null || agent.getUserId() == null || agent.getLevel() == null) {
+                    continue;
+                }
+                BigDecimal agentFee = resolveAgentFeeByLevel(merchantReport, agent.getLevel());
+                OpsScope agentScope = buildOpsScope(SCOPE_AGENT, agent.getUserId());
+                OpsTotals agentTotals = buildOpsTotals(totals.total, totals.success, agentFee);
+                String key = buildOpsKey(context, agentScope);
+                accumulateOps(records, key, context, agentScope, agentTotals);
+            }
+        }
+
+        /**
+         * Accumulate ops record by key.
+         *
+         * @param records record map
+         * @param key record key
+         * @param context order context
+         * @param scope record scope
+         * @param totals order totals
+         */
+        private void accumulateOps(Map<String, OpsRecord> records,
+                                   String key,
+                                   OpsOrderContext context,
+                                   OpsScope scope,
+                                   OpsTotals totals) {
+            OpsRecord record = records.computeIfAbsent(key, k -> new OpsRecord());
+            record.period = context.period;
+            record.reportDate = context.reportDate;
+            record.reportMonth = context.reportMonth;
+            record.reportYear = context.reportYear;
+            record.orderType = context.orderType;
+            record.currency = context.currency;
+            record.scopeType = scope.scopeType;
+            record.scopeId = scope.scopeId;
+            record.orderQuantity += totals.total;
+            record.successQuantity += totals.success;
+            record.failQuantity += Math.max(0, totals.total - totals.success);
+            record.agentCommission = CommonUtil.safeAdd(record.agentCommission, totals.agentCommission);
+        }
+
+        /**
+         * Upsert daily ops records.
+         *
+         * @param records record map
+         */
+        private void upsertDaily(Map<String, OpsRecord> records) {
+            List<OpsOrderDailyDto> list = new ArrayList<>();
+            for (OpsRecord record : records.values()) {
+                if (record.period != OpsPeriod.DAILY) {
+                    continue;
+                }
+                list.add(fillOpsDailyDto(record));
+            }
+            if (list.isEmpty()) {
+                log.info("upsert ops daily skipped, recordCount=0");
+                return;
+            }
+            int affected = persistHelper.batchUpsert(list, opsOrderDailyMapper::batchUpsert, "opsDaily");
+            log.info("upsert ops daily done, recordCount={}, affected={}", list.size(), affected);
+        }
+
+        /**
+         * Upsert monthly ops records.
+         *
+         * @param records record map
+         */
+        private void upsertMonthly(Map<String, OpsRecord> records) {
+            List<OpsOrderMonthlyDto> list = new ArrayList<>();
+            for (OpsRecord record : records.values()) {
+                if (record.period != OpsPeriod.MONTHLY) {
+                    continue;
+                }
+                list.add(fillOpsMonthlyDto(record));
+            }
+            if (list.isEmpty()) {
+                log.info("upsert ops monthly skipped, recordCount=0");
+                return;
+            }
+            int affected = persistHelper.batchUpsert(list, opsOrderMonthlyMapper::batchUpsert, "opsMonthly");
+            log.info("upsert ops monthly done, recordCount={}, affected={}", list.size(), affected);
+        }
+
+        /**
+         * Upsert yearly ops records.
+         *
+         * @param records record map
+         */
+        private void upsertYearly(Map<String, OpsRecord> records) {
+            List<OpsOrderYearlyDto> list = new ArrayList<>();
+            for (OpsRecord record : records.values()) {
+                if (record.period != OpsPeriod.YEARLY) {
+                    continue;
+                }
+                list.add(fillOpsYearlyDto(record));
+            }
+            if (list.isEmpty()) {
+                log.info("upsert ops yearly skipped, recordCount=0");
+                return;
+            }
+            int affected = persistHelper.batchUpsert(list, opsOrderYearlyMapper::batchUpsert, "opsYearly");
+            log.info("upsert ops yearly done, recordCount={}, affected={}", list.size(), affected);
+        }
+
+        /**
+         * Fill daily ops dto from record.
+         *
+         * @param record ops record
+         * @return daily dto
+         */
+        private OpsOrderDailyDto fillOpsDailyDto(OpsRecord record) {
+            OpsOrderDailyDto dto = new OpsOrderDailyDto();
+            dto.setReportDate(record.reportDate);
+            dto.setOrderType(record.orderType);
+            dto.setCurrency(record.currency);
+            dto.setScopeType(record.scopeType);
+            dto.setScopeId(record.scopeId);
+            dto.setOrderQuantity(record.orderQuantity);
+            dto.setSuccessQuantity(record.successQuantity);
+            dto.setFailQuantity(record.failQuantity);
+            dto.setSuccessRate(resolveSuccessRate(record.successQuantity, record.orderQuantity));
+            dto.setAgentCommission(record.agentCommission);
+            dto.setCreateTime(nowEpochSecond);
+            dto.setUpdateTime(nowEpochSecond);
+            return dto;
+        }
+
+        /**
+         * Fill monthly ops dto from record.
+         *
+         * @param record ops record
+         * @return monthly dto
+         */
+        private OpsOrderMonthlyDto fillOpsMonthlyDto(OpsRecord record) {
+            OpsOrderMonthlyDto dto = new OpsOrderMonthlyDto();
+            dto.setReportMonth(record.reportMonth);
+            dto.setOrderType(record.orderType);
+            dto.setCurrency(record.currency);
+            dto.setScopeType(record.scopeType);
+            dto.setScopeId(record.scopeId);
+            dto.setOrderQuantity(record.orderQuantity);
+            dto.setSuccessQuantity(record.successQuantity);
+            dto.setFailQuantity(record.failQuantity);
+            dto.setSuccessRate(resolveSuccessRate(record.successQuantity, record.orderQuantity));
+            dto.setAgentCommission(record.agentCommission);
+            dto.setCreateTime(nowEpochSecond);
+            dto.setUpdateTime(nowEpochSecond);
+            return dto;
+        }
+
+        /**
+         * Fill yearly ops dto from record.
+         *
+         * @param record ops record
+         * @return yearly dto
+         */
+        private OpsOrderYearlyDto fillOpsYearlyDto(OpsRecord record) {
+            OpsOrderYearlyDto dto = new OpsOrderYearlyDto();
+            dto.setReportYear(record.reportYear);
+            dto.setOrderType(record.orderType);
+            dto.setCurrency(record.currency);
+            dto.setScopeType(record.scopeType);
+            dto.setScopeId(record.scopeId);
+            dto.setOrderQuantity(record.orderQuantity);
+            dto.setSuccessQuantity(record.successQuantity);
+            dto.setFailQuantity(record.failQuantity);
+            dto.setSuccessRate(resolveSuccessRate(record.successQuantity, record.orderQuantity));
+            dto.setAgentCommission(record.agentCommission);
+            dto.setCreateTime(nowEpochSecond);
+            dto.setUpdateTime(nowEpochSecond);
+            return dto;
+        }
+
+        /**
+         * Resolve period start epoch seconds by currency.
+         *
+         * @param period report period
+         * @param currency currency code
+         * @return start epoch seconds
+         */
+        private long resolvePeriodStart(OpsPeriod period, String currency) {
+            return switch (period) {
+                case DAILY -> resolveHelper.resolveDayStart(currency);
+                case MONTHLY -> resolveHelper.resolveMonthStart(currency);
+                case YEARLY -> resolveHelper.resolveYearStart(currency);
+            };
+        }
+
+        /**
+         * Resolve period end epoch seconds by currency.
+         *
+         * @param period report period
+         * @param currency currency code
+         * @return end epoch seconds
+         */
+        private long resolvePeriodEnd(OpsPeriod period, String currency) {
+            return switch (period) {
+                case DAILY -> resolveHelper.resolveNextDayStart(currency);
+                case MONTHLY -> resolveHelper.resolveNextMonthStart(currency);
+                case YEARLY -> resolveHelper.resolveNextYearStart(currency);
+            };
+        }
+
+        /**
+         * Resolve report base date by currency.
+         *
+         * @param currency currency code
+         * @return base date
+         */
+        private LocalDate resolveReportBaseDate(String currency) {
+            return resolveHelper.resolveReportBaseDate(currency, CommonUtil.resolveZoneIdByCurrency(currency));
+        }
+
+        /**
+         * Default long value for nullable integer.
+         *
+         * @param value input value
+         * @return safe long
+         */
+        private long defaultLong(Integer value) {
+            return value == null ? 0L : value.longValue();
+        }
+
+        /**
+         * Sum agent commission from merchant report.
+         *
+         * @param dto merchant report
+         * @return agent commission sum
+         */
+        private BigDecimal sumAgentCommission(MerchantReportDto dto) {
+            BigDecimal a1 = dto.getAgent1Fee() == null ? BigDecimal.ZERO : dto.getAgent1Fee();
+            BigDecimal a2 = dto.getAgent2Fee() == null ? BigDecimal.ZERO : dto.getAgent2Fee();
+            BigDecimal a3 = dto.getAgent3Fee() == null ? BigDecimal.ZERO : dto.getAgent3Fee();
+            return CommonUtil.safeAdd(a1, a2, a3);
+        }
+
+        /**
+         * Resolve agent fee by level.
+         *
+         * @param dto merchant report
+         * @param level agent level
+         * @return fee amount
+         */
+        private BigDecimal resolveAgentFeeByLevel(MerchantReportDto dto, Integer level) {
+            if (CommonConstant.AGENT_LEVEL_FIRST.equals(level)) {
+                return dto.getAgent1Fee() == null ? BigDecimal.ZERO : dto.getAgent1Fee();
+            }
+            if (CommonConstant.AGENT_LEVEL_SECOND.equals(level)) {
+                return dto.getAgent2Fee() == null ? BigDecimal.ZERO : dto.getAgent2Fee();
+            }
+            if (CommonConstant.AGENT_LEVEL_THIRD.equals(level)) {
+                return dto.getAgent3Fee() == null ? BigDecimal.ZERO : dto.getAgent3Fee();
+            }
+            return BigDecimal.ZERO;
+        }
+
+        /**
+         * Resolve success rate for totals.
+         *
+         * @param success success count
+         * @param total total count
+         * @return success rate
+         */
+        private BigDecimal resolveSuccessRate(long success, long total) {
+            if (total <= 0) {
+                return BigDecimal.ZERO;
+            }
+            return BigDecimal.valueOf(success)
+                    .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP);
+        }
+
+
+        /**
+         * Build key for ops record aggregation.
+         *
+         * @param context order context
+         * @param scope record scope
+         * @return record key
+         */
+        private String buildOpsKey(OpsOrderContext context, OpsScope scope) {
+            String periodKey = switch (context.period) {
+                case DAILY -> context.reportDate == null ? "" : context.reportDate.toString();
+                case MONTHLY -> context.reportMonth == null ? "" : context.reportMonth;
+                case YEARLY -> context.reportYear == null ? "" : context.reportYear;
+            };
+            return periodKey + "|" + context.orderType + "|" + context.currency + "|" + scope.scopeType + "|" + scope.scopeId;
+        }
+
+        /**
+         * Build base ops context.
+         *
+         * @param period report period
+         * @param reportDate report date
+         * @param reportMonth report month
+         * @param reportYear report year
+         * @param currency currency code
+         * @return base context
+         */
+        private OpsContext buildOpsContext(OpsPeriod period,
+                                           LocalDate reportDate,
+                                           String reportMonth,
+                                           String reportYear,
+                                           String currency) {
+            OpsContext context = new OpsContext();
+            context.period = period;
+            context.reportDate = reportDate;
+            context.reportMonth = reportMonth;
+            context.reportYear = reportYear;
+            context.currency = currency;
+            return context;
+        }
+
+        /**
+         * Build order context from base context.
+         *
+         * @param baseContext base context
+         * @param orderType order type
+         * @param startTime start time epoch seconds
+         * @param endTime end time epoch seconds
+         * @return order context
+         */
+        private OpsOrderContext buildOpsOrderContext(OpsContext baseContext,
+                                                     Integer orderType,
+                                                     long startTime,
+                                                     long endTime) {
+            OpsOrderContext context = new OpsOrderContext();
+            context.period = baseContext.period;
+            context.reportDate = baseContext.reportDate;
+            context.reportMonth = baseContext.reportMonth;
+            context.reportYear = baseContext.reportYear;
+            context.currency = baseContext.currency;
+            context.orderType = orderType;
+            context.startTime = startTime;
+            context.endTime = endTime;
+            return context;
+        }
+
+        /**
+         * Build scope descriptor.
+         *
+         * @param scopeType scope type
+         * @param scopeId scope id
+         * @return scope descriptor
+         */
+        private OpsScope buildOpsScope(Integer scopeType, String scopeId) {
+            OpsScope scope = new OpsScope();
+            scope.scopeType = scopeType;
+            scope.scopeId = scopeId;
+            return scope;
+        }
+
+        /**
+         * Build totals from merchant stats.
+         *
+         * @param dto merchant stats
+         * @param agentCommission agent commission
+         * @return totals
+         */
+        private OpsTotals buildOpsTotals(MerchantReportDto dto, BigDecimal agentCommission) {
+            return buildOpsTotals(defaultLong(dto.getOrderQuantity()), defaultLong(dto.getSuccessQuantity()), agentCommission);
+        }
+
+        /**
+         * Build totals from raw values.
+         *
+         * @param total order total
+         * @param success success total
+         * @param agentCommission agent commission
+         * @return totals
+         */
+        private OpsTotals buildOpsTotals(long total, long success, BigDecimal agentCommission) {
+            OpsTotals totals = new OpsTotals();
+            totals.total = total;
+            totals.success = success;
+            totals.agentCommission = agentCommission == null ? BigDecimal.ZERO : agentCommission;
+            return totals;
         }
     }
 
@@ -771,8 +1334,10 @@ public class ReportTask {
             channelByIdCache = Collections.emptyMap();
             paymentByIdCache = Collections.emptyMap();
             agentByUserIdCache = Collections.emptyMap();
+            merchantByUserIdCache = Collections.emptyMap();
             dayStartByCurrency.clear();
             nextDayStartByCurrency.clear();
+            baseDateByCurrency.clear();
             agentReportMap.clear();
             nowEpochSecond = 0L;
         }
@@ -793,6 +1358,10 @@ public class ReportTask {
                     .collect(Collectors.toMap(PaymentDto::getPaymentId, Function.identity(), (a, b) -> a));
             agentByUserIdCache = agentInfoCache.stream()
                     .collect(Collectors.toMap(AgentInfoDto::getUserId, Function.identity(), (a, b) -> a));
+            merchantByUserIdCache = merchantInfoCache.stream()
+                    .filter(Objects::nonNull)
+                    .filter(m -> m.getUserId() != null)
+                    .collect(Collectors.toMap(MerchantInfoDto::getUserId, Function.identity(), (a, b) -> a));
 
             // Enrich merchant data: attach agent chain, channel list, and currency list.
             attachMerchantDetails(merchantInfoCache);
@@ -853,14 +1422,7 @@ public class ReportTask {
         private long resolveDayStart(String currency) {
             return dayStartByCurrency.computeIfAbsent(currency, key -> {
                 ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(key);
-                // Use a consistent timestamp for the whole report run (fallback to system time).
-                ZonedDateTime now = nowEpochSecond > 0
-                        ? Instant.ofEpochSecond(nowEpochSecond).atZone(zoneId)
-                        : ZonedDateTime.now(zoneId);
-                // Treat 00:00:00 ~ 00:50:00 as "midnight trigger": report previous day.
-                LocalDate baseDate = now.toLocalTime().isBefore(LocalTime.of(0, 50, 0))
-                        ? now.toLocalDate().minusDays(1)
-                        : now.toLocalDate();
+                LocalDate baseDate = resolveReportBaseDate(key, zoneId);
                 return baseDate.atStartOfDay(zoneId).toEpochSecond();
             });
         }
@@ -874,15 +1436,121 @@ public class ReportTask {
         private long resolveNextDayStart(String currency) {
             return nextDayStartByCurrency.computeIfAbsent(currency, key -> {
                 ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(key);
+                LocalDate baseDate = resolveReportBaseDate(key, zoneId);
+                return baseDate.plusDays(1).atStartOfDay(zoneId).toEpochSecond();
+            });
+        }
+
+        /**
+         * Resolve report base date by currency timezone.
+         *
+         * @param currency currency code
+         * @param zoneId timezone
+         * @return base date for report
+         */
+        private LocalDate resolveReportBaseDate(String currency, ZoneId zoneId) {
+            return baseDateByCurrency.computeIfAbsent(currency, key -> {
                 // Use a consistent timestamp for the whole report run (fallback to system time).
                 ZonedDateTime now = nowEpochSecond > 0
                         ? Instant.ofEpochSecond(nowEpochSecond).atZone(zoneId)
                         : ZonedDateTime.now(zoneId);
-                // Treat 00:00:00 ~ 00:50:00 as "midnight trigger": report previous day.
-                LocalDate baseDate = now.toLocalTime().isBefore(LocalTime.of(0, 50, 0))
+                // Daily report: treat 00:00:00 ~ 00:50:00 as "midnight trigger".
+                return now.toLocalTime().isBefore(LocalTime.of(0, 50, 0))
                         ? now.toLocalDate().minusDays(1)
                         : now.toLocalDate();
-                return baseDate.plusDays(1).atStartOfDay(zoneId).toEpochSecond();
+            });
+        }
+
+        /**
+         * Resolve month start epoch seconds by currency timezone.
+         *
+         * @param currency currency code
+         * @return month start epoch seconds
+         */
+        private long resolveMonthStart(String currency) {
+            ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+            LocalDate baseDate = resolveReportBaseDateForMonth(currency, zoneId);
+            LocalDate monthStart = baseDate.withDayOfMonth(1);
+            return monthStart.atStartOfDay(zoneId).toEpochSecond();
+        }
+
+        /**
+         * Resolve next month start epoch seconds by currency timezone.
+         *
+         * @param currency currency code
+         * @return next month start epoch seconds
+         */
+        private long resolveNextMonthStart(String currency) {
+            ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+            LocalDate baseDate = resolveReportBaseDateForMonth(currency, zoneId);
+            YearMonth ym = YearMonth.from(baseDate).plusMonths(1);
+            return ym.atDay(1).atStartOfDay(zoneId).toEpochSecond();
+        }
+
+        /**
+         * Resolve year start epoch seconds by currency timezone.
+         *
+         * @param currency currency code
+         * @return year start epoch seconds
+         */
+        private long resolveYearStart(String currency) {
+            ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+            LocalDate baseDate = resolveReportBaseDateForYear(currency, zoneId);
+            LocalDate yearStart = LocalDate.of(baseDate.getYear(), 1, 1);
+            return yearStart.atStartOfDay(zoneId).toEpochSecond();
+        }
+
+        /**
+         * Resolve next year start epoch seconds by currency timezone.
+         *
+         * @param currency currency code
+         * @return next year start epoch seconds
+         */
+        private long resolveNextYearStart(String currency) {
+            ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+            LocalDate baseDate = resolveReportBaseDateForYear(currency, zoneId);
+            LocalDate nextYearStart = LocalDate.of(baseDate.getYear() + 1, 1, 1);
+            return nextYearStart.atStartOfDay(zoneId).toEpochSecond();
+        }
+
+        /**
+         * Resolve month base date: only roll back on first day 00:00~00:50.
+         *
+         * @param currency currency code
+         * @param zoneId timezone
+         * @return base date for monthly report
+         */
+        private LocalDate resolveReportBaseDateForMonth(String currency, ZoneId zoneId) {
+            return baseDateByCurrency.computeIfAbsent("M:" + currency, key -> {
+                ZonedDateTime now = nowEpochSecond > 0
+                        ? Instant.ofEpochSecond(nowEpochSecond).atZone(zoneId)
+                        : ZonedDateTime.now(zoneId);
+                if (now.getDayOfMonth() == 1 && now.toLocalTime().isBefore(LocalTime.of(0, 50, 0))) {
+                    log.info("ops monthly report rollback to previous month, currency={}, now={}", currency, now);
+                    return now.toLocalDate().minusMonths(1);
+                }
+                return now.toLocalDate();
+            });
+        }
+
+        /**
+         * Resolve year base date: only roll back on Jan 1 00:00~00:50.
+         *
+         * @param currency currency code
+         * @param zoneId timezone
+         * @return base date for yearly report
+         */
+        private LocalDate resolveReportBaseDateForYear(String currency, ZoneId zoneId) {
+            return baseDateByCurrency.computeIfAbsent("Y:" + currency, key -> {
+                ZonedDateTime now = nowEpochSecond > 0
+                        ? Instant.ofEpochSecond(nowEpochSecond).atZone(zoneId)
+                        : ZonedDateTime.now(zoneId);
+                if (now.getMonthValue() == 1 && now.getDayOfMonth() == 1
+                        && now.toLocalTime().isBefore(LocalTime.of(0, 50, 0))) {
+                    log.info("ops yearly report rollback to previous year, currency={}, now={}", currency, now);
+                    return now.toLocalDate().minusYears(1);
+                }
+                return now.toLocalDate();
             });
         }
 

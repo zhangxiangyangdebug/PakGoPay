@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.OpsOrderYearlyMapper">
+
+    <resultMap id="OpsOrderYearlyResultMap" type="com.pakgopay.mapper.dto.OpsOrderYearlyDto">
+        <id column="id" property="id" javaType="java.lang.Long"/>
+        <result column="report_year" property="reportYear" javaType="java.lang.String"/>
+        <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
+        <result column="currency" property="currency" javaType="java.lang.String"/>
+        <result column="scope_type" property="scopeType" javaType="java.lang.Integer"/>
+        <result column="scope_id" property="scopeId" javaType="java.lang.String"/>
+        <result column="order_quantity" property="orderQuantity" javaType="java.lang.Long"/>
+        <result column="success_quantity" property="successQuantity" javaType="java.lang.Long"/>
+        <result column="fail_quantity" property="failQuantity" javaType="java.lang.Long"/>
+        <result column="success_rate" property="successRate" javaType="java.math.BigDecimal"/>
+        <result column="agent_commission" property="agentCommission" javaType="java.math.BigDecimal"/>
+        <result column="created_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="updated_time" property="updateTime" javaType="java.lang.Long"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        report_year,
+        order_type,
+        currency,
+        scope_type,
+        scope_id,
+        order_quantity,
+        success_quantity,
+        fail_quantity,
+        success_rate,
+        agent_commission,
+        created_time,
+        updated_time
+    </sql>
+
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.OpsOrderYearlyDto">
+        INSERT INTO ops_order_yearly (
+        <include refid="BaseColumns"/>
+        ) VALUES (
+        #{reportYear},
+        #{orderType},
+        #{currency},
+        #{scopeType},
+        #{scopeId},
+        #{orderQuantity},
+        #{successQuantity},
+        #{failQuantity},
+        #{successRate},
+        #{agentCommission},
+        #{createTime},
+        #{updateTime}
+        )
+    </insert>
+
+    <update id="update" parameterType="com.pakgopay.mapper.dto.OpsOrderYearlyDto">
+        UPDATE ops_order_yearly
+        <set>
+            <if test="orderQuantity != null">order_quantity = #{orderQuantity},</if>
+            <if test="successQuantity != null">success_quantity = #{successQuantity},</if>
+            <if test="failQuantity != null">fail_quantity = #{failQuantity},</if>
+            <if test="successRate != null">success_rate = #{successRate},</if>
+            <if test="agentCommission != null">agent_commission = #{agentCommission},</if>
+            <if test="updateTime != null">updated_time = #{updateTime},</if>
+        </set>
+        WHERE report_year = #{reportYear}
+          AND order_type = #{orderType}
+        AND currency = #{currency}
+        AND scope_type = #{scopeType}
+        AND scope_id = #{scopeId}
+    </update>
+
+    <select id="listLatest" parameterType="com.pakgopay.data.entity.report.OpsReportQueryEntity"
+            resultMap="OpsOrderYearlyResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM ops_order_yearly
+        <where>
+            <if test="currency != null and currency != ''">
+                AND currency = #{currency}
+            </if>
+            <if test="scopeType != null">
+                AND scope_type = #{scopeType}
+            </if>
+            <if test="scopeId != null and scopeId != ''">
+                AND scope_id = #{scopeId}
+            </if>
+            <if test="recordDate != null and recordDate != ''">
+                AND report_year &lt;= #{recordDate}
+            </if>
+        </where>
+        ORDER BY report_year DESC
+        LIMIT 5
+    </select>
+
+    <insert id="batchUpsert" parameterType="java.util.List">
+        INSERT INTO ops_order_yearly (
+        <include refid="BaseColumns"/>
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.reportYear},
+            #{item.orderType},
+            #{item.currency},
+            #{item.scopeType},
+            #{item.scopeId},
+            #{item.orderQuantity},
+            #{item.successQuantity},
+            #{item.failQuantity},
+            #{item.successRate},
+            #{item.agentCommission},
+            #{item.createTime},
+            #{item.updateTime}
+            )
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        order_quantity = VALUES(order_quantity),
+        success_quantity = VALUES(success_quantity),
+        fail_quantity = VALUES(fail_quantity),
+        success_rate = VALUES(success_rate),
+        agent_commission = VALUES(agent_commission),
+        updated_time = VALUES(updated_time)
+    </insert>
+
+</mapper>

@@ -16,6 +16,9 @@ public interface ChannelReportMapper {
     /** Update report (by userId + recordDate + orderType + currency) */
     int update(ChannelReportDto dto);
 
+    /** Batch upsert reports */
+    int batchUpsert(List<ChannelReportDto> list);
+
     /** balance infos */
     List<BigDecimal> balanceInfosByQuery(ChannelReportEntity query);
 

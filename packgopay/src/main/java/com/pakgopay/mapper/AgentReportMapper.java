@@ -16,6 +16,9 @@ public interface AgentReportMapper {
     /** Update report by userId + recordDate + orderType + currency */
     int update(AgentReportDto dto);
 
+    /** Batch upsert reports */
+    int batchUpsert(List<AgentReportDto> list);
+
     List<BigDecimal> commissionInfosByQuery(AgentReportEntity query);
 
     List<AgentReportDto> pageByQuery(AgentReportEntity query);

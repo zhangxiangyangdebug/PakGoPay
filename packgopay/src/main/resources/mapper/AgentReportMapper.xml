@@ -81,6 +81,34 @@
         AND currency = #{currency}
     </update>
 
+    <insert id="batchUpsert" parameterType="java.util.List">
+        INSERT INTO agent_report (
+        <include refid="BaseColumns"/>
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.userId},
+            #{item.agentName},
+            #{item.orderType},
+            #{item.orderQuantity},
+            #{item.successQuantity},
+            #{item.currency},
+            #{item.commission},
+            #{item.recordDate},
+            #{item.createTime},
+            #{item.updateTime},
+            #{item.remark}
+            )
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        agent_name = VALUES(agent_name),
+        order_quantity = VALUES(order_quantity),
+        success_quantity = VALUES(success_quantity),
+        commission = VALUES(commission),
+        remark = VALUES(remark),
+        update_time = VALUES(update_time)
+    </insert>
+
     <!-- Common WHERE conditions for AgentReportQuery -->
     <sql id="AgentReportWhere">
         <where>

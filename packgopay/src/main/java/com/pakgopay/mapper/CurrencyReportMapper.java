@@ -16,6 +16,9 @@ public interface CurrencyReportMapper {
     /** Update report by currency + recordDate + orderType */
     int update(CurrencyReportDto dto);
 
+    /** Batch upsert reports */
+    int batchUpsert(List<CurrencyReportDto> list);
+
     /** order_balance list by query */
     List<BigDecimal> balanceInfosByQuery(BaseReportEntity query);
 

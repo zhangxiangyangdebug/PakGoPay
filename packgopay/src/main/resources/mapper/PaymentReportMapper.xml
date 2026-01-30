@@ -85,6 +85,36 @@
         AND currency = #{currency}
     </update>
 
+    <insert id="batchUpsert" parameterType="java.util.List">
+        INSERT INTO payment_report (
+        <include refid="BaseColumns"/>
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.paymentId},
+            #{item.paymentName},
+            #{item.orderType},
+            #{item.orderQuantity},
+            #{item.successQuantity},
+            #{item.currency},
+            #{item.merchantFee},
+            #{item.orderBalance},
+            #{item.orderProfit},
+            #{item.recordDate},
+            #{item.createTime},
+            #{item.updateTime}
+            )
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        payment_name = VALUES(payment_name),
+        order_quantity = VALUES(order_quantity),
+        success_quantity = VALUES(success_quantity),
+        merchant_fee = VALUES(merchant_fee),
+        order_balance = VALUES(order_balance),
+        order_profit = VALUES(order_profit),
+        update_time = VALUES(update_time)
+    </insert>
+
     <!-- Common WHERE conditions for PaymentReportEntity -->
     <sql id="PaymentReportWhere">
         <where>
