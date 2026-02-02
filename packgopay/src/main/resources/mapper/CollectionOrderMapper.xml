@@ -236,52 +236,6 @@
 
     </select>
 
-    <select id="sumMerchantReport" resultMap="MerchantReportResultMap">
-        SELECT
-            #{userId} merchant_user_id,
-            #{currency} currency_type,
-            <include refid="CommonReportAggColumns"/>
-        FROM collection_order
-        WHERE merchant_user_id = #{userId}
-          AND currency_type = #{currency}
-          AND create_time &gt;= #{startTime}
-          AND create_time &lt; #{endTime}
-    </select>
-
-    <select id="sumChannelReport" resultMap="ChannelReportResultMap">
-        SELECT
-            #{channelId} channel_id,
-            #{currency} currency_type,
-            <include refid="CommonReportAggColumnsWithBalance"/>
-        FROM collection_order
-        WHERE channel_id = #{channelId}
-          AND currency_type = #{currency}
-          AND create_time &gt;= #{startTime}
-          AND create_time &lt; #{endTime}
-    </select>
-
-    <select id="sumPaymentReport" resultMap="PaymentReportResultMap">
-        SELECT
-            #{paymentId} payment_id,
-            #{currency} currency_type,
-            <include refid="CommonReportAggColumnsWithBalance"/>
-        FROM collection_order
-        WHERE payment_id = #{paymentId}
-          AND currency_type = #{currency}
-          AND create_time &gt;= #{startTime}
-          AND create_time &lt; #{endTime}
-    </select>
-
-    <select id="sumCurrencyReport" resultMap="CurrencyReportResultMap">
-        SELECT
-            #{currency} currency_type,
-            <include refid="CommonReportAggColumnsWithBalance"/>
-        FROM collection_order
-        WHERE currency_type = #{currency}
-          AND create_time &gt;= #{startTime}
-          AND create_time &lt; #{endTime}
-    </select>
-
     <sql id="CommonReportAggColumns">
         COUNT(1) order_quantity,
         IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN 1 ELSE 0 END), 0) success_quantity,
@@ -302,51 +256,59 @@
           - IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN agent3_fee ELSE 0 END), 0) order_profit
     </sql>
 
-    <select id="listMerchantReportStats" resultMap="MerchantReportResultMap">
-        SELECT
-            merchant_user_id,
-            currency_type,
-            <include refid="CommonReportAggColumns"/>
-        FROM collection_order
-        WHERE currency_type = #{currency}
-          AND create_time &gt;= #{startTime}
-          AND create_time &lt; #{endTime}
-        GROUP BY merchant_user_id, currency_type
+    <select id="listMerchantReportStatsBatch" resultMap="MerchantReportResultMap">
+        <foreach collection="ranges" item="item" separator=" UNION ALL ">
+            SELECT
+                merchant_user_id,
+                currency_type,
+                <include refid="CommonReportAggColumns"/>
+            FROM collection_order
+            WHERE currency_type = #{item.currency}
+              AND create_time &gt;= #{item.startTime}
+              AND create_time &lt; #{item.endTime}
+            GROUP BY merchant_user_id, currency_type
+        </foreach>
     </select>
 
-    <select id="listChannelReportStats" resultMap="ChannelReportResultMap">
-        SELECT
-            channel_id,
-            currency_type,
-            <include refid="CommonReportAggColumnsWithBalance"/>
-        FROM collection_order
-        WHERE currency_type = #{currency}
-          AND create_time &gt;= #{startTime}
-          AND create_time &lt; #{endTime}
-        GROUP BY channel_id, currency_type
+    <select id="listChannelReportStatsBatch" resultMap="ChannelReportResultMap">
+        <foreach collection="ranges" item="item" separator=" UNION ALL ">
+            SELECT
+                channel_id,
+                currency_type,
+                <include refid="CommonReportAggColumnsWithBalance"/>
+            FROM collection_order
+            WHERE currency_type = #{item.currency}
+              AND create_time &gt;= #{item.startTime}
+              AND create_time &lt; #{item.endTime}
+            GROUP BY channel_id, currency_type
+        </foreach>
     </select>
 
-    <select id="listPaymentReportStats" resultMap="PaymentReportResultMap">
-        SELECT
-            payment_id,
-            currency_type,
-            <include refid="CommonReportAggColumnsWithBalance"/>
-        FROM collection_order
-        WHERE currency_type = #{currency}
-          AND create_time &gt;= #{startTime}
-          AND create_time &lt; #{endTime}
-        GROUP BY payment_id, currency_type
+    <select id="listPaymentReportStatsBatch" resultMap="PaymentReportResultMap">
+        <foreach collection="ranges" item="item" separator=" UNION ALL ">
+            SELECT
+                payment_id,
+                currency_type,
+                <include refid="CommonReportAggColumnsWithBalance"/>
+            FROM collection_order
+            WHERE currency_type = #{item.currency}
+              AND create_time &gt;= #{item.startTime}
+              AND create_time &lt; #{item.endTime}
+            GROUP BY payment_id, currency_type
+        </foreach>
     </select>
 
-    <select id="listCurrencyReportStats" resultMap="CurrencyReportResultMap">
-        SELECT
-            currency_type,
-            <include refid="CommonReportAggColumnsWithBalance"/>
-        FROM collection_order
-        WHERE currency_type = #{currency}
-          AND create_time &gt;= #{startTime}
-          AND create_time &lt; #{endTime}
-        GROUP BY currency_type
+    <select id="listCurrencyReportStatsBatch" resultMap="CurrencyReportResultMap">
+        <foreach collection="ranges" item="item" separator=" UNION ALL ">
+            SELECT
+                currency_type,
+                <include refid="CommonReportAggColumnsWithBalance"/>
+            FROM collection_order
+            WHERE currency_type = #{item.currency}
+              AND create_time &gt;= #{item.startTime}
+              AND create_time &lt; #{item.endTime}
+            GROUP BY currency_type
+        </foreach>
     </select>
 
     <select id="countByQuery" resultType="java.lang.Integer">

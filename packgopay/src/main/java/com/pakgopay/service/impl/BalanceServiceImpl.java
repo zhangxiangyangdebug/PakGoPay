@@ -1,6 +1,5 @@
 package com.pakgopay.service.impl;
 
-import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.response.BalanceUserInfo;
@@ -8,16 +7,14 @@ import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.BalanceMapper;
 import com.pakgopay.mapper.dto.BalanceDto;
 import com.pakgopay.service.BalanceService;
-import com.pakgopay.util.CommonUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,33 +56,22 @@ public class BalanceServiceImpl implements BalanceService {
 
     @Override
     public void freezeBalance(BigDecimal freezeFee, String userId, String currency) throws PakGoPayException {
-        BalanceDto balanceDto;
+        BalanceDto before = fetchBalanceSnapshot(userId, currency);
         try {
-            balanceDto = balanceMapper.findByUserIdAndCurrency(userId, currency);
+            long now = System.currentTimeMillis() / 1000;
+            int ret = balanceMapper.freezeBalance(userId, freezeFee, currency, now);
+            if (ret <= 0) {
+                log.warn("insufficient available balance, userId: {} currency: {}", userId, currency);
+                throw new PakGoPayException(ResultCode.MERCHANT_BALANCE_NOT_ENOUGH);
+            }
+        } catch (PakGoPayException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("balance findByUserIdAndCurrency failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
-
-        if (balanceDto == null || freezeFee.compareTo(balanceDto.getAvailableBalance()) > CommonConstant.ZERO) {
-            log.warn("insufficient available balance, userId: {} currency: {}", userId, currency);
-            throw new PakGoPayException(ResultCode.MERCHANT_BALANCE_NOT_ENOUGH);
-        }
-
-        BalanceDto updateInfo = new BalanceDto();
-        updateInfo.setUserId(balanceDto.getUserId());
-        updateInfo.setAvailableBalance(CommonUtil.safeSubtract(balanceDto.getAvailableBalance(), freezeFee));
-        updateInfo.setFrozenBalance(CommonUtil.safeAdd(balanceDto.getFrozenBalance(), freezeFee));
-        updateInfo.setUpdateTime(Instant.now().getEpochSecond());
-
-        try {
-            balanceMapper.updateByUserId(updateInfo);
-        } catch (Exception e) {
-            log.error("balance updateByUserId failed, message {}", e.getMessage());
+            log.error("balance freezeBalance failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
         BalanceDto after = fetchBalanceSnapshot(userId, currency);
-        logBalanceChange("freezeBalance", balanceDto, after, freezeFee, userId, currency);
+        logBalanceChange("freezeBalance", before, after, freezeFee, userId, currency);
     }
 
     @Override
@@ -98,7 +84,7 @@ public class BalanceServiceImpl implements BalanceService {
             long now = System.currentTimeMillis() / 1000;
             int ret = balanceMapper.releaseFrozenBalance(userId, amount, currency, now);
             if (ret <= 0) {
-                throw new PakGoPayException(ResultCode.FAIL, "releaseFrozenBalance failed");
+                throw new PakGoPayException(ResultCode.MERCHANT_BALANCE_NOT_ENOUGH, "frozen balance is not enough");
             }
         } catch (Exception e) {
             log.error("releaseFrozenBalance failed, message {}", e.getMessage());
@@ -111,6 +97,10 @@ public class BalanceServiceImpl implements BalanceService {
     @Override
     public void creditBalance(String userId, String currency, BigDecimal amount) {
         if (!checkParams(userId, currency, amount)) {
+            return;
+        }
+        if (amount.compareTo(BigDecimal.ZERO) < 0) {
+            log.warn("amount is negative, userId: {} currency: {}", userId, currency);
             return;
         }
 
@@ -227,6 +217,9 @@ public class BalanceServiceImpl implements BalanceService {
         }
 
         if (ret <= 0) {
+            if (amount.compareTo(BigDecimal.ZERO) < 0) {
+                throw new PakGoPayException(ResultCode.MERCHANT_BALANCE_NOT_ENOUGH);
+            }
             throw new PakGoPayException(ResultCode.FAIL, "adjustBalance failed");
         }
     }
