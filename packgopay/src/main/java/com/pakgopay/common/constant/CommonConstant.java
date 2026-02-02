@@ -7,6 +7,8 @@ public class CommonConstant {
     // attr client ip
     public static final String ATTR_IP = "CTX_CLIENT_IP";
 
+    public static final String ATTR_USERAGENT = "CTX_CLIENT_USERAGENT";
+
     // attr user id
     public static final String ATTR_USER_ID = "CTX_USER_ID";
 

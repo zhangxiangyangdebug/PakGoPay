@@ -15,7 +15,8 @@ public class PakGoPayInterceptor implements HandlerInterceptor {
 
         String ip = getClientIp(request);
         request.setAttribute(CommonConstant.ATTR_IP, ip);
-
+        String userAgent = request.getHeader("User-Agent");
+        request.setAttribute(CommonConstant.ATTR_USERAGENT, userAgent);
         return HandlerInterceptor.super.preHandle(request, response, handler);
     }
 
