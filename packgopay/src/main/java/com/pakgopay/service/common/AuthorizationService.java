@@ -30,15 +30,15 @@ public class AuthorizationService {
     public static long accessTokenExpirationTime = 60*30; //单位：秒
     public static long refreshTokenExpirationTime = 60*60*24*7;
 
-    public String createAccessIdToken(String userId, String userName) {
-        return createIdToken(userId,userName, accessTokenExpirationTime);
+    public String createAccessIdToken(String userId, String userName, String ip) {
+        return createIdToken(userId,userName,ip, accessTokenExpirationTime);
     }
 
-    public String createRefreshToken(String userId, String userName) {
-        return createIdToken(userId, userName, refreshTokenExpirationTime);
+    public String createRefreshToken(String userId, String userName, String ip) {
+        return createIdToken(userId, userName, ip, refreshTokenExpirationTime);
     }
 
-    public String createIdToken(String account, String userName, long expireTime){
+    public String createIdToken(String account, String userName, String ip, long expireTime){
 
         try {
             JwtClaims jwtClaims = new JwtClaims();
@@ -53,6 +53,7 @@ public class AuthorizationService {
             jwtClaims.setClaim("account", account);
             jwtClaims.setClaim("userName", userName);
             jwtClaims.setAudience("PakGoPay");
+            jwtClaims.setClaim("clientIp", ip);
             //jwtClaims.setIssuer(String.valueOf(account)); //token和用户强绑定
 
             JsonWebSignature jws = new JsonWebSignature();
@@ -86,8 +87,9 @@ public class AuthorizationService {
             if (claims != null) {
                 String account = (String) claims.getClaimValue("account");
                 String userName = (String) claims.getClaimValue("userName");
+                String requestIp = (String) claims.getClaimValue("requestIp");
                 System.out.println("认证通过， token payload携带的自定义内容：用户账号account=" + account);
-                return account+"&"+userName;
+                return account+"&"+userName+"&"+requestIp;
             }
         } catch (JoseException | InvalidJwtException e) {
             logger.error("verify token failed: {}", e.getMessage());

@@ -1,5 +1,7 @@
 package com.pakgopay.controller;
 
+import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.data.reqeust.CreateUserRequest;
 import com.pakgopay.data.reqeust.roleManagement.AddRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.DeleteRoleRequest;
@@ -8,7 +10,10 @@ import com.pakgopay.data.reqeust.systemConfig.LoginUserRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.SystemConfigService;
 import com.pakgopay.service.impl.UserService;
+import com.pakgopay.thirdUtil.GoogleUtil;
+import com.pakgopay.thirdUtil.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.ibatis.annotations.Param;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +26,8 @@ public class SystemConfigController {
 
     @Autowired
     private SystemConfigService systemConfigService;
+    @Autowired
+    private RedisUtil redisUtil;
 
     @PostMapping("/createUser")
     public CommonResponse createLoginUser(@RequestBody CreateUserRequest createUserRequest){
@@ -71,5 +78,22 @@ public class SystemConfigController {
     @GetMapping("/getRoleInfoByRoleId")
     public CommonResponse getRoleInfoOfMenu(Integer roleId) {
         return systemConfigService.fetchRoleMenuByRoleId(roleId);
+    }
+
+    @GetMapping("/resetGoogleKey")
+    public CommonResponse resetGoogleKey(HttpServletRequest request, @Param("userId") String userId, @Param("googleCode") Integer googleCode, @Param("loginName") String loginName){
+        String userInfo = GoogleUtil.getUserInfoFromToken(request);
+        String operator = userInfo.split("&")[0];
+        return systemConfigService.resetGoogleKey(operator, userId, loginName);
+    }
+
+    @GetMapping("/unCommonMessage")
+    public CommonResponse getUncommonMessage(HttpServletRequest request, @Param("userName") String userName){
+        String noKeyTimeInfo = redisUtil.getValue(CommonConstant.USER_NO_KEY_LOGIN_TIMES+userName);
+        if (noKeyTimeInfo != null) {
+            return CommonResponse.success(Integer.parseInt(noKeyTimeInfo));
+        } else {
+            return CommonResponse.success("success");
+        }
     }
 }

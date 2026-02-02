@@ -6,11 +6,11 @@ import jakarta.servlet.http.HttpServletRequest;
 
 public interface LoginService {
 
-    public CommonResponse login(LoginRequest loginRequest);
+    public CommonResponse login(LoginRequest loginRequest, HttpServletRequest request);
 
     public CommonResponse logout(HttpServletRequest loginRequest);
 
     public CommonResponse generateLoginQrCode(String userName, String password);
 
-    public CommonResponse refreshAuthToken(String refreshToken);
+    public CommonResponse refreshAuthToken(String refreshToken, HttpServletRequest request);
 }

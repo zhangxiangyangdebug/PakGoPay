@@ -158,4 +158,10 @@
     <select id="loginUserByLoginName" resultMap="userResultMap">
         SELECT * FROM USER_INFO WHERE login_name = #{loginName}
     </select>
+
+    <update id="resetSecretkey">
+        UPDATE USER_INFO
+        SET  login_secret = #{secretKey}
+        WHERE user_id = #{userId}
+    </update>
 </mapper>

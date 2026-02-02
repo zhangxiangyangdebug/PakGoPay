@@ -35,4 +35,6 @@ public interface UserMapper {
      int stopLoginUser(@Param(value = "userId") String userId, @Param(value = "status") Integer status);
 
     int deleteUserByUserId(String userId);
+
+    int resetSecretkey(@Param(value = "secretKey") String secretKey, @Param(value = "userId") String userId);
 }

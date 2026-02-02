@@ -34,7 +34,8 @@ public class LoginServiceImpl implements LoginService {
     private AuthorizationService authorizationService;
 
     @Override
-    public CommonResponse login(LoginRequest loginRequest) {
+    public CommonResponse login(LoginRequest loginRequest, HttpServletRequest request) {
+        String ip = request.getParameter(CommonConstant.ATTR_IP);
         String userName = loginRequest.getUserName();
         String password = loginRequest.getPassword();
         String value = redisUtil.getValue(CommonConstant.USER_INFO_KEY_PREFIX + userName);
@@ -51,48 +52,98 @@ public class LoginServiceImpl implements LoginService {
             return CommonResponse.fail(ResultCode.USER_IS_NOT_EXIST);
         }
 
+        // 用户状态是否启用
+        if (user.getStatus() == 0) {
+            return CommonResponse.fail(ResultCode.USER_IS_NOT_IN_USE, "user has been locked");
+        }
+
         if(!user.getPassword().equals(password)) {
+            String passwordErrorTimes = redisUtil.getValue(CommonConstant.USER_PASSWORD_ERROR_TIMES+ userName);
+            int errorTimes = 0;
+            if (passwordErrorTimes != null) {
+                errorTimes = Integer.parseInt(passwordErrorTimes);
+            }
+            int currentTimes = errorTimes + 1;
+            if (!userName.equals("admin")) {
+                redisUtil.set(CommonConstant.USER_PASSWORD_ERROR_TIMES + userName, String.valueOf(currentTimes));
+                if (errorTimes >= 3) {
+                    userMapper.stopLoginUser(user.getUserId(), 0);
+                    // 锁定用户后，移除所有计数，后续解禁用户即可正常使用
+                    redisUtil.remove(CommonConstant.USER_PASSWORD_ERROR_TIMES + userName);
+                    return CommonResponse.fail(ResultCode.USER_LOGIN_FAIL, "you have input error password more than 3 times, account has been locked!");
+                }
+            }
+
             return CommonResponse.fail(ResultCode.USER_PASSWORD_ERROR);
         }
 
-        // 用户状态是否启用
-        if (user.getStatus() == 0) {
-            return CommonResponse.fail(ResultCode.USER_IS_NOT_IN_USE);
-        }
 
-        // 检验谷歌令牌验证码
-        if (GoogleUtil.verifyQrCode(user.getLoginSecret(), loginRequest.getCode())) {
-            // 登陆成功
-            //String token = TokenUtils.generateToken(userId);
-            //String refreshToken = TokenUtils.generateToken(userId);
-            /*String userName = user.getUserName();*/
-            String userId = user.getUserId();
-            String token = authorizationService.createAccessIdToken(user.getUserId(),userName);
-            String refreshToken = authorizationService.createRefreshToken(userId, userName);
-            // 缓存当前登陆用户 refreshToken 创建的起始时间， 用于刷新token时判断是否需要重新生成refreshToken
-            redisUtil.setWithSecondExpire(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX + userId, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
-            // 更新用户最近登陆时间
-            Long now = Instant.now().getEpochSecond();
-            try {
-                userMapper.setLastLoginTime(now, userId);
-            } catch (Exception e) {
-                // 更新数据库失败
-                return CommonResponse.fail(ResultCode.INTERNAL_SERVER_ERROR);
+
+        // 用户未设置谷歌令牌 限制登陆3次，3次后更改状态为禁用
+        //UserDTO secretKeyInfo = userMapper.getSecretKey(user.getUserId(), user.getPassword());
+        String secretKey = user.getLoginSecret();
+        if (ObjectUtils.isEmpty(secretKey)) {
+            String noKeyTimes = redisUtil.getValue(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName);
+            int times = noKeyTimes != null ?  Integer.parseInt(noKeyTimes) : 0;
+            if (!"admin".equals(userName)) {
+                if (times+1 >= 3) {
+                    int result = userMapper.stopLoginUser(user.getUserId(), 0);
+                    if (result <= 0) {
+                        return CommonResponse.fail(ResultCode.USER_LOGIN_FAIL);
+                    }
+                    if (times >= 5) {
+                        redisUtil.remove(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName);
+                    }
+                } else {
+                    redisUtil.set(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName, String.valueOf(times + 1));
+                }
             }
-            user.setLastLoginTime(null);
-            // 缓存用户信息 移除多余的信息
-            redisUtil.set(CommonConstant.USER_INFO_KEY_PREFIX + userId, JSON.toJSONString(user));
-            LoginResponse loginResponse = new LoginResponse();
-            loginResponse.setCode(ResultCode.SUCCESS.getCode());
-            loginResponse.setMessage("login success");
-            loginResponse.setToken(token);
-            loginResponse.setRefreshToken(refreshToken);
-            loginResponse.setUserName(user.getLoginName());
-            loginResponse.setUserId(userId);
-            loginResponse.setRoleName(user.getRoleName());
-            return loginResponse;
+            return loginSuccess(user, userName, ip);
+        } else {
+            // 检验谷歌令牌验证码
+            if (loginRequest.getCode() == null) {
+                return CommonResponse.fail(ResultCode.USER_LOGIN_FAIL, "code is null");
+            }
+            if (GoogleUtil.verifyQrCode(user.getLoginSecret(), loginRequest.getCode())) {
+                // 登陆成功
+                //String token = TokenUtils.generateToken(userId);
+                //String refreshToken = TokenUtils.generateToken(userId);
+                /*String userName = user.getUserName();*/
+                return loginSuccess(user, userName, ip);
+            }
         }
         return new CommonResponse(ResultCode.CODE_IS_EXPIRE);
+    }
+
+    private CommonResponse loginSuccess(UserDTO user, String userName, String ip) {
+        String userId = user.getUserId();
+        String token = authorizationService.createAccessIdToken(user.getUserId(),userName, ip);
+        String refreshToken = authorizationService.createRefreshToken(userId, userName, ip);
+        // 缓存当前登陆用户 refreshToken 创建的起始时间， 用于刷新token时判断是否需要重新生成refreshToken
+        redisUtil.setWithSecondExpire(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX + userId, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
+        // 更新用户最近登陆时间
+        Long now = Instant.now().getEpochSecond();
+        try {
+            userMapper.setLastLoginTime(now, userId);
+        } catch (Exception e) {
+            // 更新数据库失败
+            return CommonResponse.fail(ResultCode.INTERNAL_SERVER_ERROR);
+        }
+        user.setLastLoginTime(null);
+        // 缓存用户信息 移除多余的信息
+        redisUtil.set(CommonConstant.USER_INFO_KEY_PREFIX + userId, JSON.toJSONString(user));
+        LoginResponse loginResponse = new LoginResponse();
+        loginResponse.setCode(ResultCode.SUCCESS.getCode());
+        loginResponse.setMessage("login success");
+        loginResponse.setToken(token);
+        loginResponse.setRefreshToken(refreshToken);
+        loginResponse.setUserName(user.getLoginName());
+        loginResponse.setUserId(userId);
+        loginResponse.setRoleName(user.getRoleName());
+        // 清除失败次数
+        //redisUtil.remove(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName);
+        redisUtil.remove(CommonConstant.USER_PASSWORD_ERROR_TIMES + userName);
+        return loginResponse;
     }
 
     @Override
@@ -131,7 +182,8 @@ public class LoginServiceImpl implements LoginService {
     }
 
     @Override
-    public CommonResponse refreshAuthToken(String refreshToken) {
+    public CommonResponse refreshAuthToken(String refreshToken, HttpServletRequest request) {
+        String ip = request.getParameter(CommonConstant.ATTR_IP);
         // 从refreshToken中获取用户账号
         String userInfos = AuthorizationService.verifyToken(refreshToken);
         if (userInfos == null) {
@@ -141,13 +193,13 @@ public class LoginServiceImpl implements LoginService {
         String account = userInfos.split("&")[0];
         String userName = userInfos.split("&")[1];
         // 创建新的token
-        String accessToken = authorizationService.createAccessIdToken(account, userName);
+        String accessToken = authorizationService.createAccessIdToken(account, userName, ip);
         // 判断refreshToken是否要过期 即将过期则刷新RT
         long minTimeOfRefreshToken =  2*AuthorizationService.accessTokenExpirationTime; //refreshToken剩余时常保证在token有效期的2倍以上，否则刷新RT
         Long refreshTokenStartTime = redisUtil.getValue(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX+account) == null ? null : Long.parseLong(redisUtil.getValue(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX+account));
         if (refreshTokenStartTime == null || (refreshTokenStartTime + AuthorizationService.refreshTokenExpirationTime*1000)- System.currentTimeMillis() <= minTimeOfRefreshToken*1000) {
             // 刷新refreshToken
-            refreshToken = authorizationService.createRefreshToken(account, userName);
+            refreshToken = authorizationService.createRefreshToken(account, userName, ip);
             redisUtil.setWithSecondExpire(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX+account, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
         }
         LoginResponse loginResponse = new LoginResponse();
