@@ -1,5 +1,6 @@
 package com.pakgopay.service.impl;
 
+import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.roleManagement.AddRoleRequest;
@@ -20,6 +21,7 @@ import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.service.common.AuthorizationService;
 import com.pakgopay.service.SystemConfigService;
 import com.pakgopay.thirdUtil.GoogleUtil;
+import com.pakgopay.thirdUtil.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,11 +41,13 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     private final RoleMapper roleMapper;
     private final UserMapper userMapper;
     private final RoleMenuMapper roleMenuMapper;
+    private final RedisUtil redisUtil;
 
-    public SystemConfigServiceImpl(RoleMapper roleMapper, UserMapper userMapper, RoleMenuMapper roleMenuMapper) {
+    public SystemConfigServiceImpl(RoleMapper roleMapper, UserMapper userMapper, RoleMenuMapper roleMenuMapper, RedisUtil redisUtil) {
         this.roleMapper = roleMapper;
         this.userMapper = userMapper;
         this.roleMenuMapper = roleMenuMapper;
+        this.redisUtil = redisUtil;
     }
 
     @Override
@@ -296,6 +300,8 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         }
         String qrCode = GoogleUtil.getQrCode(generateKey, userName);
         ResetGoogleKeyResponse response = new ResetGoogleKeyResponse();
+        // 清除无密钥登陆次数
+        redisUtil.remove(CommonConstant.USER_NO_KEY_LOGIN_TIMES+userName);
         response.setQrCode(qrCode);
         response.setSecretKey(generateKey);
         return CommonResponse.success(response);

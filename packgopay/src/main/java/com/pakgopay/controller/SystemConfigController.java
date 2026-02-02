@@ -1,5 +1,7 @@
 package com.pakgopay.controller;
 
+import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.data.reqeust.CreateUserRequest;
 import com.pakgopay.data.reqeust.roleManagement.AddRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.DeleteRoleRequest;
@@ -9,6 +11,7 @@ import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.SystemConfigService;
 import com.pakgopay.service.impl.UserService;
 import com.pakgopay.thirdUtil.GoogleUtil;
+import com.pakgopay.thirdUtil.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.ibatis.annotations.Param;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +26,8 @@ public class SystemConfigController {
 
     @Autowired
     private SystemConfigService systemConfigService;
+    @Autowired
+    private RedisUtil redisUtil;
 
     @PostMapping("/createUser")
     public CommonResponse createLoginUser(@RequestBody CreateUserRequest createUserRequest){
@@ -80,5 +85,15 @@ public class SystemConfigController {
         String userInfo = GoogleUtil.getUserInfoFromToken(request);
         String operator = userInfo.split("&")[0];
         return systemConfigService.resetGoogleKey(operator, userId, loginName);
+    }
+
+    @GetMapping("/unCommonMessage")
+    public CommonResponse getUncommonMessage(HttpServletRequest request, @Param("userName") String userName){
+        String noKeyTimeInfo = redisUtil.getValue(CommonConstant.USER_NO_KEY_LOGIN_TIMES+userName);
+        if (noKeyTimeInfo != null) {
+            return CommonResponse.success(Integer.parseInt(noKeyTimeInfo));
+        } else {
+            return CommonResponse.success("success");
+        }
     }
 }
