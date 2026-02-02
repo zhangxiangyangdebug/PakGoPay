@@ -30,15 +30,15 @@ public class AuthorizationService {
     public static long accessTokenExpirationTime = 60*30; //单位：秒
     public static long refreshTokenExpirationTime = 60*60*24*7;
 
-    public String createAccessIdToken(String userId, String userName, String ip) {
-        return createIdToken(userId,userName,ip, accessTokenExpirationTime);
+    public String createAccessIdToken(String userId, String userName, String ip, String userAgent) {
+        return createIdToken(userId,userName,ip, userAgent, accessTokenExpirationTime);
     }
 
-    public String createRefreshToken(String userId, String userName, String ip) {
-        return createIdToken(userId, userName, ip, refreshTokenExpirationTime);
+    public String createRefreshToken(String userId, String userName, String ip, String userAgent) {
+        return createIdToken(userId, userName, ip, userAgent, refreshTokenExpirationTime);
     }
 
-    public String createIdToken(String account, String userName, String ip, long expireTime){
+    public String createIdToken(String account, String userName, String ip, String userAagent, long expireTime){
 
         try {
             JwtClaims jwtClaims = new JwtClaims();
@@ -54,6 +54,7 @@ public class AuthorizationService {
             jwtClaims.setClaim("userName", userName);
             jwtClaims.setAudience("PakGoPay");
             jwtClaims.setClaim("clientIp", ip);
+            jwtClaims.setClaim("userAagent", userAagent);
             //jwtClaims.setIssuer(String.valueOf(account)); //token和用户强绑定
 
             JsonWebSignature jws = new JsonWebSignature();
@@ -88,6 +89,7 @@ public class AuthorizationService {
                 String account = (String) claims.getClaimValue("account");
                 String userName = (String) claims.getClaimValue("userName");
                 String requestIp = (String) claims.getClaimValue("requestIp");
+                String userAagent = (String) claims.getClaimValue("userAagent");
                 System.out.println("认证通过， token payload携带的自定义内容：用户账号account=" + account);
                 return account+"&"+userName+"&"+requestIp;
             }

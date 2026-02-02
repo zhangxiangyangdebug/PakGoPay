@@ -82,6 +82,14 @@ public class SystemConfigController {
 
     @GetMapping("/resetGoogleKey")
     public CommonResponse resetGoogleKey(HttpServletRequest request, @Param("userId") String userId, @Param("googleCode") Integer googleCode, @Param("loginName") String loginName){
+        // 管理员重置令牌，校验谷歌验证码
+        String userInfo = GoogleUtil.getUserInfoFromToken(request);
+        String operator = userInfo.split("&")[0];
+        return systemConfigService.resetGoogleKey(operator, userId, loginName);
+    }
+
+    @GetMapping("/bindGoogleKey")
+    public CommonResponse bindGoogleKey(HttpServletRequest request, @Param("userId") String userId, @Param("loginName") String loginName){
         String userInfo = GoogleUtil.getUserInfoFromToken(request);
         String operator = userInfo.split("&")[0];
         return systemConfigService.resetGoogleKey(operator, userId, loginName);
