@@ -24,6 +24,7 @@ import com.pakgopay.service.transaction.*;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
+import com.pakgopay.util.TransactionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,9 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
     @Autowired
     private PayOrderMapper payOrderMapper;
+
+    @Autowired
+    private TransactionUtil transactionUtil;
 
     @Override
     public CommonResponse createPayOutOrder(PayOutOrderRequest payOrderRequest) throws PakGoPayException {
@@ -104,15 +108,6 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     transactionInfo.getAgent2Fee(),
                     transactionInfo.getAgent3Fee());
 
-            frozenAmount = CommonUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
-            BigDecimal frozenAmountSnapshot = frozenAmount;
-            CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
-                balanceService.freezeBalance(frozenAmountSnapshot, payOrderRequest.getUserId(), payOrderRequest.getCurrency());
-            });
-            frozen = true;
-            log.info("balance frozen, userId={}, currency={}, frozenAmount={}",
-                    payOrderRequest.getUserId(), payOrderRequest.getCurrency(), frozenAmount);
-
             PayOrderDto payOrderDto = buildPayOrderDto(payOrderRequest, transactionInfo);
             log.info("payOrderDto built, transactionNo={}, paymentId={}, channelId={}, paymentMode={}",
                     payOrderDto.getTransactionNo(),
@@ -120,16 +115,30 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     payOrderDto.getChannelId(),
                     payOrderDto.getPaymentMode());
 
+            frozenAmount = CommonUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
+            BigDecimal frozenAmountSnapshot = frozenAmount;
+            transactionUtil.runInTransaction(() -> {
+                CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
+                    balanceService.freezeBalance(
+                            frozenAmountSnapshot,
+                            payOrderRequest.getUserId(),
+                            payOrderRequest.getCurrency());
+                });
+
+                int ret = payOrderMapper.insert(payOrderDto);
+                if (ret <= 0) {
+                    throw new PakGoPayException(ResultCode.DATA_BASE_ERROR, "pay order insert failed");
+                }
+            });
+            frozen = true;
+            log.info("balance frozen, userId={}, currency={}, frozenAmount={}",
+                    payOrderRequest.getUserId(), payOrderRequest.getCurrency(), frozenAmount);
+            log.info("pay order inserted, transactionNo={}", payOrderDto.getTransactionNo());
+
             Object handlerResponse = dispatchPayOutOrder(payOrderDto, payOrderRequest);
             log.info("payout handler dispatched, transactionNo={}, responseType={}",
                     payOrderDto.getTransactionNo(),
                     handlerResponse == null ? null : handlerResponse.getClass().getSimpleName());
-
-            int ret = payOrderMapper.insert(payOrderDto);
-            if (ret <= 0) {
-                return CommonResponse.fail(ResultCode.DATA_BASE_ERROR, "pay order insert failed");
-            }
-            log.info("pay order inserted, transactionNo={}", payOrderDto.getTransactionNo());
 
             Map<String, Object> responseBody = buildPayOutResponse(payOrderDto, handlerResponse);
             log.info("createPayOutOrder success, transactionNo={}", payOrderDto.getTransactionNo());
@@ -315,43 +324,52 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             update.setSuccessCallbackTime(System.currentTimeMillis() / 1000);
         }
         update.setUpdateTime(System.currentTimeMillis() / 1000);
-        try {
-            payOrderMapper.updateByTransactionNo(update);
-            log.info("pay order updated, transactionNo={}, status={}",
-                    payOrderDto.getTransactionNo(), targetStatus.getCode());
-        } catch (Exception e) {
-            log.error("pay order updateByTransactionNo failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
 
-        BigDecimal payoutAmount = resolveOrderAmount(payOrderDto.getActualAmount(), payOrderDto.getAmount());
-        BigDecimal merchantFee = payOrderDto.getMerchantFee() == null ? BigDecimal.ZERO : payOrderDto.getMerchantFee();
-        BigDecimal frozenAmount = CommonUtil.safeAdd(payoutAmount, merchantFee);
+        transactionUtil.runInTransaction(() -> {
+            try {
+                int updated = payOrderMapper.updateByTransactionNoWhenProcessing(
+                        update, TransactionStatus.PROCESSING.getCode().toString());
+                if (updated <= 0) {
+                    log.info("payout notify skipped, order not processing, transactionNo={}, status={}",
+                            payOrderDto.getTransactionNo(), targetStatus.getCode());
+                    return;
+                }
+                log.info("pay order updated, transactionNo={}, status={}",
+                        payOrderDto.getTransactionNo(), targetStatus.getCode());
+            } catch (Exception e) {
+                log.error("pay order updateByTransactionNo failed, message {}", e.getMessage());
+                throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+            }
 
-        if (TransactionStatus.SUCCESS.equals(targetStatus)) {
-            CommonUtil.withBalanceLogContext("payout.handleNotify", payOrderDto.getTransactionNo(), () -> {
-                balanceService.confirmPayoutBalance(
-                        payOrderDto.getMerchantUserId(),
-                        payOrderDto.getCurrencyType(),
-                        frozenAmount);
-            });
-            log.info("balance payout confirmed, transactionNo={}, frozenAmount={}",
-                    payOrderDto.getTransactionNo(), frozenAmount);
-            updateAgentFeeBalance(balanceService, merchantInfo, payOrderDto.getCurrencyType(),
-                    payOrderDto.getAgent1Fee(),
-                    payOrderDto.getAgent2Fee(),
-                    payOrderDto.getAgent3Fee());
-        }
-        if (TransactionStatus.FAILED.equals(targetStatus)) {
-            CommonUtil.withBalanceLogContext("payout.handleNotify", payOrderDto.getTransactionNo(), () -> {
-                balanceService.releaseFrozenBalance(
-                        payOrderDto.getMerchantUserId(),
-                        payOrderDto.getCurrencyType(),
-                        frozenAmount);
-            });
-            log.info("balance payout released, transactionNo={}, frozenAmount={}",
-                    payOrderDto.getTransactionNo(), frozenAmount);
-        }
+            BigDecimal payoutAmount = resolveOrderAmount(payOrderDto.getActualAmount(), payOrderDto.getAmount());
+            BigDecimal merchantFee = payOrderDto.getMerchantFee() == null ? BigDecimal.ZERO : payOrderDto.getMerchantFee();
+            BigDecimal frozenAmount = CommonUtil.safeAdd(payoutAmount, merchantFee);
+
+            if (TransactionStatus.SUCCESS.equals(targetStatus)) {
+                CommonUtil.withBalanceLogContext("payout.handleNotify", payOrderDto.getTransactionNo(), () -> {
+                    balanceService.confirmPayoutBalance(
+                            payOrderDto.getMerchantUserId(),
+                            payOrderDto.getCurrencyType(),
+                            frozenAmount);
+                });
+                log.info("balance payout confirmed, transactionNo={}, frozenAmount={}",
+                        payOrderDto.getTransactionNo(), frozenAmount);
+                updateAgentFeeBalance(balanceService, merchantInfo, payOrderDto.getCurrencyType(),
+                        payOrderDto.getAgent1Fee(),
+                        payOrderDto.getAgent2Fee(),
+                        payOrderDto.getAgent3Fee());
+            }
+            if (TransactionStatus.FAILED.equals(targetStatus)) {
+                CommonUtil.withBalanceLogContext("payout.handleNotify", payOrderDto.getTransactionNo(), () -> {
+                    balanceService.releaseFrozenBalance(
+                            payOrderDto.getMerchantUserId(),
+                            payOrderDto.getCurrencyType(),
+                            frozenAmount);
+                });
+                log.info("balance payout released, transactionNo={}, frozenAmount={}",
+                        payOrderDto.getTransactionNo(), frozenAmount);
+            }
+        });
     }
 
 

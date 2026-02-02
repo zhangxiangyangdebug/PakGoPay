@@ -25,7 +25,11 @@ public interface PayOrderMapper {
     int insert(PayOrderDto dto);
 
     /** Update order by order ID (update non-null fields) */
-    int updateByTransactionNo(PayOrderDto dto);
+    int updateByTransactionNo(@Param("dto") PayOrderDto dto);
+
+    /** Update order by transactionNo when status is processing */
+    int updateByTransactionNoWhenProcessing(@Param("dto") PayOrderDto dto,
+                                            @Param("currentStatus") String currentStatus);
 
     /** Increase callback retry times (atomic) */
     int increaseCallbackTimes(@Param("transactionNo") String transactionNo,

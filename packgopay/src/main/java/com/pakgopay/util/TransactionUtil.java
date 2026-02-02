@@ -3,11 +3,13 @@ package com.pakgopay.util;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class TransactionUtil {
@@ -45,12 +47,15 @@ public class TransactionUtil {
         template.setPropagationBehavior(propagationBehavior);
 
         template.executeWithoutResult(status -> {
+            log.info("transaction start, propagation={}", propagationBehavior);
             try {
                 for (TransactionStep step : steps) {
                     step.execute();
                 }
+                log.info("transaction committed, propagation={}", propagationBehavior);
             } catch (Exception e) {
                 status.setRollbackOnly();
+                log.error("transaction rollback", e);
                 throw wrapAsRuntime(e);
             }
         });
@@ -71,10 +76,14 @@ public class TransactionUtil {
         template.setPropagationBehavior(propagationBehavior);
 
         return template.execute(status -> {
+            log.info("transaction start, propagation={}", propagationBehavior);
             try {
-                return callback.execute();
+                T result = callback.execute();
+                log.info("transaction committed, propagation={}", propagationBehavior);
+                return result;
             } catch (Exception e) {
                 status.setRollbackOnly();
+                log.error("transaction rollback", e);
                 throw wrapAsRuntime(e);
             }
         });
@@ -86,4 +95,3 @@ public class TransactionUtil {
         return new PakGoPayException(ResultCode.FAIL, e.getMessage());
     }
 }
-

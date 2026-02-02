@@ -20,6 +20,7 @@ import com.pakgopay.service.transaction.*;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
+import com.pakgopay.util.TransactionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -48,6 +49,9 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
 
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;
+
+    @Autowired
+    private TransactionUtil transactionUtil;
 
     @Override
     public CommonResponse createCollectionOrder(CollectionOrderRequest colOrderRequest) throws PakGoPayException {
@@ -272,29 +276,38 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             update.setSuccessCallbackTime(System.currentTimeMillis() / 1000);
         }
         update.setUpdateTime(System.currentTimeMillis() / 1000);
-        try {
-            collectionOrderMapper.updateByTransactionNo(update);
-        channelPaymentService.updateChannelAndPaymentCounters(collectionOrderDto, targetStatus);
-        } catch (Exception e) {
-            log.error("collection order updateByTransactionNo failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
 
-        if (TransactionStatus.SUCCESS.equals(targetStatus)) {
-            BigDecimal creditAmount = CommonUtil.safeSubtract(
-                    resolveOrderAmount(collectionOrderDto.getActualAmount(), collectionOrderDto.getAmount()),
-                    transactionInfo.getMerchantFee());
-            CommonUtil.withBalanceLogContext("collection.handleNotify", collectionOrderDto.getTransactionNo(), () -> {
-                balanceService.creditBalance(
-                        collectionOrderDto.getMerchantUserId(),
-                        collectionOrderDto.getCurrencyType(),
-                        creditAmount);
-            });
-            updateAgentFeeBalance(balanceService, merchantInfo, collectionOrderDto.getCurrencyType(),
-                    transactionInfo.getAgent1Fee(),
-                    transactionInfo.getAgent2Fee(),
-                    transactionInfo.getAgent3Fee());
-        }
+        transactionUtil.runInTransaction(() -> {
+            try {
+                int updated = collectionOrderMapper.updateByTransactionNoWhenProcessing(
+                        update, TransactionStatus.PROCESSING.getCode().toString());
+                if (updated <= 0) {
+                    log.info("collection notify skipped, order not processing, transactionNo={}, status={}",
+                            collectionOrderDto.getTransactionNo(), targetStatus.getCode());
+                    return;
+                }
+                channelPaymentService.updateChannelAndPaymentCounters(collectionOrderDto, targetStatus);
+            } catch (Exception e) {
+                log.error("collection order updateByTransactionNo failed, message {}", e.getMessage());
+                throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+            }
+
+            if (TransactionStatus.SUCCESS.equals(targetStatus)) {
+                BigDecimal creditAmount = CommonUtil.safeSubtract(
+                        resolveOrderAmount(collectionOrderDto.getActualAmount(), collectionOrderDto.getAmount()),
+                        transactionInfo.getMerchantFee());
+                CommonUtil.withBalanceLogContext("collection.handleNotify", collectionOrderDto.getTransactionNo(), () -> {
+                    balanceService.creditBalance(
+                            collectionOrderDto.getMerchantUserId(),
+                            collectionOrderDto.getCurrencyType(),
+                            creditAmount);
+                });
+                updateAgentFeeBalance(balanceService, merchantInfo, collectionOrderDto.getCurrencyType(),
+                        transactionInfo.getAgent1Fee(),
+                        transactionInfo.getAgent2Fee(),
+                        transactionInfo.getAgent3Fee());
+            }
+        });
     }
 
 
