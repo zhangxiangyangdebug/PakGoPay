@@ -64,13 +64,16 @@ public class LoginServiceImpl implements LoginService {
                 errorTimes = Integer.parseInt(passwordErrorTimes);
             }
             int currentTimes = errorTimes + 1;
-            redisUtil.set(CommonConstant.USER_PASSWORD_ERROR_TIMES + userName, String.valueOf(currentTimes));
-            if (errorTimes >= 3) {
-                userMapper.stopLoginUser(user.getUserId(), 0);
-                // 锁定用户后，移除所有计数，后续解禁用户即可正常使用
-                redisUtil.remove(CommonConstant.USER_PASSWORD_ERROR_TIMES + userName);
-                return CommonResponse.fail(ResultCode.USER_LOGIN_FAIL, "you have input error password more than 3 times, account has been locked!");
+            if (!userName.equals("admin")) {
+                redisUtil.set(CommonConstant.USER_PASSWORD_ERROR_TIMES + userName, String.valueOf(currentTimes));
+                if (errorTimes >= 3) {
+                    userMapper.stopLoginUser(user.getUserId(), 0);
+                    // 锁定用户后，移除所有计数，后续解禁用户即可正常使用
+                    redisUtil.remove(CommonConstant.USER_PASSWORD_ERROR_TIMES + userName);
+                    return CommonResponse.fail(ResultCode.USER_LOGIN_FAIL, "you have input error password more than 3 times, account has been locked!");
+                }
             }
+
             return CommonResponse.fail(ResultCode.USER_PASSWORD_ERROR);
         }
 
@@ -82,16 +85,18 @@ public class LoginServiceImpl implements LoginService {
         if (ObjectUtils.isEmpty(secretKey)) {
             String noKeyTimes = redisUtil.getValue(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName);
             int times = noKeyTimes != null ?  Integer.parseInt(noKeyTimes) : 0;
-            if (times+1 >= 3) {
-                int result = userMapper.stopLoginUser(user.getUserId(), 0);
-                if (result <= 0) {
-                    return CommonResponse.fail(ResultCode.USER_LOGIN_FAIL);
+            if (!"admin".equals(userName)) {
+                if (times+1 >= 3) {
+                    int result = userMapper.stopLoginUser(user.getUserId(), 0);
+                    if (result <= 0) {
+                        return CommonResponse.fail(ResultCode.USER_LOGIN_FAIL);
+                    }
+                    if (times >= 5) {
+                        redisUtil.remove(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName);
+                    }
+                } else {
+                    redisUtil.set(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName, String.valueOf(times + 1));
                 }
-                if (times >= 5) {
-                    redisUtil.remove(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName);
-                }
-            } else {
-                redisUtil.set(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName, String.valueOf(times + 1));
             }
             return loginSuccess(user, userName, ip);
         } else {
