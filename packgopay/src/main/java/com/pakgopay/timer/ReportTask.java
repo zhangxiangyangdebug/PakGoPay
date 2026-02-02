@@ -971,6 +971,10 @@ public class ReportTask {
         /**
          * Build ops records by order type for a period and currency.
          * Uses in-memory stats grouped by currency (batch loaded).
+         * agentCommission meaning:
+         * - scope=ALL(0): platform profit (merchant_fee - agent_fee)
+         * - scope=MERCHANT(1): merchant fee
+         * - scope=AGENT(2): agent fee by level
          *
          * @param records record map
          * @param context order context
@@ -986,21 +990,31 @@ public class ReportTask {
                 if (dto == null || dto.getUserId() == null) {
                     continue;
                 }
-                OpsTotals totals = buildOpsTotals(dto, sumAgentCommission(dto));
+                // Merchant fee and agent commission for current merchant stats.
+                BigDecimal merchantFee = CommonUtil.defaultBigDecimal(dto.getMerchantFee());
+                BigDecimal agentCommission = sumAgentCommission(dto);
+                // Platform profit = merchant fee - agent commission.
+                BigDecimal platformProfit = CommonUtil.safeSubtract(merchantFee, agentCommission);
+                // Merchant scope uses merchant fee; all scope uses platform profit.
+                OpsTotals merchantTotals = buildOpsTotals(dto, merchantFee);
+                OpsTotals allTotals = buildOpsTotals(dto, platformProfit);
 
+                // Accumulate merchant scope record (merchant fee).
                 OpsScope merchantScope = buildOpsScope(SCOPE_MERCHANT, dto.getUserId());
                 String merchantKey = buildOpsKey(context, merchantScope);
-                accumulateOps(records, merchantKey, context, merchantScope, totals);
+                accumulateOps(records, merchantKey, context, merchantScope, merchantTotals);
 
+                // Accumulate all scope record (platform profit).
                 OpsScope allScope = buildOpsScope(SCOPE_ALL, ALL_SCOPE_ID);
                 String allKey = buildOpsKey(context, allScope);
-                accumulateOps(records, allKey, context, allScope, totals);
+                accumulateOps(records, allKey, context, allScope, allTotals);
 
+                // Accumulate agent scope records (agent fee by level).
                 MerchantInfoDto merchantInfo = merchantByUserIdCache.get(dto.getUserId());
                 if (merchantInfo == null || merchantInfo.getAgentInfos() == null) {
                     continue;
                 }
-                accumulateAgentOps(records, context, merchantInfo.getAgentInfos(), dto, totals);
+                accumulateAgentOps(records, context, merchantInfo.getAgentInfos(), dto, merchantTotals);
             }
         }
 
