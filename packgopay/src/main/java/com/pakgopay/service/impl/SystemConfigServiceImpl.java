@@ -10,6 +10,7 @@ import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.RoleInfoResponse;
 import com.pakgopay.data.response.roleManagement.RoleMenuInfoResponse;
 import com.pakgopay.data.response.systemConfig.LoginUserResponse;
+import com.pakgopay.data.response.systemConfig.ResetGoogleKeyResponse;
 import com.pakgopay.mapper.RoleMapper;
 import com.pakgopay.mapper.RoleMenuMapper;
 import com.pakgopay.mapper.UserMapper;
@@ -20,8 +21,10 @@ import com.pakgopay.service.common.AuthorizationService;
 import com.pakgopay.service.SystemConfigService;
 import com.pakgopay.thirdUtil.GoogleUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
@@ -29,6 +32,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 public class SystemConfigServiceImpl implements SystemConfigService {
 
@@ -275,5 +279,25 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         } catch (Exception e) {
             return CommonResponse.fail(ResultCode.FAIL, "delete role failed, the error is " + e.getMessage());
         }
+    }
+
+    @Override
+    public CommonResponse resetGoogleKey(String operator, String userId, String loginName) {
+        log.info("start to reset google key for userId={}, loginName={}", userId, loginName);
+        return resetKey(userId, loginName);
+    }
+
+    public CommonResponse resetKey(String userId, String userName) {
+        String generateKey = GoogleUtil.getSecretKey();
+        log.info("start to update google key of database");
+        int result = userMapper.resetSecretkey(generateKey, userId);
+        if (result == 0) {
+            return new CommonResponse(ResultCode.BIND_SECRET_KEY_FAIL);
+        }
+        String qrCode = GoogleUtil.getQrCode(generateKey, userName);
+        ResetGoogleKeyResponse response = new ResetGoogleKeyResponse();
+        response.setQrCode(qrCode);
+        response.setSecretKey(generateKey);
+        return CommonResponse.success(response);
     }
 }

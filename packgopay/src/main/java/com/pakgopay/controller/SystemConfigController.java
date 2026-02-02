@@ -8,7 +8,9 @@ import com.pakgopay.data.reqeust.systemConfig.LoginUserRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.SystemConfigService;
 import com.pakgopay.service.impl.UserService;
+import com.pakgopay.thirdUtil.GoogleUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.ibatis.annotations.Param;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -71,5 +73,12 @@ public class SystemConfigController {
     @GetMapping("/getRoleInfoByRoleId")
     public CommonResponse getRoleInfoOfMenu(Integer roleId) {
         return systemConfigService.fetchRoleMenuByRoleId(roleId);
+    }
+
+    @GetMapping("/resetGoogleKey")
+    public CommonResponse resetGoogleKey(HttpServletRequest request, @Param("userId") String userId, @Param("googleCode") Integer googleCode, @Param("loginName") String loginName){
+        String userInfo = GoogleUtil.getUserInfoFromToken(request);
+        String operator = userInfo.split("&")[0];
+        return systemConfigService.resetGoogleKey(operator, userId, loginName);
     }
 }

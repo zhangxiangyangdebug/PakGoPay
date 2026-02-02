@@ -26,4 +26,6 @@ public interface SystemConfigService {
     public CommonResponse updateRole(ModifyRoleRequest modifyRoleRequest, HttpServletRequest request);
 
     public CommonResponse deleteRole(DeleteRoleRequest deleteRoleRequest, HttpServletRequest request);
+
+    public CommonResponse resetGoogleKey(String operator,String userId,String loginName);
 }
