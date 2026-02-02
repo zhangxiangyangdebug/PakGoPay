@@ -85,6 +85,18 @@
         WHERE user_id = #{userId}
     </update>
 
+    <!-- Freeze available balance (atomic) -->
+    <update id="freezeBalance">
+        UPDATE balance
+        SET
+            available_balance = available_balance - #{amount},
+            frozen_balance = frozen_balance + #{amount},
+            update_time = #{updateTime}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND available_balance >= #{amount}
+    </update>
+
     <!-- Atomic add available balance -->
     <update id="addAvailableBalance">
         UPDATE balance
@@ -94,6 +106,7 @@
             update_time = #{updateTime}
         WHERE user_id = #{userId}
             AND currency = #{currency}
+            AND (#{delta} &gt;= 0 OR available_balance &gt;= -#{delta})
     </update>
 
     <!-- Atomic add frozen balance (usually total_balance unchanged; adjust if your business differs) -->
@@ -115,6 +128,7 @@
             update_time = #{updateTime}
         WHERE user_id = #{userId}
           AND currency = #{currency}
+          AND frozen_balance &gt;= #{amount}
     </update>
 
     <select id="listByUserIds" resultMap="BalanceResultMap">
@@ -137,6 +151,7 @@
             update_time = #{now}
         WHERE user_id = #{userId}
           AND currency = #{currency}
+          AND (#{amount} &gt;= 0 OR available_balance &gt;= -#{amount})
     </update>
 
     <update id="freezeForWithdraw">

@@ -18,6 +18,7 @@ import com.pakgopay.timer.data.OpsPeriod;
 import com.pakgopay.timer.data.OpsRecord;
 import com.pakgopay.timer.data.OpsScope;
 import com.pakgopay.timer.data.OpsTotals;
+import com.pakgopay.timer.data.ReportCurrencyRange;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -29,7 +30,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -99,12 +99,22 @@ public class ReportTask {
     private Map<String, LocalDate> baseDateByCurrency = new HashMap<>();
     private long nowEpochSecond = 0L;
     private Map<String, AgentReportDto> agentReportMap = new HashMap<>();
+    private final Object reportLock = new Object();
 
     /**
      * Execute hourly report aggregation.
      */
     public void doHourlyReport() {
-        log.info("doHourlyReport start");
+        synchronized (reportLock) {
+            long startMs = System.currentTimeMillis();
+            reportAllInfo();
+            long costMs = System.currentTimeMillis() - startMs;
+            log.info("doHourlyReport costMs={}", costMs);
+        }
+    }
+
+    private void reportAllInfo(){
+        log.info("reportAllInfo start");
         // Clear in-memory caches to avoid stale data between runs.
         resolveHelper.resetReportCache();
         // Load base datasets (merchants/channels/payments/agents) and enrich merchant snapshot.
@@ -124,20 +134,41 @@ public class ReportTask {
         reportPayment();
         reportCurrency();
 
-        log.info("doHourlyReport end, merchantCount={}", merchantInfoCache.size());
+        log.info("reportAllInfo end, merchantCount={}", merchantInfoCache.size());
+    }
+
+    /**
+     * Refresh reports by order record time and currency timezone.
+     * Uses batch stats loading by currency ranges for report aggregation.
+     *
+     * @param recordDateEpoch record date epoch seconds
+     * @param currency currency code
+     */
+    public void refreshReportsByEpoch(long recordDateEpoch, String currency) {
+        synchronized (reportLock) {
+            long startMs = System.currentTimeMillis();
+            refreshReportsByDate(recordDateEpoch, currency);
+            long costMs = System.currentTimeMillis() - startMs;
+            log.info("refreshReportsByEpoch costMs={}", costMs);
+        }
     }
 
     /**
      * Refresh reports for a specified date (daily/monthly/yearly) by currency timezone.
+     * Uses batch stats loading by currency ranges for report aggregation.
      *
-     * @param targetDate target date (yyyy-MM-dd)
+     * @param recordDateEpoch record date epoch seconds
+     * @param currency currency code
      */
-    private void refreshReportsByDate(LocalDate targetDate) {
-        if (targetDate == null) {
-            log.warn("refreshReportsByDate skipped, targetDate is null");
+    private void refreshReportsByDate(long recordDateEpoch, String currency) {
+        if (currency == null || currency.isBlank()) {
+            log.warn("refreshReportsByDate skipped, currency is blank");
             return;
         }
-        log.info("refreshReportsByDate start, targetDate={}", targetDate);
+        ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+        LocalDate targetDate = Instant.ofEpochSecond(recordDateEpoch).atZone(zoneId).toLocalDate();
+        log.info("refreshReportsByDate start, recordDateEpoch={}, currency={}, targetDate={}",
+                recordDateEpoch, currency, targetDate);
         // Reset caches and reload base data
         resolveHelper.resetReportCache();
         resolveHelper.loadMerchantSnapshot();
@@ -163,26 +194,6 @@ public class ReportTask {
     }
 
     /**
-     * Refresh reports by order record time and currency timezone.
-     *
-     * @param recordDateEpoch record date epoch seconds
-     * @param currency currency code
-     */
-    public void refreshReportsByEpoch(long recordDateEpoch, String currency) {
-        if (currency == null || currency.isBlank()) {
-            log.warn("refreshReportsByEpoch skipped, currency is blank");
-            return;
-        }
-        ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
-        LocalDate targetDate = Instant.ofEpochSecond(recordDateEpoch).atZone(zoneId).toLocalDate();
-        log.info("refreshReportsByEpoch start, recordDateEpoch={}, currency={}, targetDate={}",
-                recordDateEpoch, currency, targetDate);
-        refreshReportsByDate(targetDate);
-        log.info("refreshReportsByEpoch end, recordDateEpoch={}, currency={}, targetDate={}",
-                recordDateEpoch, currency, targetDate);
-    }
-
-    /**
      * Build and persist merchant reports.
      */
     private void reportMerchant() {
@@ -194,12 +205,12 @@ public class ReportTask {
         Set<String> currencies = resolveHelper.resolveMerchantCurrencySet();
         Map<String, MerchantReportDto> collectionStats = computeHelper.loadStatsByCurrency(
                 currencies,
-                collectionOrderMapper::listMerchantReportStats,
-                (dto, currency) -> resolveHelper.buildKey(dto == null ? null : dto.getUserId(), currency));
+                collectionOrderMapper::listMerchantReportStatsBatch,
+                dto -> resolveHelper.buildKey(dto == null ? null : dto.getUserId(), dto == null ? null : dto.getCurrency()));
         Map<String, MerchantReportDto> payoutStats = computeHelper.loadStatsByCurrency(
                 currencies,
-                payOrderMapper::listMerchantReportStats,
-                (dto, currency) -> resolveHelper.buildKey(dto == null ? null : dto.getUserId(), currency));
+                payOrderMapper::listMerchantReportStatsBatch,
+                dto -> resolveHelper.buildKey(dto == null ? null : dto.getUserId(), dto == null ? null : dto.getCurrency()));
 
         // Process collection and payout reports for each merchant/currency.
         List<MerchantReportDto> reports = computeHelper.processDualSupportReports(
@@ -223,12 +234,12 @@ public class ReportTask {
         Set<String> currencies = resolveHelper.resolveAllCurrencies();
         Map<String, ChannelReportDto> collectionStats = computeHelper.loadStatsByCurrency(
                 currencies,
-                collectionOrderMapper::listChannelReportStats,
-                (dto, currency) -> resolveHelper.buildKey(dto == null ? null : dto.getChannelId(), currency));
+                collectionOrderMapper::listChannelReportStatsBatch,
+                dto -> resolveHelper.buildKey(dto == null ? null : dto.getChannelId(), dto == null ? null : dto.getCurrency()));
         Map<String, ChannelReportDto> payoutStats = computeHelper.loadStatsByCurrency(
                 currencies,
-                payOrderMapper::listChannelReportStats,
-                (dto, currency) -> resolveHelper.buildKey(dto == null ? null : dto.getChannelId(), currency));
+                payOrderMapper::listChannelReportStatsBatch,
+                dto -> resolveHelper.buildKey(dto == null ? null : dto.getChannelId(), dto == null ? null : dto.getCurrency()));
 
         // Process channel reports for collection and payout directions.
         List<ChannelReportDto> reports = computeHelper.processDualSupportReports(
@@ -252,12 +263,12 @@ public class ReportTask {
         Set<String> currencies = resolveHelper.resolveAllCurrencies();
         Map<String, PaymentReportDto> collectionStats = computeHelper.loadStatsByCurrency(
                 currencies,
-                collectionOrderMapper::listPaymentReportStats,
-                (dto, currency) -> resolveHelper.buildKey(dto == null ? null : dto.getPaymentId(), currency));
+                collectionOrderMapper::listPaymentReportStatsBatch,
+                dto -> resolveHelper.buildKey(dto == null ? null : dto.getPaymentId(), dto == null ? null : dto.getCurrency()));
         Map<String, PaymentReportDto> payoutStats = computeHelper.loadStatsByCurrency(
                 currencies,
-                payOrderMapper::listPaymentReportStats,
-                (dto, currency) -> resolveHelper.buildKey(dto == null ? null : dto.getPaymentId(), currency));
+                payOrderMapper::listPaymentReportStatsBatch,
+                dto -> resolveHelper.buildKey(dto == null ? null : dto.getPaymentId(), dto == null ? null : dto.getCurrency()));
 
         // Process payment reports for collection and payout directions.
         List<PaymentReportDto> reports = computeHelper.processDualSupportReports(
@@ -281,12 +292,12 @@ public class ReportTask {
         Set<String> currencies = resolveHelper.resolveAllCurrencies();
         Map<String, CurrencyReportDto> collectionStats = computeHelper.loadStatsByCurrency(
                 currencies,
-                collectionOrderMapper::listCurrencyReportStats,
-                (dto, currency) -> currency);
+                collectionOrderMapper::listCurrencyReportStatsBatch,
+                dto -> dto == null ? null : dto.getCurrency());
         Map<String, CurrencyReportDto> payoutStats = computeHelper.loadStatsByCurrency(
                 currencies,
-                payOrderMapper::listCurrencyReportStats,
-                (dto, currency) -> currency);
+                payOrderMapper::listCurrencyReportStatsBatch,
+                dto -> dto == null ? null : dto.getCurrency());
 
         // Process currency reports for collection and payout directions.
         List<CurrencyReportDto> reports = computeHelper.processDualSupportReports(
@@ -312,6 +323,18 @@ public class ReportTask {
          * @return report list
          */
         List<T> load(String currency, long startTime, long endTime, String successStatus);
+    }
+
+    @FunctionalInterface
+    private interface ReportStatsBatchLoader<T> {
+        /**
+         * Load report statistics by currency and time range.
+         *
+         * @param ranges currency ranges
+         * @param successStatus success status code
+         * @return report list
+         */
+        List<T> load(List<ReportCurrencyRange> ranges, String successStatus);
     }
 
     @FunctionalInterface
@@ -491,28 +514,35 @@ public class ReportTask {
          */
         private <T> Map<String, T> loadStatsByCurrency(
                 Set<String> currencies,
-                ReportStatsLoader<T> loader,
-                BiFunction<T, String, String> keyFn) {
+                ReportStatsBatchLoader<T> loader,
+                Function<T, String> keyFn) {
             Map<String, T> stats = new HashMap<>();
             if (currencies == null || currencies.isEmpty()) {
                 return stats;
             }
+            log.info("loadStatsByCurrency start, currencyCount={}", currencies.size());
+            List<ReportCurrencyRange> ranges = new ArrayList<>(currencies.size());
             String successStatus = TransactionStatus.SUCCESS.getCode().toString();
             for (String currency : currencies) {
                 long dayStart = resolveHelper.resolveDayStart(currency);
                 long nextDayStart = resolveHelper.resolveNextDayStart(currency);
-                List<T> list = loader.load(currency, dayStart, nextDayStart, successStatus);
-                for (T dto : CommonUtil.safeList(list)) {
-                    if (dto == null) {
-                        continue;
-                    }
-                    String key = keyFn.apply(dto, currency);
-                    if (key == null) {
-                        continue;
-                    }
-                    stats.put(key, dto);
-                }
+                ranges.add(new ReportCurrencyRange(currency, dayStart, nextDayStart));
             }
+            List<T> list = loader.load(ranges, successStatus);
+            log.info("loadStatsByCurrency loaded, rangeCount={}, rowCount={}",
+                    ranges.size(),
+                    list == null ? 0 : list.size());
+            for (T dto : CommonUtil.safeList(list)) {
+                if (dto == null) {
+                    continue;
+                }
+                String key = keyFn.apply(dto);
+                if (key == null) {
+                    continue;
+                }
+                stats.put(key, dto);
+            }
+            log.info("loadStatsByCurrency end, statsCount={}", stats.size());
             return stats;
         }
     }
@@ -908,6 +938,14 @@ public class ReportTask {
             Map<String, OpsRecord> records = new HashMap<>();
             Set<String> currencies = resolveHelper.resolveAllCurrencies();
             log.info("build ops records start, period={}, currencyCount={}", period, currencies.size());
+            Map<String, List<MerchantReportDto>> collectionStatsByCurrency = loadOpsStatsByCurrency(
+                    currencies,
+                    period,
+                    collectionOrderMapper::listMerchantReportStatsBatch);
+            Map<String, List<MerchantReportDto>> payoutStatsByCurrency = loadOpsStatsByCurrency(
+                    currencies,
+                    period,
+                    payOrderMapper::listMerchantReportStatsBatch);
             for (String currency : currencies) {
                 long startTime = resolvePeriodStart(period, currency);
                 long endTime = resolvePeriodEnd(period, currency);
@@ -920,11 +958,11 @@ public class ReportTask {
 
                 OpsOrderContext collectionContext = buildOpsOrderContext(baseContext,
                         CommonConstant.SUPPORT_TYPE_COLLECTION, startTime, endTime);
-                buildOpsByOrderType(records, collectionContext, collectionOrderMapper::listMerchantReportStats);
+                buildOpsByOrderType(records, collectionContext, collectionStatsByCurrency);
 
                 OpsOrderContext payoutContext = buildOpsOrderContext(baseContext,
                         CommonConstant.SUPPORT_TYPE_PAY, startTime, endTime);
-                buildOpsByOrderType(records, payoutContext, payOrderMapper::listMerchantReportStats);
+                buildOpsByOrderType(records, payoutContext, payoutStatsByCurrency);
             }
             log.info("build ops records end, period={}, recordCount={}", period, records.size());
             return records;
@@ -932,16 +970,16 @@ public class ReportTask {
 
         /**
          * Build ops records by order type for a period and currency.
+         * Uses in-memory stats grouped by currency (batch loaded).
          *
          * @param records record map
          * @param context order context
-         * @param loader stats loader
+         * @param statsByCurrency stats grouped by currency
          */
         private void buildOpsByOrderType(Map<String, OpsRecord> records,
                                          OpsOrderContext context,
-                                         ReportStatsLoader<MerchantReportDto> loader) {
-            String successStatus = TransactionStatus.SUCCESS.getCode().toString();
-            List<MerchantReportDto> stats = loader.load(context.currency, context.startTime, context.endTime, successStatus);
+                                         Map<String, List<MerchantReportDto>> statsByCurrency) {
+            List<MerchantReportDto> stats = statsByCurrency.get(context.currency);
             log.info("build ops by orderType loaded, period={}, currency={}, orderType={}, statsCount={}",
                     context.period, context.currency, context.orderType, stats == null ? 0 : stats.size());
             for (MerchantReportDto dto : CommonUtil.safeList(stats)) {
@@ -964,6 +1002,42 @@ public class ReportTask {
                 }
                 accumulateAgentOps(records, context, merchantInfo.getAgentInfos(), dto, totals);
             }
+        }
+
+        /**
+         * Load ops stats once per period, grouped by currency.
+         *
+         * @param currencies currency set
+         * @param period report period
+         * @param loader stats batch loader
+         * @return stats map by currency
+         */
+        private Map<String, List<MerchantReportDto>> loadOpsStatsByCurrency(Set<String> currencies,
+                                                                            OpsPeriod period,
+                                                                            ReportStatsBatchLoader<MerchantReportDto> loader) {
+            Map<String, List<MerchantReportDto>> statsByCurrency = new HashMap<>();
+            if (currencies == null || currencies.isEmpty()) {
+                return statsByCurrency;
+            }
+            List<ReportCurrencyRange> ranges = new ArrayList<>(currencies.size());
+            for (String currency : currencies) {
+                long startTime = resolvePeriodStart(period, currency);
+                long endTime = resolvePeriodEnd(period, currency);
+                ranges.add(new ReportCurrencyRange(currency, startTime, endTime));
+            }
+            String successStatus = TransactionStatus.SUCCESS.getCode().toString();
+            List<MerchantReportDto> stats = loader.load(ranges, successStatus);
+            log.info("build ops stats loaded, period={}, rangeCount={}, rowCount={}",
+                    period,
+                    ranges.size(),
+                    stats == null ? 0 : stats.size());
+            for (MerchantReportDto dto : CommonUtil.safeList(stats)) {
+                if (dto == null || dto.getCurrency() == null) {
+                    continue;
+                }
+                statsByCurrency.computeIfAbsent(dto.getCurrency(), key -> new ArrayList<>()).add(dto);
+            }
+            return statsByCurrency;
         }
 
         /**

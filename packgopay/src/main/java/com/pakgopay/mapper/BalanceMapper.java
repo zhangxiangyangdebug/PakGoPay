@@ -27,6 +27,12 @@ public interface BalanceMapper {
     /** Update balance by userId (update non-null fields only) */
     int updateByUserId(BalanceDto dto);
 
+    /** Freeze available balance (atomic) */
+    int freezeBalance(@Param("userId") String userId,
+                      @Param("amount") BigDecimal amount,
+                      @Param("currency") String currency,
+                      @Param("updateTime") Long updateTime);
+
     /** Increase/decrease available balance (delta can be positive/negative) */
     int addAvailableBalance(@Param("userId") String userId,
                             @Param("delta") BigDecimal delta,

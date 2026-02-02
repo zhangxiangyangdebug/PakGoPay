@@ -5,7 +5,7 @@ import lombok.Getter;
 @Getter
 public enum ResultCode {
     SUCCESS(0, "success"),
-    FAIL(1, "fail"),
+    FAIL(1, "server internal error"),
 
     // common code start with 1001
     INVALID_TOKEN(100101, "token is invalid"),
