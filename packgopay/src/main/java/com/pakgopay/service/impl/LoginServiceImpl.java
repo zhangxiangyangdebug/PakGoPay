@@ -34,7 +34,8 @@ public class LoginServiceImpl implements LoginService {
     private AuthorizationService authorizationService;
 
     @Override
-    public CommonResponse login(LoginRequest loginRequest) {
+    public CommonResponse login(LoginRequest loginRequest, HttpServletRequest request) {
+        String ip = request.getParameter(CommonConstant.ATTR_IP);
         String userName = loginRequest.getUserName();
         String password = loginRequest.getPassword();
         String value = redisUtil.getValue(CommonConstant.USER_INFO_KEY_PREFIX + userName);
@@ -92,7 +93,7 @@ public class LoginServiceImpl implements LoginService {
             } else {
                 redisUtil.set(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName, String.valueOf(times + 1));
             }
-            return loginSuccess(user, userName);
+            return loginSuccess(user, userName, ip);
         } else {
             // 检验谷歌令牌验证码
             if (loginRequest.getCode() == null) {
@@ -103,16 +104,16 @@ public class LoginServiceImpl implements LoginService {
                 //String token = TokenUtils.generateToken(userId);
                 //String refreshToken = TokenUtils.generateToken(userId);
                 /*String userName = user.getUserName();*/
-                return loginSuccess(user, userName);
+                return loginSuccess(user, userName, ip);
             }
         }
         return new CommonResponse(ResultCode.CODE_IS_EXPIRE);
     }
 
-    private CommonResponse loginSuccess(UserDTO user, String userName) {
+    private CommonResponse loginSuccess(UserDTO user, String userName, String ip) {
         String userId = user.getUserId();
-        String token = authorizationService.createAccessIdToken(user.getUserId(),userName);
-        String refreshToken = authorizationService.createRefreshToken(userId, userName);
+        String token = authorizationService.createAccessIdToken(user.getUserId(),userName, ip);
+        String refreshToken = authorizationService.createRefreshToken(userId, userName, ip);
         // 缓存当前登陆用户 refreshToken 创建的起始时间， 用于刷新token时判断是否需要重新生成refreshToken
         redisUtil.setWithSecondExpire(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX + userId, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
         // 更新用户最近登陆时间
@@ -176,7 +177,8 @@ public class LoginServiceImpl implements LoginService {
     }
 
     @Override
-    public CommonResponse refreshAuthToken(String refreshToken) {
+    public CommonResponse refreshAuthToken(String refreshToken, HttpServletRequest request) {
+        String ip = request.getParameter(CommonConstant.ATTR_IP);
         // 从refreshToken中获取用户账号
         String userInfos = AuthorizationService.verifyToken(refreshToken);
         if (userInfos == null) {
@@ -186,13 +188,13 @@ public class LoginServiceImpl implements LoginService {
         String account = userInfos.split("&")[0];
         String userName = userInfos.split("&")[1];
         // 创建新的token
-        String accessToken = authorizationService.createAccessIdToken(account, userName);
+        String accessToken = authorizationService.createAccessIdToken(account, userName, ip);
         // 判断refreshToken是否要过期 即将过期则刷新RT
         long minTimeOfRefreshToken =  2*AuthorizationService.accessTokenExpirationTime; //refreshToken剩余时常保证在token有效期的2倍以上，否则刷新RT
         Long refreshTokenStartTime = redisUtil.getValue(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX+account) == null ? null : Long.parseLong(redisUtil.getValue(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX+account));
         if (refreshTokenStartTime == null || (refreshTokenStartTime + AuthorizationService.refreshTokenExpirationTime*1000)- System.currentTimeMillis() <= minTimeOfRefreshToken*1000) {
             // 刷新refreshToken
-            refreshToken = authorizationService.createRefreshToken(account, userName);
+            refreshToken = authorizationService.createRefreshToken(account, userName, ip);
             redisUtil.setWithSecondExpire(CommonConstant.REFRESH_TOKEN_START_TIME_PREFIX+account, String.valueOf(System.currentTimeMillis()), (int)AuthorizationService.refreshTokenExpirationTime);
         }
         LoginResponse loginResponse = new LoginResponse();

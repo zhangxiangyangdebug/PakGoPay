@@ -61,7 +61,7 @@ public class LoginController {
 
     @PostMapping(value = "/login")
     public CommonResponse login(HttpServletRequest request, @RequestBody LoginRequest loginRequest){
-        CommonResponse commonResponse = loginService.login(loginRequest);
+        CommonResponse commonResponse = loginService.login(loginRequest, request);
         return commonResponse;
     }
 
@@ -85,8 +85,8 @@ public class LoginController {
      * @return
      */
     @GetMapping("/refreshToken")
-    public CommonResponse accessTokenRefresh(@RequestParam String freshToken){
-        return loginService.refreshAuthToken(freshToken);
+    public CommonResponse accessTokenRefresh(@RequestParam String freshToken, HttpServletRequest request){
+        return loginService.refreshAuthToken(freshToken, request);
     }
 
     /**
