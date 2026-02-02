@@ -52,6 +52,9 @@ public class AccountStatementsDto implements Serializable {
     /** User ID */
     private String userId;
 
+    /** User role */
+    private Integer userRole;
+
     /** Merchant or agent name */
     private String name;
 

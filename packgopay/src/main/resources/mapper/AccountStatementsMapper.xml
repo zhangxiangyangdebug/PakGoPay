@@ -25,6 +25,7 @@
 
         <result column="wallet_addr"               property="walletAddr"             javaType="java.lang.String"/>
         <result column="user_id"                   property="userId"                 javaType="java.lang.String"/>
+        <result column="user_role"                 property="userRole"               javaType="java.lang.Integer"/>
         <result column="name"                      property="name"                   javaType="java.lang.String"/>
         <result column="currency"                  property="currency"               javaType="java.lang.String"/>
 
@@ -49,6 +50,7 @@
         total_balance_after,
         wallet_addr,
         user_id,
+        user_role,
         name,
         currency,
         create_time,
@@ -68,6 +70,7 @@
                 <if test="q.currency != null and q.currency != ''">AND currency = #{q.currency}</if>
                 <if test="q.walletAddr != null and q.walletAddr != ''">AND wallet_addr LIKE CONCAT('%', #{q.walletAddr}, '%')</if>
                 <if test="q.userId != null and q.userId != ''">AND user_id = #{q.userId}</if>
+                <if test="q.userRole != null">AND user_role = #{q.userRole}</if>
                 <if test="q.name != null and q.name != ''">AND name LIKE CONCAT('%', #{q.name}, '%')</if>
                 <if test="q.createBy != null and q.createBy != ''">AND create_by = #{q.createBy}</if>
                 <if test="q.createTime != null">AND create_time <![CDATA[>=]]> #{q.createTime}</if>
@@ -92,6 +95,7 @@
             total_balance_after,
             wallet_addr,
             user_id,
+            user_role,
             name,
             currency,
             create_time,
@@ -114,6 +118,7 @@
                 #{totalBalanceAfter},
                 #{walletAddr},
                 #{userId},
+                #{userRole},
                 #{name},
                 #{currency},
                 #{createTime},
@@ -142,6 +147,7 @@
 
             <if test="walletAddr != null and walletAddr != ''">wallet_addr = #{walletAddr},</if>
             <if test="userId != null and userId != ''">user_id = #{userId},</if>
+            <if test="userRole != null">user_role = #{userRole},</if>
             <if test="name != null and name != ''">name = #{name},</if>
             <if test="currency != null and currency != ''">currency = #{currency},</if>
 
@@ -182,6 +188,7 @@
         <where>
             <if test="id != null and id != ''">AND id = #{id}</if>
             <if test="userId != null and userId != ''">AND user_id = #{userId}</if>
+            <if test="userRole != null">AND user_role = #{userRole}</if>
             <if test="orderType != null">AND order_type = #{orderType}</if>
             <if test="currency != null and currency != ''">AND currency = #{currency}</if>
             <if test="startTime != null">AND create_time <![CDATA[>=]]> #{startTime}</if>
