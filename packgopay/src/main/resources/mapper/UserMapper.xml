@@ -121,7 +121,7 @@
     </select>
 
     <select id="getSecretKeyByUserId" resultType="java.lang.String">
-        SELECT login_secret FROM USER_INFO WHERE user_id = ${userId}
+        SELECT login_secret FROM USER_INFO WHERE user_id = #{userId}
     </select>
     
     <update id="bingSecretKey">
