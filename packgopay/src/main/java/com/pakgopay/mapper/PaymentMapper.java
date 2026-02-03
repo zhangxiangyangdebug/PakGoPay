@@ -12,7 +12,7 @@ import java.util.Set;
 @Mapper
 public interface PaymentMapper {
 
-    List<PaymentDto> findEByPaymentNo(@Param("paymentNo") Integer paymentNo);
+    List<PaymentDto> findEByPaymentNo(@Param("paymentNo") String paymentNo);
 
     PaymentDto findByPaymentId(@Param("paymentId") Long paymentId);
 
@@ -34,7 +34,7 @@ public interface PaymentMapper {
 
     List<PaymentDto> findEnableInfoByPaymentNos(
             @Param("supportType") Integer supportType,
-            @Param("paymentNo") Integer paymentNo, @Param("paymentIdList") Set<Long> paymentIdList);
+            @Param("paymentNo") String paymentNo, @Param("paymentIdList") Set<Long> paymentIdList);
 
     /** Count by query */
     Integer countByQuery(PaymentEntity entity);

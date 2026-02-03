@@ -309,7 +309,7 @@ public final class ExportReportDataColumns {
         return v == null ? "" : String.valueOf(v);
     }
 
-    private static String safeCalculateRate(Integer total, Integer successNumber) {
+    private static String safeCalculateRate(Long total, Long successNumber) {
         if (total == null || total <= 0) {
             return "0%";
         }

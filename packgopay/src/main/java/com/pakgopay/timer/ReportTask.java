@@ -125,7 +125,7 @@ public class ReportTask {
         reportMerchant();
         // Persist accumulated agent reports after merchant reports.
         agentHelper.upsertAgentReports();
-        // Build and persist ops overview reports (daily/monthly/yearly).
+        // Build and persist ops overview reports (daily from orders, monthly/yearly from daily).
         opsHelper.reportOpsDaily();
         opsHelper.reportOpsMonthly();
         opsHelper.reportOpsYearly();
@@ -139,7 +139,7 @@ public class ReportTask {
 
     /**
      * Refresh reports by order record time and currency timezone.
-     * Uses batch stats loading by currency ranges for report aggregation.
+     * Daily uses order tables, monthly/yearly aggregate from daily reports.
      *
      * @param recordDateEpoch record date epoch seconds
      * @param currency currency code
@@ -155,7 +155,7 @@ public class ReportTask {
 
     /**
      * Refresh reports for a specified date (daily/monthly/yearly) by currency timezone.
-     * Uses batch stats loading by currency ranges for report aggregation.
+     * Daily uses order tables, monthly/yearly aggregate from daily reports.
      *
      * @param recordDateEpoch record date epoch seconds
      * @param currency currency code
@@ -180,7 +180,7 @@ public class ReportTask {
         currencySet.addAll(resolveHelper.resolveMerchantCurrencySet());
         resolveHelper.applyFixedReportDate(targetDate, currencySet);
 
-        // Regenerate reports
+        // Regenerate reports (daily from orders; monthly/yearly from daily reports)
         reportMerchant();
         agentHelper.upsertAgentReports();
         opsHelper.reportOpsDaily();
@@ -191,6 +191,14 @@ public class ReportTask {
         reportCurrency();
 
         log.info("refreshReportsByDate end, targetDate={}, merchantCount={}", targetDate, merchantInfoCache.size());
+        log.info("refreshReportsByDate ranges, currency={}, daily=[{}-{}), monthly=[{}-{}), yearly=[{}-{})",
+                currency,
+                resolveHelper.resolveDayStart(currency),
+                resolveHelper.resolveNextDayStart(currency),
+                resolveHelper.resolveMonthStart(currency),
+                resolveHelper.resolveNextMonthStart(currency),
+                resolveHelper.resolveYearStart(currency),
+                resolveHelper.resolveNextYearStart(currency));
     }
 
     /**
@@ -575,8 +583,8 @@ public class ReportTask {
                     .ifTrue(isNew).obj(() -> nowEpochSecond, dto::setCreateTime).endSkip()
                     .obj(() -> nowEpochSecond, dto::setUpdateTime)
                     .obj(() -> dto.getCreateTime() == null ? nowEpochSecond : dto.getCreateTime(), dto::setCreateTime)
-                    .obj(() -> CommonUtil.defaultInt(dto.getOrderQuantity(), 0), dto::setOrderQuantity)
-                    .obj(() -> CommonUtil.defaultInt(dto.getSuccessQuantity(), 0), dto::setSuccessQuantity)
+                    .obj(() -> CommonUtil.defaultLong(dto.getOrderQuantity(), 0L), dto::setOrderQuantity)
+                    .obj(() -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L), dto::setSuccessQuantity)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getAgent1Fee()), dto::setAgent1Fee)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getAgent2Fee()), dto::setAgent2Fee)
@@ -612,8 +620,8 @@ public class ReportTask {
                     .ifTrue(isNew).obj(() -> nowEpochSecond, dto::setCreateTime).endSkip()
                     .obj(() -> nowEpochSecond, dto::setUpdateTime)
                     .obj(() -> dto.getCreateTime() == null ? nowEpochSecond : dto.getCreateTime(), dto::setCreateTime)
-                    .obj(() -> CommonUtil.defaultInt(dto.getOrderQuantity(), 0), dto::setOrderQuantity)
-                    .obj(() -> CommonUtil.defaultInt(dto.getSuccessQuantity(), 0), dto::setSuccessQuantity)
+                    .obj(() -> CommonUtil.defaultLong(dto.getOrderQuantity(), 0L), dto::setOrderQuantity)
+                    .obj(() -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L), dto::setSuccessQuantity)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
@@ -647,8 +655,8 @@ public class ReportTask {
                     .ifTrue(isNew).obj(() -> nowEpochSecond, dto::setCreateTime).endSkip()
                     .obj(() -> nowEpochSecond, dto::setUpdateTime)
                     .obj(() -> dto.getCreateTime() == null ? nowEpochSecond : dto.getCreateTime(), dto::setCreateTime)
-                    .obj(() -> CommonUtil.defaultInt(dto.getOrderQuantity(), 0), dto::setOrderQuantity)
-                    .obj(() -> CommonUtil.defaultInt(dto.getSuccessQuantity(), 0), dto::setSuccessQuantity)
+                    .obj(() -> CommonUtil.defaultLong(dto.getOrderQuantity(), 0L), dto::setOrderQuantity)
+                    .obj(() -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L), dto::setSuccessQuantity)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
@@ -678,8 +686,8 @@ public class ReportTask {
                     .ifTrue(isNew).obj(() -> nowEpochSecond, dto::setCreateTime).endSkip()
                     .obj(() -> nowEpochSecond, dto::setUpdateTime)
                     .obj(() -> dto.getCreateTime() == null ? nowEpochSecond : dto.getCreateTime(), dto::setCreateTime)
-                    .obj(() -> CommonUtil.defaultInt(dto.getOrderQuantity(), 0), dto::setOrderQuantity)
-                    .obj(() -> CommonUtil.defaultInt(dto.getSuccessQuantity(), 0), dto::setSuccessQuantity)
+                    .obj(() -> CommonUtil.defaultLong(dto.getOrderQuantity(), 0L), dto::setOrderQuantity)
+                    .obj(() -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L), dto::setSuccessQuantity)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
                     .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
@@ -856,25 +864,17 @@ public class ReportTask {
                 dto.setRecordDate(recordDate);
                 dto.setCreateTime(nowEpochSecond);
                 dto.setUpdateTime(nowEpochSecond);
-                dto.setOrderQuantity(0);
-                dto.setSuccessQuantity(0);
+                dto.setOrderQuantity(0L);
+                dto.setSuccessQuantity(0L);
                 dto.setCommission(BigDecimal.ZERO);
                 agentReportMap.put(key, dto);
             }
-            dto.setOrderQuantity(dto.getOrderQuantity() + safeInt(merchantReport == null ? null : merchantReport.getOrderQuantity()));
-            dto.setSuccessQuantity(dto.getSuccessQuantity() + safeInt(merchantReport == null ? null : merchantReport.getSuccessQuantity()));
+            dto.setOrderQuantity(dto.getOrderQuantity()
+                    + CommonUtil.defaultLong(merchantReport == null ? null : merchantReport.getOrderQuantity(), 0L));
+            dto.setSuccessQuantity(dto.getSuccessQuantity()
+                    + CommonUtil.defaultLong(merchantReport == null ? null : merchantReport.getSuccessQuantity(), 0L));
             dto.setCommission(CommonUtil.safeAdd(dto.getCommission(), commission));
             dto.setUpdateTime(nowEpochSecond);
-        }
-
-        /**
-         * Safe integer fallback.
-         *
-         * @param value input value
-         * @return safe int
-         */
-        private int safeInt(Integer value) {
-            return value == null ? 0 : value;
         }
 
         /**
@@ -909,7 +909,7 @@ public class ReportTask {
         }
 
         /**
-         * Generate and upsert monthly ops reports.
+         * Generate and upsert monthly ops reports (aggregated from daily).
          */
         private void reportOpsMonthly() {
             log.info("ops report monthly start");
@@ -919,7 +919,7 @@ public class ReportTask {
         }
 
         /**
-         * Generate and upsert yearly ops reports.
+         * Generate and upsert yearly ops reports (aggregated from daily).
          */
         private void reportOpsYearly() {
             log.info("ops report yearly start");
@@ -930,11 +930,16 @@ public class ReportTask {
 
         /**
          * Build ops records for the target period.
+         * Daily uses order tables; monthly/yearly aggregate from ops daily reports.
          *
          * @param period report period
          * @return ops record map
          */
         private Map<String, OpsRecord> buildOpsRecords(OpsPeriod period) {
+            if (period != OpsPeriod.DAILY) {
+                return buildOpsRecordsFromDaily(period);
+            }
+
             Map<String, OpsRecord> records = new HashMap<>();
             Set<String> currencies = resolveHelper.resolveAllCurrencies();
             log.info("build ops records start, period={}, currencyCount={}", period, currencies.size());
@@ -965,6 +970,45 @@ public class ReportTask {
                 buildOpsByOrderType(records, payoutContext, payoutStatsByCurrency);
             }
             log.info("build ops records end, period={}, recordCount={}", period, records.size());
+            return records;
+        }
+
+        /**
+         * Build monthly/yearly ops records from daily ops reports.
+         *
+         * @param period report period
+         * @return ops record map
+         */
+        private Map<String, OpsRecord> buildOpsRecordsFromDaily(OpsPeriod period) {
+            Map<String, OpsRecord> records = new HashMap<>();
+            Set<String> currencies = resolveHelper.resolveAllCurrencies();
+            log.info("build ops daily records start, period={}, currencyCount={}", period, currencies.size());
+            Map<String, List<OpsOrderDailyDto>> statsByCurrency = loadOpsDailyStatsByCurrency(currencies, period);
+            for (String currency : currencies) {
+                long startTime = resolvePeriodStart(period, currency);
+                long endTime = resolvePeriodEnd(period, currency);
+                LocalDate baseDate = resolveReportBaseDate(currency);
+                String reportMonth = baseDate.format(MONTH_FORMAT);
+                String reportYear = String.valueOf(baseDate.getYear());
+                OpsContext baseContext = buildOpsContext(period, baseDate, reportMonth, reportYear, currency);
+                log.info("build ops daily records currency scope, period={}, currency={}, startTime={}, endTime={}, baseDate={}",
+                        period, currency, startTime, endTime, baseDate);
+
+                for (OpsOrderDailyDto dto : CommonUtil.safeList(statsByCurrency.get(currency))) {
+                    if (dto == null) {
+                        continue;
+                    }
+                    OpsOrderContext context = buildOpsOrderContext(baseContext, dto.getOrderType(), startTime, endTime);
+                    OpsScope scope = buildOpsScope(dto.getScopeType(), dto.getScopeId());
+                    OpsTotals totals = buildOpsTotals(
+                            dto.getOrderQuantity() == null ? 0L : dto.getOrderQuantity(),
+                            dto.getSuccessQuantity() == null ? 0L : dto.getSuccessQuantity(),
+                            dto.getAgentCommission());
+                    String key = buildOpsKey(context, scope);
+                    accumulateOps(records, key, context, scope, totals);
+                }
+            }
+            log.info("build ops daily records end, period={}, recordCount={}", period, records.size());
             return records;
         }
 
@@ -1046,6 +1090,39 @@ public class ReportTask {
                     ranges.size(),
                     stats == null ? 0 : stats.size());
             for (MerchantReportDto dto : CommonUtil.safeList(stats)) {
+                if (dto == null || dto.getCurrency() == null) {
+                    continue;
+                }
+                statsByCurrency.computeIfAbsent(dto.getCurrency(), key -> new ArrayList<>()).add(dto);
+            }
+            return statsByCurrency;
+        }
+
+        /**
+         * Load daily ops stats for monthly/yearly aggregation.
+         *
+         * @param currencies currency set
+         * @param period report period
+         * @return stats map by currency
+         */
+        private Map<String, List<OpsOrderDailyDto>> loadOpsDailyStatsByCurrency(Set<String> currencies,
+                                                                                OpsPeriod period) {
+            Map<String, List<OpsOrderDailyDto>> statsByCurrency = new HashMap<>();
+            if (currencies == null || currencies.isEmpty()) {
+                return statsByCurrency;
+            }
+            List<ReportCurrencyRange> ranges = new ArrayList<>(currencies.size());
+            for (String currency : currencies) {
+                long startTime = resolvePeriodStart(period, currency);
+                long endTime = resolvePeriodEnd(period, currency);
+                ranges.add(new ReportCurrencyRange(currency, startTime, endTime));
+            }
+            List<OpsOrderDailyDto> stats = opsOrderDailyMapper.listOpsDailyStatsByDateRangeBatch(ranges);
+            log.info("build ops daily stats loaded, period={}, rangeCount={}, rowCount={}",
+                    period,
+                    ranges.size(),
+                    stats == null ? 0 : stats.size());
+            for (OpsOrderDailyDto dto : CommonUtil.safeList(stats)) {
                 if (dto == null || dto.getCurrency() == null) {
                     continue;
                 }
@@ -1305,10 +1382,6 @@ public class ReportTask {
          * @param value input value
          * @return safe long
          */
-        private long defaultLong(Integer value) {
-            return value == null ? 0L : value.longValue();
-        }
-
         /**
          * Sum agent commission from merchant report.
          *
@@ -1445,7 +1518,10 @@ public class ReportTask {
          * @return totals
          */
         private OpsTotals buildOpsTotals(MerchantReportDto dto, BigDecimal agentCommission) {
-            return buildOpsTotals(defaultLong(dto.getOrderQuantity()), defaultLong(dto.getSuccessQuantity()), agentCommission);
+            return buildOpsTotals(
+                    CommonUtil.defaultLong(dto.getOrderQuantity(), 0L),
+                    CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L),
+                    agentCommission);
         }
 
         /**

@@ -23,10 +23,10 @@ public class MerchantReportDto implements Serializable {
     private String currency;
 
     /** Total order quantity */
-    private Integer orderQuantity;
+    private Long orderQuantity;
 
     /** Success order quantity */
-    private Integer successQuantity;
+    private Long successQuantity;
 
     /** Merchant fee */
     private BigDecimal merchantFee;
@@ -52,4 +52,3 @@ public class MerchantReportDto implements Serializable {
     /** Update time (unix timestamp in seconds) */
     private Long updateTime;
 }
-
