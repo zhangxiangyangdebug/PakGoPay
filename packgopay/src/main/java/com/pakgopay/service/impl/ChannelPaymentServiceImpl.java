@@ -70,7 +70,9 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     public Long selectPaymentId(Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException {
         log.info("selectPaymentId start, get available payment id");
         String resolvedChannelIds = resolveChannelIdsForMerchant(transactionInfo);
-        log.info("selectPaymentId resolvedChannelIds, channelIds={}", resolvedChannelIds);
+        log.info("selectPaymentId resolvedChannelIds, supportType={}, channelIds={}",
+                CommonUtil.resolveSupportTypeLabel(supportType),
+                resolvedChannelIds);
 
         // key:payment_id value:channel_id
         Map<Long, ChannelDto> paymentMap = new HashMap<>();
@@ -319,7 +321,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         }
         Comparator<PaymentDto> comparator = Comparator
                 .comparingDouble(this::computeSuccessRate)
-                .thenComparing(PaymentDto::getSuccessQuantity)
+                .thenComparingLong(dto -> defaultLong(dto.getSuccessQuantity()))
                 .thenComparing(dto -> parsePaymentRate(dto, supportType), Comparator.reverseOrder());
         PaymentDto best = paymentDtoList.stream()
                 .max(comparator)
@@ -334,11 +336,11 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     }
 
     private double computeSuccessRate(PaymentDto dto) {
-        long total = dto.getOrderQuantity();
+        long total = defaultLong(dto.getOrderQuantity());
         if (total <= 0) {
             return 0.0d;
         }
-        return (double) dto.getSuccessQuantity() / (double) total;
+        return (double) defaultLong(dto.getSuccessQuantity()) / (double) total;
     }
 
     private BigDecimal parsePaymentRate(PaymentDto dto, Integer supportType) {
@@ -391,7 +393,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             Integer paymentNo, String channelIds, Integer supportType, Map<Long, ChannelDto> paymentMap)
             throws PakGoPayException {
         log.info("loadPaymentsByChannelIds start, paymentNo={}, supportType={}, channelIds={}",
-                paymentNo, supportType, channelIds);
+                paymentNo, CommonUtil.resolveSupportTypeLabel(supportType), channelIds);
         // 1. obtain merchant's channel id list
         if (!StringUtils.hasText(channelIds)) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not channel");
@@ -416,8 +418,44 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         log.info("payments loaded, paymentCount={}", paymentDtoList.size());
         paymentDtoList = filterPaymentsByEnableTime(paymentDtoList);
         log.info("payments filtered by enable time, paymentCount={}", paymentDtoList.size());
+        log.info("payments summary, supportType={}, channels={}, payments={}, currencies={}",
+                CommonUtil.resolveSupportTypeLabel(supportType),
+                buildChannelSummary(paymentDtoList, paymentMap),
+                buildPaymentSummary(paymentDtoList),
+                paymentDtoList.stream()
+                        .map(PaymentDto::getCurrency)
+                        .filter(StringUtils::hasText)
+                        .collect(Collectors.toCollection(LinkedHashSet::new)));
         return paymentDtoList;
     }
+
+    private List<String> buildChannelSummary(List<PaymentDto> paymentDtoList, Map<Long, ChannelDto> paymentMap) {
+        Map<Long, String> channelNames = new LinkedHashMap<>();
+        for (PaymentDto payment : CommonUtil.safeList(paymentDtoList)) {
+            ChannelDto channel = paymentMap.get(payment.getPaymentId());
+            if (channel == null || channel.getChannelId() == null) {
+                continue;
+            }
+            channelNames.putIfAbsent(channel.getChannelId(), channel.getChannelName());
+        }
+        List<String> result = new ArrayList<>();
+        for (Map.Entry<Long, String> entry : channelNames.entrySet()) {
+            result.add(entry.getKey() + ":" + entry.getValue());
+        }
+        return result;
+    }
+
+    private List<String> buildPaymentSummary(List<PaymentDto> paymentDtoList) {
+        List<String> result = new ArrayList<>();
+        for (PaymentDto payment : CommonUtil.safeList(paymentDtoList)) {
+            if (payment == null || payment.getPaymentId() == null) {
+                continue;
+            }
+            result.add(payment.getPaymentId() + ":" + payment.getPaymentName());
+        }
+        return result;
+    }
+
 
     private List<PaymentDto> filterPaymentsByEnableTime(List<PaymentDto> paymentDtoList) throws PakGoPayException {
         // Filter payments by enableTimePeriod (format: HH:mm:ss,HH:mm:ss).

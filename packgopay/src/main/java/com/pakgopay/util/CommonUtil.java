@@ -1,16 +1,12 @@
 package com.pakgopay.util;
 
 import com.pakgopay.common.constant.CommonConstant;
+import org.slf4j.MDC;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
 import java.time.ZoneId;
-import java.util.Set;
-import org.slf4j.MDC;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class CommonUtil {
@@ -84,6 +80,22 @@ public class CommonUtil {
      */
     public static BigDecimal defaultBigDecimal(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    public static String resolveSupportTypeLabel(Integer supportType) {
+        if (supportType == null) {
+            return "unknown";
+        }
+        if (Objects.equals(CommonConstant.SUPPORT_TYPE_COLLECTION, supportType)) {
+            return "collection";
+        }
+        if (Objects.equals(CommonConstant.SUPPORT_TYPE_PAY, supportType)) {
+            return "payout";
+        }
+        if (Objects.equals(CommonConstant.SUPPORT_TYPE_ALL, supportType)) {
+            return "collection/payout";
+        }
+        return String.valueOf(supportType);
     }
 
     public static BigDecimal calculate(

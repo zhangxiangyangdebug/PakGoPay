@@ -25,7 +25,11 @@ public interface CollectionOrderMapper {
     int insert(CollectionOrderDto dto);
 
     /** Update order by order ID */
-    int updateByTransactionNo(CollectionOrderDto dto);
+    int updateByTransactionNo(@Param("dto") CollectionOrderDto dto);
+
+    /** Update order by transactionNo when status is processing */
+    int updateByTransactionNoWhenProcessing(@Param("dto") CollectionOrderDto dto,
+                                            @Param("currentStatus") String currentStatus);
 
     /** Increase callback retry times */
     int increaseCallbackTimes(@Param("transactionNo") String transactionNo,
