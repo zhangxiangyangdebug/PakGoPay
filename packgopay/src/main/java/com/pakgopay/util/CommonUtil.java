@@ -73,6 +73,17 @@ public class CommonUtil {
     }
 
     /**
+     * Default long fallback.
+     *
+     * @param value input value
+     * @param defaultValue fallback value
+     * @return resolved long
+     */
+    public static Long defaultLong(Long value, Long defaultValue) {
+        return value == null ? defaultValue : value;
+    }
+
+    /**
      * Default BigDecimal fallback.
      *
      * @param value input value

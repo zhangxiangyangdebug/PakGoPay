@@ -199,7 +199,7 @@
     <update id="increaseCallbackTimes">
         UPDATE pay_order
         SET
-            callback_times = IFNULL(callback_times, 0) + 1,
+            callback_times = COALESCE(callback_times, 0) + 1,
             last_callbak_time = #{lastCallbackTime},
             update_time = #{lastCallbackTime}
         WHERE transaction_no = #{transactionNo}
@@ -231,22 +231,22 @@
 
     <sql id="CommonReportAggColumns">
         COUNT(1) order_quantity,
-        IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN 1 ELSE 0 END), 0) success_quantity,
-        IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN merchant_fee ELSE 0 END), 0) merchant_fee,
-        IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN agent1_fee ELSE 0 END), 0) agent1_fee,
-        IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN agnet2_fee ELSE 0 END), 0) agent2_fee,
-        IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN agnet3_fee ELSE 0 END), 0) agent3_fee
+        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN 1 ELSE 0 END), 0) success_quantity,
+        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN merchant_fee ELSE 0 END), 0) merchant_fee,
+        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agent1_fee ELSE 0 END), 0) agent1_fee,
+        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agnet2_fee ELSE 0 END), 0) agent2_fee,
+        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agnet3_fee ELSE 0 END), 0) agent3_fee
     </sql>
 
     <sql id="CommonReportAggColumnsWithBalance">
         COUNT(1) order_quantity,
-        IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN 1 ELSE 0 END), 0) success_quantity,
-        IFNULL(SUM(IFNULL(actual_amount, amount)), 0) order_balance,
-        IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN merchant_fee ELSE 0 END), 0) merchant_fee,
-        IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN merchant_fee ELSE 0 END), 0)
-          - IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN agent1_fee ELSE 0 END), 0)
-          - IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN agnet2_fee ELSE 0 END), 0)
-          - IFNULL(SUM(CASE WHEN order_status = #{successStatus} THEN agnet3_fee ELSE 0 END), 0) order_profit
+        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN 1 ELSE 0 END), 0) success_quantity,
+        COALESCE(SUM(COALESCE(actual_amount, amount)), 0) order_balance,
+        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN merchant_fee ELSE 0 END), 0) merchant_fee,
+        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN merchant_fee ELSE 0 END), 0)
+          - COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agent1_fee ELSE 0 END), 0)
+          - COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agnet2_fee ELSE 0 END), 0)
+          - COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agnet3_fee ELSE 0 END), 0) order_profit
     </sql>
 
     <select id="listMerchantReportStatsBatch" resultMap="MerchantReportResultMap">

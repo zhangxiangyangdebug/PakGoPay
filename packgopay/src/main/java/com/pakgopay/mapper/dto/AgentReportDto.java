@@ -20,10 +20,10 @@ public class AgentReportDto implements Serializable {
     private Integer orderType;
 
     /** Order quantity */
-    private Integer orderQuantity;
+    private Long orderQuantity;
 
     /** Success order quantity */
-    private Integer successQuantity;
+    private Long successQuantity;
 
     /** Currency */
     private String currency;
@@ -43,4 +43,3 @@ public class AgentReportDto implements Serializable {
     /** Remark */
     private String remark;
 }
-

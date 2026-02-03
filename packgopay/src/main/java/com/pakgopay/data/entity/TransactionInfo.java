@@ -81,7 +81,7 @@ public class TransactionInfo {
     /**
      * Merchant channel code (must be unique)
      */
-    private Integer paymentNo;
+    private String paymentNo;
 
     /**
      * use payment id

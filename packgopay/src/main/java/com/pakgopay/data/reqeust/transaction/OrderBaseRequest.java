@@ -29,8 +29,8 @@ public class OrderBaseRequest extends BaseRequest implements Serializable {
     /**
      * Merchant channel code (must be unique)
      */
-    @NotNull(message = "paymentNo is empty")
-    private Integer paymentNo;
+    @NotBlank(message = "paymentNo is empty")
+    private String paymentNo;
 
     /**
      * Collection amount

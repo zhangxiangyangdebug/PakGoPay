@@ -124,4 +124,23 @@
         update_time = EXCLUDED.update_time
     </insert>
 
+    <select id="listOpsDailyStatsByDateRangeBatch" resultMap="OpsOrderDailyResultMap">
+        <foreach collection="ranges" item="item" separator=" UNION ALL ">
+            SELECT
+                order_type,
+                currency,
+                scope_type,
+                scope_id,
+                SUM(order_quantity) order_quantity,
+                SUM(success_quantity) success_quantity,
+                SUM(fail_quantity) fail_quantity,
+                SUM(agent_commission) agent_commission
+            FROM ops_order_daily
+            WHERE currency = #{item.currency}
+              AND report_date &gt;= #{item.startTime}
+              AND report_date &lt; #{item.endTime}
+            GROUP BY order_type, currency, scope_type, scope_id
+        </foreach>
+    </select>
+
 </mapper>

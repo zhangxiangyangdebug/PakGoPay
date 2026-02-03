@@ -101,8 +101,8 @@
     <update id="addAvailableBalance">
         UPDATE balance
         SET
-            available_balance = IFNULL(available_balance, 0) + #{delta},
-            total_balance = IFNULL(total_balance, 0) + #{delta},
+            available_balance = COALESCE(available_balance, 0) + #{delta},
+            total_balance = COALESCE(total_balance, 0) + #{delta},
             update_time = #{updateTime}
         WHERE user_id = #{userId}
             AND currency = #{currency}
@@ -113,7 +113,7 @@
     <update id="addFrozenBalance">
         UPDATE balance
         SET
-            frozen_balance = IFNULL(frozen_balance, 0) + #{delta},
+            frozen_balance = COALESCE(frozen_balance, 0) + #{delta},
             update_time = #{updateTime}
         WHERE user_id = #{userId}
           AND currency = #{currency}
@@ -123,8 +123,8 @@
     <update id="releaseFrozenBalance">
         UPDATE balance
         SET
-            frozen_balance = IFNULL(frozen_balance, 0) - #{amount},
-            available_balance = IFNULL(available_balance, 0) + #{amount},
+            frozen_balance = COALESCE(frozen_balance, 0) - #{amount},
+            available_balance = COALESCE(available_balance, 0) + #{amount},
             update_time = #{updateTime}
         WHERE user_id = #{userId}
           AND currency = #{currency}

@@ -20,10 +20,10 @@ public class PaymentReportDto implements Serializable {
     private Integer orderType;
 
     /** Total order quantity */
-    private Integer orderQuantity;
+    private Long orderQuantity;
 
     /** Success order quantity */
-    private Integer successQuantity;
+    private Long successQuantity;
 
     /** Currency */
     private String currency;
@@ -46,4 +46,3 @@ public class PaymentReportDto implements Serializable {
     /** Update time (unix timestamp seconds) */
     private Long updateTime;
 }
-

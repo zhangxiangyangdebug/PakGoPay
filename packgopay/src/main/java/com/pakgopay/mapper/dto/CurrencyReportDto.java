@@ -26,10 +26,10 @@ public class CurrencyReportDto implements Serializable {
     private BigDecimal orderProfit;
 
     /** Total order quantity */
-    private Integer orderQuantity;
+    private Long orderQuantity;
 
     /** Success order quantity */
-    private Integer successQuantity;
+    private Long successQuantity;
 
     /** Create time (unix timestamp seconds) */
     private Long createTime;
@@ -43,4 +43,3 @@ public class CurrencyReportDto implements Serializable {
     /** Remark */
     private String remark;
 }
-

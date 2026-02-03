@@ -125,8 +125,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         if (channelId != null) {
             ChannelDto channel = channelMapper.findByChannelId(channelId);
             if (channel != null) {
-                long totalCount = defaultLong(channel.getTotalCount()) + 1L;
-                long failCount = defaultLong(channel.getFailCount()) + (isFailure ? 1L : 0L);
+                long totalCount = CommonUtil.defaultLong(channel.getTotalCount(), 0L) + 1L;
+                long failCount = CommonUtil.defaultLong(channel.getFailCount(), 0L) + (isFailure ? 1L : 0L);
                 ChannelDto update = new ChannelDto();
                 update.setChannelId(channelId);
                 update.setTotalCount(totalCount);
@@ -144,8 +144,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         if (paymentId != null) {
             PaymentDto payment = paymentMapper.findByPaymentId(paymentId);
             if (payment != null) {
-                long orderQuantity = defaultLong(payment.getOrderQuantity()) + 1L;
-                long successQuantity = defaultLong(payment.getSuccessQuantity()) + (isSuccess ? 1L : 0L);
+                long orderQuantity = CommonUtil.defaultLong(payment.getOrderQuantity(), 0L) + 1L;
+                long successQuantity = CommonUtil.defaultLong(payment.getSuccessQuantity(), 0L) + (isSuccess ? 1L : 0L);
                 PaymentDto update = new PaymentDto();
                 update.setPaymentId(paymentId);
                 update.setOrderQuantity(orderQuantity);
@@ -157,10 +157,6 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 log.warn("payment not found, paymentId={}", paymentId);
             }
         }
-    }
-
-    private long defaultLong(Long value) {
-        return value == null ? 0L : value;
     }
 
     private BigDecimal calculateSuccessRate(long totalCount, long failCount) {
@@ -327,7 +323,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         }
         Comparator<PaymentDto> comparator = Comparator
                 .comparingDouble(this::computeSuccessRate)
-                .thenComparingLong(dto -> defaultLong(dto.getSuccessQuantity()))
+                .thenComparingLong(dto -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L))
                 .thenComparing(dto -> parsePaymentRate(dto, supportType), Comparator.reverseOrder());
         PaymentDto best = paymentDtoList.stream()
                 .max(comparator)
@@ -342,11 +338,11 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     }
 
     private double computeSuccessRate(PaymentDto dto) {
-        long total = defaultLong(dto.getOrderQuantity());
+        long total = CommonUtil.defaultLong(dto.getOrderQuantity(), 0L);
         if (total <= 0) {
             return 0.0d;
         }
-        return (double) defaultLong(dto.getSuccessQuantity()) / (double) total;
+        return (double) CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L) / (double) total;
     }
 
     private BigDecimal parsePaymentRate(PaymentDto dto, Integer supportType) {
@@ -396,7 +392,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      * @throws PakGoPayException business Exception
      */
     private List<PaymentDto> loadPaymentsByChannelIds(
-            Integer paymentNo, String channelIds, Integer supportType, Map<Long, ChannelDto> paymentMap)
+            String paymentNo, String channelIds, Integer supportType, Map<Long, ChannelDto> paymentMap)
             throws PakGoPayException {
         log.info("loadPaymentsByChannelIds start, paymentNo={}, supportType={}, channelIds={}",
                 paymentNo, CommonUtil.resolveSupportTypeLabel(supportType), channelIds);
