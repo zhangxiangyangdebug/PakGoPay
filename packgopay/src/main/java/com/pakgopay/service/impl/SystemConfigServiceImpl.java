@@ -198,7 +198,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         response.setRemark(roleMenuByRoleId.get(0).getRemark());
         List<String> menuList = new ArrayList<>();
         roleMenuByRoleId.forEach(roleMenuDTO -> {
-           if (roleMenuDTO.getMenuId().length() > 3) {
+           if (roleMenuDTO.getMenuId() != null && roleMenuDTO.getMenuId().length() > 3) {
                menuList.add(roleMenuDTO.getMenuId());
            }
 

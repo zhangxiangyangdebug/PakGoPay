@@ -60,10 +60,10 @@ public class GoogleAuthenticator {
     public static String getQrCodeText(String secretKey, String account, String issuer) {
         String normalizedBase32Key = secretKey.replace(" ", "").toUpperCase();
         try {
-            System.out.println("生成的信息----"+"otpauth://totp/"
+            /*System.out.println("生成的信息----"+"otpauth://totp/"
                     + URLEncoder.encode((!StringUtils.isEmpty(issuer) ? (issuer + ":") : "") + account, "UTF-8").replace("+", "%20")
                     + "?secret=" + URLEncoder.encode(normalizedBase32Key, "UTF-8").replace("+", "%20")
-                    + (!StringUtils.isEmpty(issuer) ? ("&issuer=" + URLEncoder.encode(issuer, "UTF-8").replace("+", "%20")) : ""));
+                    + (!StringUtils.isEmpty(issuer) ? ("&issuer=" + URLEncoder.encode(issuer, "UTF-8").replace("+", "%20")) : ""));*/
             /*return "otpauth://totp/"
                     + URLEncoder.encode((!StringUtils.isEmpty(issuer) ? (issuer + ":") : "") + account, "UTF-8").replace("+", "%20")
                     + "?secret=" + URLEncoder.encode(normalizedBase32Key, "UTF-8").replace("+", "%20")
