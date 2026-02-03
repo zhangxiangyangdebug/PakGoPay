@@ -293,7 +293,6 @@ public class MerchantServiceImpl implements MerchantService {
 
         return PatchBuilderUtil.from(req).to(dto)
                 // basic
-                .str(req::getParentId, dto::setParentId)
                 .str(req::getMerchantName, dto::setMerchantName)
                 .obj(req::getSupportType, dto::setSupportType)
                 .obj(req::getStatus, dto::setStatus)
@@ -327,6 +326,7 @@ public class MerchantServiceImpl implements MerchantService {
     @Override
     public CommonResponse createMerchant(MerchantAddRequest merchantAddRequest) {
         CreateUserRequest createUserRequest = generateUserCreateInfo(merchantAddRequest);
+        validateMerchantFeeAboveAgent(merchantAddRequest.getParentId(), merchantAddRequest);
         MerchantInfoDto merchantInfoDto = generateMerchantInfoForAdd(merchantAddRequest);
 
         transactionUtil.runInTransaction(() -> {
@@ -341,6 +341,49 @@ public class MerchantServiceImpl implements MerchantService {
         });
 
         return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private void validateMerchantFeeAboveAgent(String parentId, Object request) throws PakGoPayException {
+        if (parentId == null || parentId.isBlank()) {
+            return;
+        }
+        AgentInfoDto agent = agentInfoMapper.findByUserId(parentId);
+        if (agent == null) {
+            return;
+        }
+
+        BigDecimal merchantColRate = null;
+        BigDecimal merchantColFixed = null;
+        BigDecimal merchantPayRate = null;
+        BigDecimal merchantPayFixed = null;
+        if (request instanceof MerchantAddRequest addReq) {
+            merchantColRate = addReq.getCollectionRate();
+            merchantColFixed = addReq.getCollectionFixedFee();
+            merchantPayRate = addReq.getPayRate();
+            merchantPayFixed = addReq.getPayFixedFee();
+        } else if (request instanceof MerchantEditRequest editReq) {
+            merchantColRate = editReq.getCollectionRate();
+            merchantColFixed = editReq.getCollectionFixedFee();
+            merchantPayRate = editReq.getPayRate();
+            merchantPayFixed = editReq.getPayFixedFee();
+        }
+
+        if (merchantColRate != null && agent.getCollectionRate() != null
+                && merchantColRate.compareTo(agent.getCollectionRate()) <= 0) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchant collection rate must > agent rate");
+        }
+        if (merchantColFixed != null && agent.getCollectionFixedFee() != null
+                && merchantColFixed.compareTo(agent.getCollectionFixedFee()) <= 0) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchant collection fixed fee must > agent fixed fee");
+        }
+        if (merchantPayRate != null && agent.getPayRate() != null
+                && merchantPayRate.compareTo(agent.getPayRate()) <= 0) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchant pay rate must > agent rate");
+        }
+        if (merchantPayFixed != null && agent.getPayFixedFee() != null
+                && merchantPayFixed.compareTo(agent.getPayFixedFee()) <= 0) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchant pay fixed fee must > agent fixed fee");
+        }
     }
 
     private MerchantInfoDto generateMerchantInfoForAdd(MerchantAddRequest req) {

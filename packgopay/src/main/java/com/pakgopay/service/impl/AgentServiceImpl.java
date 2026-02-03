@@ -255,6 +255,7 @@ public class AgentServiceImpl implements AgentService {
     @Override
     public CommonResponse createAgent(AgentAddRequest agentAddRequest) throws PakGoPayException {
         CreateUserRequest createUserRequest = buildAgentUserCreateRequest(agentAddRequest);
+        validateAgentFeeAboveParent(agentAddRequest.getParentId(), agentAddRequest);
         AgentInfoDto agentInfoDto = buildAgentCreateDto(agentAddRequest);
 
         transactionUtil.runInTransaction(() -> {
@@ -271,6 +272,49 @@ public class AgentServiceImpl implements AgentService {
         });
 
         return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private void validateAgentFeeAboveParent(String parentId, Object request) throws PakGoPayException {
+        if (parentId == null || parentId.isBlank()) {
+            return;
+        }
+        AgentInfoDto parent = agentInfoMapper.findByUserId(parentId);
+        if (parent == null) {
+            return;
+        }
+
+        BigDecimal agentColRate = null;
+        BigDecimal agentColFixed = null;
+        BigDecimal agentPayRate = null;
+        BigDecimal agentPayFixed = null;
+        if (request instanceof AgentAddRequest addReq) {
+            agentColRate = addReq.getCollectionRate();
+            agentColFixed = addReq.getCollectionFixedFee();
+            agentPayRate = addReq.getPayRate();
+            agentPayFixed = addReq.getPayFixedFee();
+        } else if (request instanceof AgentEditRequest editReq) {
+            agentColRate = editReq.getCollectionRate();
+            agentColFixed = editReq.getCollectionFixedFee();
+            agentPayRate = editReq.getPayRate();
+            agentPayFixed = editReq.getPayFixedFee();
+        }
+
+        if (agentColRate != null && parent.getCollectionRate() != null
+                && agentColRate.compareTo(parent.getCollectionRate()) <= 0) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "agent collection rate must > parent rate");
+        }
+        if (agentColFixed != null && parent.getCollectionFixedFee() != null
+                && agentColFixed.compareTo(parent.getCollectionFixedFee()) <= 0) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "agent collection fixed fee must > parent fixed fee");
+        }
+        if (agentPayRate != null && parent.getPayRate() != null
+                && agentPayRate.compareTo(parent.getPayRate()) <= 0) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "agent pay rate must > parent rate");
+        }
+        if (agentPayFixed != null && parent.getPayFixedFee() != null
+                && agentPayFixed.compareTo(parent.getPayFixedFee()) <= 0) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "agent pay fixed fee must > parent fixed fee");
+        }
     }
 
     private AgentInfoDto buildAgentCreateDto(AgentAddRequest req) throws PakGoPayException {
