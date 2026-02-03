@@ -7,7 +7,7 @@
 
     <resultMap id="OpsOrderDailyResultMap" type="com.pakgopay.mapper.dto.OpsOrderDailyDto">
         <id column="id" property="id" javaType="java.lang.Long"/>
-        <result column="report_date" property="reportDate" javaType="java.time.LocalDate"/>
+        <result column="report_date" property="reportDate" javaType="java.lang.Long"/>
         <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
         <result column="currency" property="currency" javaType="java.lang.String"/>
         <result column="scope_type" property="scopeType" javaType="java.lang.Integer"/>

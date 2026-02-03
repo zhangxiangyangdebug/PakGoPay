@@ -89,7 +89,21 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 transactionInfo.getPaymentId(),
                 transactionInfo.getChannelId());
 
-        // 4. create system transaction no
+        // 4. prepare amount and fee snapshot
+        BigDecimal actualAmount = colOrderRequest.getAmount();
+        if (merchantInfoDto.getIsFloat() == 1) {
+            BigDecimal floatingAmount = generateFloatAmount(merchantInfoDto.getFloatRange());
+            actualAmount = CommonUtil.safeSubtract(colOrderRequest.getAmount(), floatingAmount);
+        }
+        transactionInfo.setActualAmount(actualAmount);
+        channelPaymentService.calculateTransactionFees(transactionInfo, OrderType.COLLECTION_ORDER);
+        log.info("fee calculated, merchantFee={}, agent1Fee={}, agent2Fee={}, agent3Fee={}",
+                transactionInfo.getMerchantFee(),
+                transactionInfo.getAgent1Fee(),
+                transactionInfo.getAgent2Fee(),
+                transactionInfo.getAgent3Fee());
+
+        // 5. create system transaction no
         String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.COLLECTION_PREFIX);
         log.info("generator system transactionNo :{}", systemTransactionNo);
         transactionInfo.setTransactionNo(systemTransactionNo);
@@ -250,26 +264,9 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         if (merchantInfo == null) {
             throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
         }
-        TransactionInfo transactionInfo = new TransactionInfo();
-        transactionInfo.setMerchantInfo(merchantInfo);
-        transactionInfo.setAmount(resolveOrderAmount(
-                collectionOrderDto.getActualAmount(), collectionOrderDto.getAmount()));
-        channelPaymentService.calculateTransactionFees(transactionInfo, OrderType.COLLECTION_ORDER);
 
         CollectionOrderDto update = new CollectionOrderDto();
         update.setTransactionNo(collectionOrderDto.getTransactionNo());
-        update.setMerchantRate(transactionInfo.getMerchantRate());
-        update.setMerchantFixedFee(transactionInfo.getMerchantFixedFee());
-        update.setMerchantFee(transactionInfo.getMerchantFee());
-        update.setAgent1Rate(transactionInfo.getAgent1Rate());
-        update.setAgent1FixedFee(transactionInfo.getAgent1FixedFee());
-        update.setAgent1Fee(transactionInfo.getAgent1Fee());
-        update.setAgent2Rate(transactionInfo.getAgent2Rate());
-        update.setAgent2FixedFee(transactionInfo.getAgent2FixedFee());
-        update.setAgent2Fee(transactionInfo.getAgent2Fee());
-        update.setAgent3Rate(transactionInfo.getAgent3Rate());
-        update.setAgent3FixedFee(transactionInfo.getAgent3FixedFee());
-        update.setAgent3Fee(transactionInfo.getAgent3Fee());
         update.setOrderStatus(targetStatus.getCode().toString());
         update.setOperateType("SYSTEM");
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
@@ -295,7 +292,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             if (TransactionStatus.SUCCESS.equals(targetStatus)) {
                 BigDecimal creditAmount = CommonUtil.safeSubtract(
                         resolveOrderAmount(collectionOrderDto.getActualAmount(), collectionOrderDto.getAmount()),
-                        transactionInfo.getMerchantFee());
+                        collectionOrderDto.getMerchantFee());
                 CommonUtil.withBalanceLogContext("collection.handleNotify", collectionOrderDto.getTransactionNo(), () -> {
                     balanceService.creditBalance(
                             collectionOrderDto.getMerchantUserId(),
@@ -303,9 +300,9 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                             creditAmount);
                 });
                 updateAgentFeeBalance(balanceService, merchantInfo, collectionOrderDto.getCurrencyType(),
-                        transactionInfo.getAgent1Fee(),
-                        transactionInfo.getAgent2Fee(),
-                        transactionInfo.getAgent3Fee());
+                        collectionOrderDto.getAgent1Fee(),
+                        collectionOrderDto.getAgent2Fee(),
+                        collectionOrderDto.getAgent3Fee());
             }
         });
     }
@@ -363,10 +360,11 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 .obj(request::getMerchantOrderNo, dto::setMerchantOrderNo) // merchant order no
                 .obj(request::getAmount, dto::setAmount) // requested amount
                 .obj(request::getCurrency, dto::setCurrencyType); // currency code
+        BigDecimal actualAmount = transactionInfo.getActualAmount();
+        builder.obj(() -> actualAmount, dto::setActualAmount); // actual amount
         if (merchantInfo.getIsFloat() == 1) {
-            BigDecimal floatingAmount = generateFloatAmount(merchantInfo.getFloatRange());
-            builder.obj(() -> floatingAmount, dto::setFloatingAmount) // floating amount
-                    .obj(() -> CommonUtil.safeSubtract(request.getAmount(), floatingAmount), dto::setActualAmount); // floating amount
+            BigDecimal floatingAmount = CommonUtil.safeSubtract(request.getAmount(), actualAmount);
+            builder.obj(() -> floatingAmount, dto::setFloatingAmount); // floating amount
         }
 
         // -----------------------------
@@ -416,7 +414,6 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 .obj(() -> now, dto::setUpdateTime); // update time
 
         // Unassigned fields:
-        // actualAmount
         // callbackToken
         // lastCallbackTime
         // callbackStatus

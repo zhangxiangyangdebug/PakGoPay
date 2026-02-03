@@ -1198,7 +1198,7 @@ public class ReportTask {
          */
         private OpsOrderDailyDto fillOpsDailyDto(OpsRecord record) {
             OpsOrderDailyDto dto = new OpsOrderDailyDto();
-            dto.setReportDate(record.reportDate);
+            dto.setReportDate(resolvePeriodStart(OpsPeriod.DAILY, record.currency));
             dto.setOrderType(record.orderType);
             dto.setCurrency(record.currency);
             dto.setScopeType(record.scopeType);

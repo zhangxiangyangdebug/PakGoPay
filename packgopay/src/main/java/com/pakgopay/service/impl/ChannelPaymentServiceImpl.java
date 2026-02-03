@@ -177,7 +177,9 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     // =====================
     @Override
     public void calculateTransactionFees(TransactionInfo transactionInfo, OrderType orderType) {
-        BigDecimal amount = transactionInfo.getAmount();
+        BigDecimal amount = transactionInfo.getActualAmount() != null
+                ? transactionInfo.getActualAmount()
+                : transactionInfo.getAmount();
         // merchant fee
         BigDecimal fixedFee = null;
         BigDecimal rate = null;
@@ -190,20 +192,31 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             rate = transactionInfo.getMerchantInfo().getCollectionRate();
         }
 
-        BigDecimal transactionFee = BigDecimal.ZERO;
-        // fixed fee
-        if (fixedFee != null && !fixedFee.equals(BigDecimal.ZERO)) {
-            transactionFee = CommonUtil.safeAdd(transactionFee, fixedFee);
-        }
-
-        // percentage rate
-        if (rate != null && !rate.equals(BigDecimal.ZERO)) {
-            transactionFee = CommonUtil.safeAdd(transactionFee, CommonUtil.calculate(amount, rate, 6));
-        }
-
         calculateAgentFees(transactionInfo, orderType);
 
-        transactionInfo.setMerchantFee(transactionFee);
+        CommonUtil.FeeCalcInput feeInput = new CommonUtil.FeeCalcInput();
+        feeInput.amount = amount;
+        feeInput.merchantRate = rate;
+        feeInput.merchantFixed = fixedFee;
+        feeInput.agent1Rate = transactionInfo.getAgent1Rate();
+        feeInput.agent1Fixed = transactionInfo.getAgent1FixedFee();
+        feeInput.agent2Rate = transactionInfo.getAgent2Rate();
+        feeInput.agent2Fixed = transactionInfo.getAgent2FixedFee();
+        feeInput.agent3Rate = transactionInfo.getAgent3Rate();
+        feeInput.agent3Fixed = transactionInfo.getAgent3FixedFee();
+
+        CommonUtil.FeeProfitResult feeProfit = CommonUtil.calculateTierProfits(feeInput);
+
+        BigDecimal merchantFee = CommonUtil.defaultBigDecimal(feeProfit.merchantFee);
+        if (amount != null && amount.compareTo(merchantFee) <= 0) {
+            log.error("amount not support merchant fee, actualAmount={}, merchantFee={}", amount, merchantFee);
+            throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "amount not support merchant fee");
+        }
+
+        transactionInfo.setMerchantFee(merchantFee);
+        transactionInfo.setAgent1Fee(feeProfit.agent1Profit);
+        transactionInfo.setAgent2Fee(feeProfit.agent2Profit);
+        transactionInfo.setAgent3Fee(feeProfit.agent3Profit);
         transactionInfo.setMerchantRate(rate);
         transactionInfo.setMerchantFixedFee(fixedFee);
     }
@@ -266,33 +279,26 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      * @param chains          agent info list
      */
     private void applyAgentFeesToTransaction(TransactionInfo transactionInfo, OrderType orderType, List<AgentInfoDto> chains) {
-        BigDecimal amount = transactionInfo.getAmount();
         chains.forEach(info -> {
 
             BigDecimal rate = OrderType.PAY_OUT_ORDER.equals(
                     orderType) ? info.getPayRate() : info.getCollectionRate();
             BigDecimal fixedFee = OrderType.PAY_OUT_ORDER.equals(
                     orderType) ? info.getPayFixedFee() : info.getCollectionFixedFee();
-            BigDecimal agentFee = CommonUtil.calculate(
-                    amount, OrderType.PAY_OUT_ORDER.equals(
-                            orderType) ? info.getPayRate() : info.getCollectionRate(), 6);
             // First level agent
             if (CommonConstant.AGENT_LEVEL_FIRST.equals(info.getLevel())) {
                 transactionInfo.setAgent1Rate(rate);
                 transactionInfo.setAgent1FixedFee(fixedFee);
-                transactionInfo.setAgent1Fee(agentFee);
             }
             // Second level agent
             if (CommonConstant.AGENT_LEVEL_SECOND.equals(info.getLevel())) {
                 transactionInfo.setAgent2Rate(rate);
                 transactionInfo.setAgent2FixedFee(fixedFee);
-                transactionInfo.setAgent2Fee(agentFee);
             }
             // Third level agent
             if (CommonConstant.AGENT_LEVEL_THIRD.equals(info.getLevel())) {
                 transactionInfo.setAgent3Rate(rate);
                 transactionInfo.setAgent3FixedFee(fixedFee);
-                transactionInfo.setAgent3Fee(agentFee);
             }
         });
     }
