@@ -13,7 +13,7 @@ public class OpsOrderDailyDto implements Serializable {
     /** Primary key. */
     private Long id;
 
-    /** Report date (yyyy-MM-dd). */
+    /** Report date epoch seconds. */
     private Long reportDate;
 
     /** Order type (0=collection,1=payout). */

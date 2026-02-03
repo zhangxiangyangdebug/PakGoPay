@@ -7,9 +7,9 @@ import lombok.Data;
 @Data
 public class OpsReportRequest {
 
-    /** Record date base (day: yyyy-MM-dd, month: yyyy-MM, year: yyyy). */
-    @NotBlank(message = "recordDate is empty")
-    private String recordDate;
+    /** Record date epoch seconds. */
+    @NotNull(message = "recordDate is null")
+    private Long recordDate;
 
     /** Currency code. */
     @NotBlank(message = "currency is empty")

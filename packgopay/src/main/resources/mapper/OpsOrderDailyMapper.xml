@@ -87,7 +87,7 @@
             <if test="scopeId != null and scopeId != ''">
                 AND scope_id = #{scopeId}
             </if>
-            <if test="recordDate != null and recordDate != ''">
+            <if test="recordDate != null">
                 AND report_date &lt;= #{recordDate}
             </if>
         </where>
@@ -115,13 +115,13 @@
             #{item.updateTime}
             )
         </foreach>
-        ON DUPLICATE KEY UPDATE
-        order_quantity = VALUES(order_quantity),
-        success_quantity = VALUES(success_quantity),
-        fail_quantity = VALUES(fail_quantity),
-        success_rate = VALUES(success_rate),
-        agent_commission = VALUES(agent_commission),
-        update_time = VALUES(update_time)
+        ON CONFLICT (report_date, order_type, currency, scope_type, scope_id) DO UPDATE SET
+        order_quantity = EXCLUDED.order_quantity,
+        success_quantity = EXCLUDED.success_quantity,
+        fail_quantity = EXCLUDED.fail_quantity,
+        success_rate = EXCLUDED.success_rate,
+        agent_commission = EXCLUDED.agent_commission,
+        update_time = EXCLUDED.update_time
     </insert>
 
 </mapper>

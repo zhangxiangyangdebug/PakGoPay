@@ -68,7 +68,7 @@
         support_type,
         order_quantity,
         success_quantity,
-        isThird,
+        "isThird",
         payment_no,
         payment_pay_rate,
         payment_collection_rate,
@@ -178,7 +178,7 @@
             <if test="supportType != null">support_type = #{supportType},</if>
             <if test="orderQuantity != null">order_quantity = #{orderQuantity},</if>
             <if test="successQuantity != null">success_quantity = #{successQuantity},</if>
-            <if test="isThird != null">isThird = #{isThird},</if>
+            <if test="isThird != null">"isThird" = #{isThird},</if>
             <if test="paymentNo != null">payment_no = #{paymentNo},</if>
             <if test="paymentPayRate != null">payment_pay_rate = #{paymentPayRate},</if>
             <if test="paymentCollectionRate != null">payment_collection_rate = #{paymentCollectionRate},</if>
