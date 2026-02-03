@@ -5,8 +5,8 @@ import lombok.Data;
 @Data
 public class OpsReportQueryEntity {
 
-    /** Record date base (day: yyyy-MM-dd, month: yyyy-MM, year: yyyy). */
-    private String recordDate;
+    /** Record date epoch seconds. */
+    private Long recordDate;
 
     /** Currency code. */
     private String currency;

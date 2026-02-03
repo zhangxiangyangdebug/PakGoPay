@@ -17,7 +17,24 @@
         <result column="name_en" property="nameEn" javaType="java.lang.String"/>
     </resultMap>
     <select id="queryMenuItem" resultMap="menuItemMap">
-        SELECT * FROM menus where 1=1
+        SELECT
+            menu_id,
+            menu_level,
+            parent_id,
+            name,
+            icon,
+            path,
+            role_map,
+            component,
+            CASE
+                WHEN NULLIF("showItem"::text, '') IS NULL THEN FALSE
+                WHEN lower("showItem"::text) IN ('1', 't', 'true', 'yes', 'y') THEN TRUE
+                WHEN lower("showItem"::text) IN ('0', 'f', 'false', 'no', 'n') THEN FALSE
+                ELSE FALSE
+            END AS "showItem",
+            extra,
+            name_en
+        FROM menus where 1=1
            <if test="menuIds != null and menuIds.size > 0">
                <foreach collection="menuIds"
                         item="data"

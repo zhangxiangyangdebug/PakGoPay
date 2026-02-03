@@ -87,8 +87,8 @@
             <if test="scopeId != null and scopeId != ''">
                 AND scope_id = #{scopeId}
             </if>
-            <if test="recordDate != null and recordDate != ''">
-                AND report_year &lt;= #{recordDate}
+            <if test="recordDate != null">
+                AND report_year &lt;= to_char(to_timestamp(#{recordDate}), 'YYYY')
             </if>
         </where>
         ORDER BY report_year DESC
@@ -115,13 +115,13 @@
             #{item.updateTime}
             )
         </foreach>
-        ON DUPLICATE KEY UPDATE
-        order_quantity = VALUES(order_quantity),
-        success_quantity = VALUES(success_quantity),
-        fail_quantity = VALUES(fail_quantity),
-        success_rate = VALUES(success_rate),
-        agent_commission = VALUES(agent_commission),
-        updated_time = VALUES(updated_time)
+        ON CONFLICT (report_year, order_type, currency, scope_type, scope_id) DO UPDATE SET
+        order_quantity = EXCLUDED.order_quantity,
+        success_quantity = EXCLUDED.success_quantity,
+        fail_quantity = EXCLUDED.fail_quantity,
+        success_rate = EXCLUDED.success_rate,
+        agent_commission = EXCLUDED.agent_commission,
+        updated_time = EXCLUDED.updated_time
     </insert>
 
 </mapper>

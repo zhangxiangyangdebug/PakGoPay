@@ -11,10 +11,20 @@ spring:
     port: 6379
     password: zf@qwe.123
   datasource:
-    url: 8.148.79.164
-    username: root
+    type: com.zaxxer.hikari.HikariDataSource
+    url: jdbc:postgresql://8.148.79.164:5432/test
+    username: postgres
     password: zf.qwe.123
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-test-query: SELECT 1
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 1000
+      idle-timeout: 60000
+      max-lifetime: 30000
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
 server:
   address: localhost
   port: 8090

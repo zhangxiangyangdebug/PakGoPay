@@ -63,10 +63,10 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
-            <!-- MySQL驱动 -->
+            <!-- PostgreSQL驱动 -->
             <dependency>
-                <groupId>com.mysql</groupId>
-                <artifactId>mysql-connector-j</artifactId>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
                 <scope>runtime</scope>
             </dependency>
             <!-- Spring Boot Starter JDBC -->
@@ -162,13 +162,6 @@
             <groupId>com.auth0</groupId>
             <artifactId>java-jwt</artifactId>
             <version>4.4.0</version>
-        </dependency>
-        <!-- 数据库驱动，例如 MySQL -->
-        <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.8-dmr</version>
-            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.amqp</groupId>

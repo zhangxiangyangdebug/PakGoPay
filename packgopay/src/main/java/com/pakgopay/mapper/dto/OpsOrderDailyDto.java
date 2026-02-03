@@ -4,7 +4,6 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 @Data
 public class OpsOrderDailyDto implements Serializable {
@@ -14,8 +13,8 @@ public class OpsOrderDailyDto implements Serializable {
     /** Primary key. */
     private Long id;
 
-    /** Report date (yyyy-MM-dd). */
-    private LocalDate reportDate;
+    /** Report date epoch seconds. */
+    private Long reportDate;
 
     /** Order type (0=collection,1=payout). */
     private Integer orderType;
