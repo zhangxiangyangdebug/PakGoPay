@@ -14,6 +14,9 @@ public class AgentEditRequest extends BaseRequest {
      */
     private String agentNo;
 
+    /** Parent ID (upper-level ID) */
+    private String parentId;
+
     /**
      * Agent name
      */
