@@ -37,6 +37,9 @@ public class LoginServiceImpl implements LoginService {
     public CommonResponse login(LoginRequest loginRequest, HttpServletRequest request) {
         String ip = (String) request.getAttribute(CommonConstant.ATTR_IP);
         String userAgent = (String) request.getAttribute(CommonConstant.ATTR_USERAGENT);
+        if (ObjectUtils.isEmpty(ip)) {
+            ip = request.getRemoteAddr();
+        }
         String userName = loginRequest.getUserName();
         String password = loginRequest.getPassword();
         String value = redisUtil.getValue(CommonConstant.USER_INFO_KEY_PREFIX + userName);
@@ -77,6 +80,10 @@ public class LoginServiceImpl implements LoginService {
             return CommonResponse.fail(ResultCode.USER_PASSWORD_ERROR);
         }
 
+        if (!isClientIpAllowed(user.getLoginIps(), ip)) {
+            return CommonResponse.fail(ResultCode.USER_LOGIN_FAIL);
+        }
+
 
         // 用户未设置谷歌令牌 限制登陆3次，3次后更改状态为禁用
         //UserDTO secretKeyInfo = userMapper.getSecretKey(user.getUserId(), user.getPassword());
@@ -112,6 +119,19 @@ public class LoginServiceImpl implements LoginService {
             }
         }
         return new CommonResponse(ResultCode.CODE_IS_EXPIRE);
+    }
+
+    private boolean isClientIpAllowed(String whitelist, String clientIp) {
+        if (ObjectUtils.isEmpty(clientIp) || ObjectUtils.isEmpty(whitelist)) {
+            return false;
+        }
+        String[] parts = whitelist.split(",");
+        for (String part : parts) {
+            if (clientIp.equals(part.trim())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private CommonResponse loginSuccess(UserDTO user, String userName, String ip, String userAgent) {

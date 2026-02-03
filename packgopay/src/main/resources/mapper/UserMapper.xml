@@ -113,7 +113,7 @@
         </if>
     </select>
     <select id="getOneUser" resultMap="userResultMap">
-        SELECT m.user_id, m.login_name, m.login_secret, m.status, n.role_name, m.password from user_info m left join role n on m.role_id = n.role_id where login_name = #{userName}
+        SELECT m.user_id, m.login_name, m.login_secret, m.status, n.role_name, m.password, m.login_ips from user_info m left join role n on m.role_id = n.role_id where login_name = #{userName}
     </select>
 
     <select id="getSecretKey" resultMap="userResultMap">
