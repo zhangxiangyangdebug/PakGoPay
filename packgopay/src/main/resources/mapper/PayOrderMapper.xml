@@ -378,7 +378,7 @@
             </if>
         </where>
         ORDER BY create_time DESC
-        LIMIT #{q.offset}, #{q.pageSize}
+        LIMIT #{q.pageSize} OFFSET #{q.offset}
     </select>
 
 </mapper>

@@ -212,7 +212,7 @@
         FROM account_statements
         <include refid="StatementQueryWhere"/>
         ORDER BY create_time DESC
-        LIMIT #{offset}, #{pageSize}
+        LIMIT #{pageSize} OFFSET #{offset}
     </select>
 
 </mapper>
