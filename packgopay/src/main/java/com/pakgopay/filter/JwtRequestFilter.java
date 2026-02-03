@@ -1,7 +1,11 @@
 package com.pakgopay.filter;
 
+import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.enums.ResultCode;
+import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.common.AuthorizationService;
+import com.pakgopay.service.common.AuthorizationService.TokenClaims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -46,14 +51,19 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             if (token == null && request.getRequestURI().contains("/pakGoPay/server/notify")) {
                 filterChain.doFilter(request, response);
             } else if (token != null && AuthorizationService.verifyToken(token) != null) {
-                String userInfo = AuthorizationService.verifyToken(token);
-                if (userInfo != null) {
-                    String userId = userInfo.split("&")[0];
-                    request.setAttribute(CommonConstant.ATTR_USER_ID, userId);
-                    String userName = userInfo.split("&")[1];
-                    request.setAttribute(CommonConstant.ATTR_USER_NAME, userName);
+                TokenClaims claims = AuthorizationService.verifyTokenClaims(token);
+                if (claims == null || !StringUtils.hasText(claims.account)) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+                    return;
                 }
-                // 设置用户认证状态
+                if (!matchClientInfo(request, claims)) {
+                    writeError(response, ResultCode.CLIENT_INFO_MISMATCH);
+                    return;
+                }
+                String userId = claims.account;
+                request.setAttribute(CommonConstant.ATTR_USER_ID, userId);
+                String userName = claims.userName;
+                request.setAttribute(CommonConstant.ATTR_USER_NAME, userName);
                 filterChain.doFilter(request, response);
             } else if (request.getRequestURI().contains("login")
                     || request.getRequestURI().contains("getCode")
@@ -85,5 +95,36 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 //            log.error("认证过程异常");
         }
 
+    }
+
+    private boolean matchClientInfo(HttpServletRequest request, TokenClaims claims) {
+        String requestIp = resolveClientIp(request);
+        String requestUa = request.getHeader("User-Agent");
+        if (!StringUtils.hasText(claims.clientIp) || !StringUtils.hasText(claims.userAgent)) {
+            return false;
+        }
+        if (!StringUtils.hasText(requestIp) || !StringUtils.hasText(requestUa)) {
+            return false;
+        }
+        return claims.clientIp.equals(requestIp) && claims.userAgent.equals(requestUa);
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (StringUtils.hasText(ip) && !"unknown".equalsIgnoreCase(ip)) {
+            return ip.split(",")[0].trim();
+        }
+        ip = request.getHeader("X-Real-IP");
+        if (StringUtils.hasText(ip) && !"unknown".equalsIgnoreCase(ip)) {
+            return ip.trim();
+        }
+        return request.getRemoteAddr();
+    }
+
+    private void writeError(HttpServletResponse response, ResultCode code) throws IOException {
+        response.setStatus(HttpServletResponse.SC_OK);
+        response.setContentType("application/json;charset=UTF-8");
+        CommonResponse<Void> body = CommonResponse.fail(code, code.getMessage());
+        response.getWriter().write(JSON.toJSONString(body));
     }
 }

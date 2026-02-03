@@ -38,7 +38,7 @@ public class AuthorizationService {
         return createIdToken(userId, userName, ip, userAgent, refreshTokenExpirationTime);
     }
 
-    public String createIdToken(String account, String userName, String ip, String userAagent, long expireTime){
+    public String createIdToken(String account, String userName, String ip, String userAgent, long expireTime){
 
         try {
             JwtClaims jwtClaims = new JwtClaims();
@@ -54,7 +54,7 @@ public class AuthorizationService {
             jwtClaims.setClaim("userName", userName);
             jwtClaims.setAudience("PakGoPay");
             jwtClaims.setClaim("clientIp", ip);
-            jwtClaims.setClaim("userAagent", userAagent);
+            jwtClaims.setClaim("userAgent", userAgent);
             //jwtClaims.setIssuer(String.valueOf(account)); //token和用户强绑定
 
             JsonWebSignature jws = new JsonWebSignature();
@@ -88,15 +88,47 @@ public class AuthorizationService {
             if (claims != null) {
                 String account = (String) claims.getClaimValue("account");
                 String userName = (String) claims.getClaimValue("userName");
-                String requestIp = (String) claims.getClaimValue("requestIp");
-                String userAagent = (String) claims.getClaimValue("userAagent");
+                String requestIp = (String) claims.getClaimValue("clientIp");
+                String userAgent = (String) claims.getClaimValue("userAgent");
                 System.out.println("认证通过， token payload携带的自定义内容：用户账号account=" + account);
-                return account+"&"+userName+"&"+requestIp;
+                return account+"&"+userName+"&"+requestIp+"&"+userAgent;
             }
         } catch (JoseException | InvalidJwtException e) {
             logger.error("verify token failed: {}", e.getMessage());
         }
         return null;
+    }
+
+    public static TokenClaims verifyTokenClaims(String token){
+        try {
+            JwtConsumer consumer = new JwtConsumerBuilder()
+                    .setRequireExpirationTime()
+                    .setMaxFutureValidityInMinutes(525600)
+                    .setAllowedClockSkewInSeconds(30)
+                    .setRequireSubject()
+                    .setExpectedAudience("PakGoPay")
+                    .setVerificationKey(new RsaJsonWebKey(JsonUtil.parseJson(publicKeyStr)).getPublicKey())
+                    .build();
+            JwtClaims claims = consumer.processToClaims(token);
+            if (claims != null) {
+                TokenClaims result = new TokenClaims();
+                result.account = (String) claims.getClaimValue("account");
+                result.userName = (String) claims.getClaimValue("userName");
+                result.clientIp = (String) claims.getClaimValue("clientIp");
+                result.userAgent = (String) claims.getClaimValue("userAgent");
+                return result;
+            }
+        } catch (JoseException | InvalidJwtException e) {
+            logger.error("verify token failed: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    public static class TokenClaims {
+        public String account;
+        public String userName;
+        public String clientIp;
+        public String userAgent;
     }
 
     // 生成公钥 私钥

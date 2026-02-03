@@ -35,8 +35,8 @@ public class LoginServiceImpl implements LoginService {
 
     @Override
     public CommonResponse login(LoginRequest loginRequest, HttpServletRequest request) {
-        String ip = request.getParameter(CommonConstant.ATTR_IP);
-        String userAgent = request.getParameter(CommonConstant.ATTR_USERAGENT);
+        String ip = (String) request.getAttribute(CommonConstant.ATTR_IP);
+        String userAgent = (String) request.getAttribute(CommonConstant.ATTR_USERAGENT);
         String userName = loginRequest.getUserName();
         String password = loginRequest.getPassword();
         String value = redisUtil.getValue(CommonConstant.USER_INFO_KEY_PREFIX + userName);
