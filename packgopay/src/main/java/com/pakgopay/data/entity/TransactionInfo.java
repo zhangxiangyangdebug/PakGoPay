@@ -111,6 +111,11 @@ public class TransactionInfo {
     private BigDecimal amount;
 
     /**
+     * Actual amount used for fee calculation
+     */
+    private BigDecimal actualAmount;
+
+    /**
      * Currency code (e.g. VND, PKR, IDR, USD, CNY)
      */
     private String currency;

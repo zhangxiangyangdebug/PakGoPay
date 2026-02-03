@@ -101,6 +101,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             transactionInfo.setTransactionNo(systemTransactionNo);
 
             // 5. calculate transaction fee
+            transactionInfo.setActualAmount(payOrderRequest.getAmount());
             channelPaymentService.calculateTransactionFees(transactionInfo, OrderType.PAY_OUT_ORDER);
             log.info("fee calculated, merchantFee={}, agent1Fee={}, agent2Fee={}, agent3Fee={}",
                     transactionInfo.getMerchantFee(),

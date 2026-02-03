@@ -1198,11 +1198,7 @@ public class ReportTask {
          */
         private OpsOrderDailyDto fillOpsDailyDto(OpsRecord record) {
             OpsOrderDailyDto dto = new OpsOrderDailyDto();
-            if (record != null && record.reportDate != null) {
-                ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(record.currency);
-                long epochSeconds = record.reportDate.atStartOfDay(zoneId).toEpochSecond();
-                dto.setReportDate(epochSeconds);
-            }
+            dto.setReportDate(resolvePeriodStart(OpsPeriod.DAILY, record.currency));
             dto.setOrderType(record.orderType);
             dto.setCurrency(record.currency);
             dto.setScopeType(record.scopeType);
