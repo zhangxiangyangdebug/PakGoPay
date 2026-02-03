@@ -207,6 +207,7 @@ public class AgentServiceImpl implements AgentService {
 
     @Override
     public CommonResponse updateAgent(AgentEditRequest agentEditRequest) throws PakGoPayException {
+        validateAgentFeeAboveParent(agentEditRequest.getParentId(), agentEditRequest);
         AgentInfoDto agentInfoDto = buildAgentUpdateDto(agentEditRequest);
         try {
             int ret = agentInfoMapper.updateByAgentNo(agentInfoDto);

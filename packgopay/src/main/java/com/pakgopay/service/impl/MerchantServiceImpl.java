@@ -270,6 +270,7 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     public CommonResponse updateMerchant(MerchantEditRequest merchantEditRequest) {
+        validateMerchantFeeAboveAgent(merchantEditRequest.getParentId(), merchantEditRequest);
         MerchantInfoDto merchantInfoDto = checkAndGenerateMerchantInfo(merchantEditRequest);
         try {
             int ret = merchantInfoMapper.updateByUserId(merchantInfoDto);
