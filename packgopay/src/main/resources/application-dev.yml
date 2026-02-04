@@ -7,17 +7,17 @@ spring:
     host: 8.148.79.164
     port: 5672
     username: zf
-    password: zf@qwe.123
+    password: "ENC(LZ1Qu4FShlsHvVLzs/xYiUh1hUbdKBYu5wk9tMIEKffl9PN5hW1cB34KO44ayEAP)"
   data:
     redis:
       host: 8.148.79.164
       port: 6379
-      password: zf@qwe.123
+      password: "ENC(erE+8wtM9HSF+WK5hWQq6dT1vnp2FzwWkb8Xd4OGl7OVGZbqiTjAc2mtMBddHr0M)"
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
     url: jdbc:postgresql://8.148.79.164:5432/test
     username: postgres
-    password: zf.qwe.123
+    password: "ENC(l6y1wvjXUYFFgnYHhl0zi7y5tJTprEwjpQ5uQBl8hfm0uSQHWeSnTlOWINqwYPcU)"
     driver-class-name: org.postgresql.Driver
     hikari:
       connection-test-query: SELECT 1
@@ -28,6 +28,11 @@ spring:
       max-lifetime: 30000
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
+jasypt:
+  encryptor:
+    password: ${JASYPT_ENCRYPTOR_PASSWORD}
+    algorithm: PBEWITHHMACSHA512ANDAES_256
+    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
 server:
   address: 0.0.0.0
   port: 8090
