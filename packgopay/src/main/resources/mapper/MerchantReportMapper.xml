@@ -114,16 +114,16 @@
             #{item.updateTime}
             )
         </foreach>
-        ON DUPLICATE KEY UPDATE
-        merchant_name = VALUES(merchant_name),
-        order_quantity = VALUES(order_quantity),
-        success_quantity = VALUES(success_quantity),
-        merchant_fee = VALUES(merchant_fee),
-        agent1_fee = VALUES(agent1_fee),
-        agent2_fee = VALUES(agent2_fee),
-        agent3_fee = VALUES(agent3_fee),
-        order_profit = VALUES(order_profit),
-        update_time = VALUES(update_time)
+        ON CONFLICT (user_id, record_date, order_type, currency) DO UPDATE SET
+        merchant_name = EXCLUDED.merchant_name,
+        order_quantity = EXCLUDED.order_quantity,
+        success_quantity = EXCLUDED.success_quantity,
+        merchant_fee = EXCLUDED.merchant_fee,
+        agent1_fee = EXCLUDED.agent1_fee,
+        agent2_fee = EXCLUDED.agent2_fee,
+        agent3_fee = EXCLUDED.agent3_fee,
+        order_profit = EXCLUDED.order_profit,
+        update_time = EXCLUDED.update_time
     </insert>
 
     <!-- Common WHERE conditions -->

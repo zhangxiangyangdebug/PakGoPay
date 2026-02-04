@@ -100,13 +100,13 @@
             #{item.remark}
             )
         </foreach>
-        ON DUPLICATE KEY UPDATE
-        agent_name = VALUES(agent_name),
-        order_quantity = VALUES(order_quantity),
-        success_quantity = VALUES(success_quantity),
-        commission = VALUES(commission),
-        remark = VALUES(remark),
-        update_time = VALUES(update_time)
+        ON CONFLICT (user_id, record_date, order_type, currency) DO UPDATE SET
+        agent_name = EXCLUDED.agent_name,
+        order_quantity = EXCLUDED.order_quantity,
+        success_quantity = EXCLUDED.success_quantity,
+        commission = EXCLUDED.commission,
+        remark = EXCLUDED.remark,
+        update_time = EXCLUDED.update_time
     </insert>
 
     <!-- Common WHERE conditions for AgentReportQuery -->

@@ -97,14 +97,14 @@
             #{item.remark}
             )
         </foreach>
-        ON DUPLICATE KEY UPDATE
-        order_balance = VALUES(order_balance),
-        merchant_fee = VALUES(merchant_fee),
-        order_profit = VALUES(order_profit),
-        order_quantity = VALUES(order_quantity),
-        success_quantity = VALUES(success_quantity),
-        remark = VALUES(remark),
-        update_time = VALUES(update_time)
+        ON CONFLICT (currency, record_date, order_type) DO UPDATE SET
+        order_balance = EXCLUDED.order_balance,
+        merchant_fee = EXCLUDED.merchant_fee,
+        order_profit = EXCLUDED.order_profit,
+        order_quantity = EXCLUDED.order_quantity,
+        success_quantity = EXCLUDED.success_quantity,
+        remark = EXCLUDED.remark,
+        update_time = EXCLUDED.update_time
     </insert>
 
     <!-- Common WHERE conditions for BaseReportEntity -->

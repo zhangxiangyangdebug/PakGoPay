@@ -105,14 +105,14 @@
             #{item.updateTime}
             )
         </foreach>
-        ON DUPLICATE KEY UPDATE
-        payment_name = VALUES(payment_name),
-        order_quantity = VALUES(order_quantity),
-        success_quantity = VALUES(success_quantity),
-        merchant_fee = VALUES(merchant_fee),
-        order_balance = VALUES(order_balance),
-        order_profit = VALUES(order_profit),
-        update_time = VALUES(update_time)
+        ON CONFLICT (payment_id, record_date, order_type, currency) DO UPDATE SET
+        payment_name = EXCLUDED.payment_name,
+        order_quantity = EXCLUDED.order_quantity,
+        success_quantity = EXCLUDED.success_quantity,
+        merchant_fee = EXCLUDED.merchant_fee,
+        order_balance = EXCLUDED.order_balance,
+        order_profit = EXCLUDED.order_profit,
+        update_time = EXCLUDED.update_time
     </insert>
 
     <!-- Common WHERE conditions for PaymentReportEntity -->

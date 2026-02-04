@@ -88,11 +88,13 @@
                 AND scope_id = #{scopeId}
             </if>
             <if test="recordDate != null">
-                AND report_date &lt;= #{recordDate}
+                AND (to_timestamp(report_date) AT TIME ZONE 'UTC')::date BETWEEN
+                (to_timestamp(#{recordDate}) AT TIME ZONE 'UTC')::date - 4
+                AND (to_timestamp(#{recordDate}) AT TIME ZONE 'UTC')::date
             </if>
         </where>
         ORDER BY report_date DESC
-        LIMIT 5
+        LIMIT 10
     </select>
 
     <insert id="batchUpsert" parameterType="java.util.List">

@@ -111,15 +111,15 @@
             #{item.updateTime}
             )
         </foreach>
-        ON DUPLICATE KEY UPDATE
-        channel_name = VALUES(channel_name),
-        remark = VALUES(remark),
-        order_quantity = VALUES(order_quantity),
-        success_quantity = VALUES(success_quantity),
-        order_balance = VALUES(order_balance),
-        merchant_fee = VALUES(merchant_fee),
-        order_profit = VALUES(order_profit),
-        update_time = VALUES(update_time)
+        ON CONFLICT (channel_id, record_date, order_type, currency) DO UPDATE SET
+        channel_name = EXCLUDED.channel_name,
+        remark = EXCLUDED.remark,
+        order_quantity = EXCLUDED.order_quantity,
+        success_quantity = EXCLUDED.success_quantity,
+        order_balance = EXCLUDED.order_balance,
+        merchant_fee = EXCLUDED.merchant_fee,
+        order_profit = EXCLUDED.order_profit,
+        update_time = EXCLUDED.update_time
     </insert>
 
     <!-- Common WHERE conditions for ChannelReportEntity -->
