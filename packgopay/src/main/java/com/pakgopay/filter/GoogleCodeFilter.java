@@ -15,11 +15,15 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.util.ContentCachingRequestWrapper;
-
 import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import jakarta.servlet.ReadListener;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 
 @Component
 public class GoogleCodeFilter extends OncePerRequestFilter {
@@ -44,9 +48,7 @@ public class GoogleCodeFilter extends OncePerRequestFilter {
             return;
         }
 
-        ContentCachingRequestWrapper wrapper = request instanceof ContentCachingRequestWrapper
-                ? (ContentCachingRequestWrapper) request
-                : new ContentCachingRequestWrapper(request);
+        CachedBodyHttpServletRequest wrapper = new CachedBodyHttpServletRequest(request);
 
         Long googleCode = resolveGoogleCode(wrapper);
         if (googleCode == null) {
@@ -81,7 +83,7 @@ public class GoogleCodeFilter extends OncePerRequestFilter {
         filterChain.doFilter(wrapper, response);
     }
 
-    private Long resolveGoogleCode(ContentCachingRequestWrapper request) throws IOException {
+    private Long resolveGoogleCode(CachedBodyHttpServletRequest request) throws IOException {
         String param = request.getParameter("googleCode");
         if (StringUtils.hasText(param)) {
             return parseLong(param);
@@ -104,11 +106,8 @@ public class GoogleCodeFilter extends OncePerRequestFilter {
         }
     }
 
-    private String readBody(ContentCachingRequestWrapper request) throws IOException {
-        byte[] buf = request.getContentAsByteArray();
-        if (buf.length == 0) {
-            buf = request.getInputStream().readAllBytes();
-        }
+    private String readBody(CachedBodyHttpServletRequest request) {
+        byte[] buf = request.getCachedBody();
         return buf.length == 0 ? "" : new String(buf, StandardCharsets.UTF_8);
     }
 
@@ -135,4 +134,46 @@ public class GoogleCodeFilter extends OncePerRequestFilter {
         response.getWriter().write(JSON.toJSONString(body));
     }
 
+    private static class CachedBodyHttpServletRequest extends HttpServletRequestWrapper {
+        private final byte[] cachedBody;
+
+        CachedBodyHttpServletRequest(HttpServletRequest request) throws IOException {
+            super(request);
+            this.cachedBody = request.getInputStream().readAllBytes();
+        }
+
+        byte[] getCachedBody() {
+            return cachedBody;
+        }
+
+        @Override
+        public ServletInputStream getInputStream() {
+            final ByteArrayInputStream buffer = new ByteArrayInputStream(cachedBody);
+            return new ServletInputStream() {
+                @Override
+                public int read() {
+                    return buffer.read();
+                }
+
+                @Override
+                public boolean isFinished() {
+                    return buffer.available() == 0;
+                }
+
+                @Override
+                public boolean isReady() {
+                    return true;
+                }
+
+                @Override
+                public void setReadListener(ReadListener listener) {
+                }
+            };
+        }
+
+        @Override
+        public BufferedReader getReader() {
+            return new BufferedReader(new InputStreamReader(getInputStream(), StandardCharsets.UTF_8));
+        }
+    }
 }
