@@ -13,6 +13,7 @@ import com.pakgopay.data.response.CollectionOrderPageResponse;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
+import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.MerchantService;
@@ -114,7 +115,10 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 collectionOrderDto.getPaymentId(),
                 collectionOrderDto.getChannelId(),
                 collectionOrderDto.getCollectionMode());
-        Object handlerResponse = dispatchCollectionOrder(collectionOrderDto, colOrderRequest.getChannelParams());
+        Object handlerResponse = dispatchCollectionOrder(
+                collectionOrderDto,
+                transactionInfo.getPaymentInfo(),
+                colOrderRequest.getChannelParams());
         log.info("collection handler dispatched, transactionNo={}, responseType={}",
                 collectionOrderDto.getTransactionNo(),
                 handlerResponse == null ? null : handlerResponse.getClass().getSimpleName());
@@ -429,12 +433,13 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         return BigDecimal.valueOf(value);
     }
 
-    private Object dispatchCollectionOrder(CollectionOrderDto dto, Object channelParams) {
+    private Object dispatchCollectionOrder(CollectionOrderDto dto, PaymentDto paymentInfo, Object channelParams) {
         OrderScope scope = Integer.valueOf(1).equals(dto.getCollectionMode())
                 ? OrderScope.THIRD_PARTY
                 : OrderScope.SYSTEM;
+        String channelCode = resolveChannelCode(channelParams);
         OrderHandler handler = OrderHandlerFactory.get(
-                OrderType.COLLECTION_ORDER, scope, dto.getCurrencyType());
+                OrderType.COLLECTION_ORDER, scope, resolveCurrencyKey(dto.getCurrencyType(), channelCode));
         Map<String, Object> payload = new HashMap<>();
         payload.put("transactionNo", dto.getTransactionNo());
         // TODO 需要查看为什么为null
@@ -443,10 +448,31 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         payload.put("merchantOrderNo", dto.getMerchantOrderNo());
         payload.put("merchantUserId", dto.getMerchantUserId());
         payload.put("callbackUrl", dto.getCallbackUrl());
-        // TODO 待处理，确定使用那个通道
-        payload.put("channelCode", "digimone");
+        payload.put("ip", dto.getRequestIp());
+        payload.put("paymentRequestCollectionUrl",
+                paymentInfo == null ? null : paymentInfo.getPaymentRequestCollectionUrl());
+        payload.put("collectionInterfaceParam",
+                paymentInfo == null ? null : paymentInfo.getCollectionInterfaceParam());
+        payload.put("channelCode", channelCode);
         payload.put("channelParams", channelParams);
         return handler.handle(payload);
+    }
+
+    private String resolveChannelCode(Object channelParams) {
+        if (channelParams instanceof Map<?, ?> params) {
+            Object value = params.get("channelCode");
+            if (value != null) {
+                return String.valueOf(value);
+            }
+        }
+        return "digimone";
+    }
+
+    private String resolveCurrencyKey(String currency, String channelCode) {
+        if ("alipay".equalsIgnoreCase(channelCode)) {
+            return "ALIPAY";
+        }
+        return currency;
     }
 
     private Map<String, Object> buildCollectionResponse(CollectionOrderDto dto, Object handlerResponse) {

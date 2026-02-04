@@ -3,6 +3,7 @@ package com.pakgopay.service.transaction;
 import com.pakgopay.common.enums.OrderScope;
 import com.pakgopay.common.enums.OrderType;
 import com.pakgopay.service.transaction.handler.ColSystemHandler;
+import com.pakgopay.service.transaction.handler.ColThirdPartyAlipayHandler;
 import com.pakgopay.service.transaction.handler.ColThirdPartyBankTransferHandler;
 import com.pakgopay.service.transaction.handler.PaySystemHandler;
 import com.pakgopay.service.transaction.handler.PayThirdPartyBankTransferHandler;
@@ -23,6 +24,12 @@ public class OrderHandlerFactory implements ApplicationContextAware {
                 new String[]{"PKR", "US", "VND"},
                 ColSystemHandler.class,
                 ColThirdPartyBankTransferHandler.class,
+                PaySystemHandler.class,
+                PayThirdPartyBankTransferHandler.class);
+        registerForCurrencies(
+                new String[]{"ALIPAY"},
+                ColSystemHandler.class,
+                ColThirdPartyAlipayHandler.class,
                 PaySystemHandler.class,
                 PayThirdPartyBankTransferHandler.class);
     }
