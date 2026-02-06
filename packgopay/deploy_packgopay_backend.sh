@@ -45,6 +45,13 @@ if [ -z "$SPRING_PROFILES_ACTIVE" ]; then
   exit 1
 fi
 
+read -r -s -p "Enter TURNSTILE_SECRET: " TURNSTILE_SECRET
+printf "\n"
+if [ -z "$TURNSTILE_SECRET" ]; then
+  echo "ERROR: TURNSTILE_SECRET is required" >&2
+  exit 1
+fi
+
 # 1) build package locally (using dockerized Maven)
 docker run --rm \
   -v "$HOME/.m2":/root/.m2 \
@@ -72,7 +79,7 @@ ssh $SSH_OPTS "$REMOTE_SSH" "if [ -n \"\$(docker ps -q -f publish=$CONTAINER_POR
 ssh $SSH_OPTS "$REMOTE_SSH" "if [ -n \"\$(docker ps -q -f name=^/${CONTAINER_NAME}\$)\" ]; then docker stop $CONTAINER_NAME; fi"
 ssh $SSH_OPTS "$REMOTE_SSH" "docker rm -f $CONTAINER_NAME >/dev/null 2>&1 || true"
 ssh $SSH_OPTS "$REMOTE_SSH" "docker network create $NETWORK_NAME >/dev/null 2>&1 || true"
-ssh $SSH_OPTS "$REMOTE_SSH" "docker run -d --name $CONTAINER_NAME --network $NETWORK_NAME -p $CONTAINER_PORT:$CONTAINER_PORT -e JASYPT_ENCRYPTOR_PASSWORD='$JASYPT_ENCRYPTOR_PASSWORD' -e SPRING_PROFILES_ACTIVE='$SPRING_PROFILES_ACTIVE' $IMAGE_NAME"
+ssh $SSH_OPTS "$REMOTE_SSH" "docker run -d --name $CONTAINER_NAME --network $NETWORK_NAME -p $CONTAINER_PORT:$CONTAINER_PORT -e JASYPT_ENCRYPTOR_PASSWORD='$JASYPT_ENCRYPTOR_PASSWORD' -e SPRING_PROFILES_ACTIVE='$SPRING_PROFILES_ACTIVE' -e TURNSTILE_SECRET='$TURNSTILE_SECRET' $IMAGE_NAME"
 NEW_IMAGE_ID="$(ssh $SSH_OPTS "$REMOTE_SSH" "docker image inspect -f '{{.Id}}' $IMAGE_NAME 2>/dev/null || true")"
 if [ -n "$OLD_IMAGE_ID" ] && [ -n "$NEW_IMAGE_ID" ] && [ "$OLD_IMAGE_ID" != "$NEW_IMAGE_ID" ]; then
   ssh $SSH_OPTS "$REMOTE_SSH" "docker image rm -f $OLD_IMAGE_ID >/dev/null 2>&1 || true"

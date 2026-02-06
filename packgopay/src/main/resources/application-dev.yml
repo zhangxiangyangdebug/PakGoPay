@@ -38,3 +38,7 @@ server:
   port: 8090
 mybatis:
   mapper-locations: classpath:mapper/**/*.xml
+turnstile:
+  enabled: true
+  secret: ${TURNSTILE_SECRET:}
+  verify-url: https://challenges.cloudflare.com/turnstile/v0/siteverify

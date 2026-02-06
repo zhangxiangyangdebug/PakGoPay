@@ -16,4 +16,6 @@ public class LoginRequest implements Serializable {
     private String password;
 
     private Long code;
+
+    private String turnstileToken;
 }

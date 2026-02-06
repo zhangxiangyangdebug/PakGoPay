@@ -10,6 +10,7 @@ import com.pakgopay.data.response.LoginResponse;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.service.common.AuthorizationService;
+import com.pakgopay.service.common.TurnstileService;
 import com.pakgopay.service.LoginService;
 import com.pakgopay.thirdUtil.GoogleUtil;
 import com.pakgopay.thirdUtil.RedisUtil;
@@ -35,12 +36,18 @@ public class LoginServiceImpl implements LoginService {
     @Autowired
     private AuthorizationService authorizationService;
 
+    @Autowired
+    private TurnstileService turnstileService;
+
     @Override
     public CommonResponse login(LoginRequest loginRequest, HttpServletRequest request) {
         String ip = (String) request.getAttribute(CommonConstant.ATTR_IP);
         String userAgent = (String) request.getAttribute(CommonConstant.ATTR_USERAGENT);
         if (ObjectUtils.isEmpty(ip)) {
             ip = request.getRemoteAddr();
+        }
+        if (!turnstileService.verify(loginRequest.getTurnstileToken(), ip)) {
+            return CommonResponse.fail(ResultCode.USER_VERIFY_FAIL, "turnstile verify failed");
         }
         String userName = loginRequest.getUserName();
         String password = loginRequest.getPassword();
