@@ -14,6 +14,7 @@ import com.pakgopay.service.LoginService;
 import com.pakgopay.thirdUtil.GoogleUtil;
 import com.pakgopay.thirdUtil.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ import org.springframework.util.ObjectUtils;
 
 import java.time.Instant;
 
+@Slf4j
 @Service
 public class LoginServiceImpl implements LoginService {
 
@@ -70,6 +72,7 @@ public class LoginServiceImpl implements LoginService {
             int currentTimes = errorTimes + 1;
             redisUtil.set(CommonConstant.USER_PASSWORD_ERROR_TIMES + userName, String.valueOf(currentTimes));
             if (errorTimes >= 3) {
+                log.error("user has inputed too many times error password, this account will be locked!");
                 userMapper.stopLoginUser(user.getUserId(), 0);
                 // 锁定用户后，移除所有计数，后续解禁用户即可正常使用
                 redisUtil.remove(CommonConstant.USER_PASSWORD_ERROR_TIMES + userName);
@@ -79,8 +82,9 @@ public class LoginServiceImpl implements LoginService {
 
             return CommonResponse.fail(ResultCode.USER_PASSWORD_ERROR);
         }
-
+        log.info("current request ip is {}", ip);
         if (!isClientIpAllowed(user.getLoginIps(), ip)) {
+            log.info("client ip is not in white list, server will refuse this request");
             return CommonResponse.fail(ResultCode.USER_LOGIN_FAIL);
         }
 

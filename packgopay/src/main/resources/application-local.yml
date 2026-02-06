@@ -4,20 +4,20 @@ spring:
   application:
     name: PakGoPay
   rabbitmq:
-    host: pakgopay-rabbitmq
+    host: 8.148.79.164
     port: 5672
-    username: xiaoyou
-    password: "ENC(IyYEbQuxanXY0fTveLB9SKrjo8Ulk8Swwrr8VbuP0fBW/q23FJIT501PxB+MJzr6)"
+    username: zf
+    password: "ENC(r+SlzyvtWf7p/G5rfZ5ptQ2dZxjLu2ez9WyaSAqd8uZgLM/8FOa3x3poYoeHdjJe)"
   data:
     redis:
-      host: pakgopay-redis
+      host: 8.148.79.164
       port: 6379
-      password: "ENC(b5hhW1348eyAF5C2OK7IxiXMXpcMfdzX4IR1WjBI1itCZfl532XYCH0O3/IIZa88)"
+      password: "ENC(EPgW2Mhg0y/Ltc+t9mBzSmmA11iYzJRiJ1nXFHxcvcYFopCZELpL9msQd0VMT2su)"
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
-    url: jdbc:postgresql://pgm-gs54h1z25sz4mftjdo.pgsql.singapore.rds.aliyuncs.com:5432/test
-    username: xiaoyou
-    password: "ENC(Ey/mtoNnV5MkLjfGhyUqtOWQPIIsCpgHB9VM6031gqfGcqHZEYkVoPnIh86U+iS7)"
+    url: jdbc:postgresql://8.148.79.164:5432/test
+    username: postgres
+    password: "ENC(41ElKO22DHN/IsrZG0tkdLj+x9zSDEJ3aSNhpAhJubZ60NdqKr4/u5ypoTBZk/BR)"
     driver-class-name: org.postgresql.Driver
     hikari:
       connection-test-query: SELECT 1
