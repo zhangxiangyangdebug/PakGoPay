@@ -48,7 +48,9 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         String token = header != null && header.startsWith("Bearer ") ? header.substring(7) : null;
 
         try {
-            if (token == null && request.getRequestURI().contains("/pakGoPay/server/notify")) {
+            if (token == null &&
+                    (request.getRequestURI().contains("/pakGoPay/server/v1/notifyTransaction")
+                            || request.getRequestURI().contains("/pakGoPay/server/notify"))) {
                 filterChain.doFilter(request, response);
             } else if (token != null && AuthorizationService.verifyToken(token) != null) {
                 TokenClaims claims = AuthorizationService.verifyTokenClaims(token);

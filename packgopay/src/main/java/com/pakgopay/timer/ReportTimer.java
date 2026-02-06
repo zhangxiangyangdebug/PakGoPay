@@ -15,16 +15,19 @@ public class ReportTimer {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Autowired
+    private ReportTask reportTask;
+
     // every hour on the hour
     @Scheduled(cron = "0 0 * * * ?")
-    public void run() {
+    public void runEveryHour() {
         log.info("start exec schedule report task");
         String lockKey = "job:hourly_report:lock";
         String lockValue = UUID.randomUUID().toString();
 
-        // lock time 70 min（should > task execute time）
+        // lock time 40 min（should > task execute time）
         Boolean success = redisTemplate.opsForValue()
-                .setIfAbsent(lockKey, lockValue, Duration.ofMinutes(70));
+                .setIfAbsent(lockKey, lockValue, Duration.ofMinutes(40));
 
         if (!Boolean.TRUE.equals(success)) {
             log.warn("report task is running");
@@ -44,5 +47,10 @@ public class ReportTimer {
 
     private void doHourlyReport() {
 
+        try {
+            reportTask.doHourlyReport();
+        } catch (Exception e) {
+            log.error("doHourlyReport failed, error message: {}", e.getMessage());
+        }
     }
 }
