@@ -102,6 +102,45 @@
         status
     </sql>
 
+    <sql id="InsertColumns">
+        payment_name,
+        support_type,
+        order_quantity,
+        success_quantity,
+        "isThird",
+        payment_no,
+        payment_pay_rate,
+        payment_collection_rate,
+        payment_request_pay_url,
+        payment_request_collection_url,
+        payment_check_pay_url,
+        payment_check_collection_url,
+        payment_max_amount,
+        payment_min_amount,
+        collection_daily_limit,
+        pay_daily_limit,
+        collection_monthly_limit,
+        pay_monthly_limit,
+        enable_time_period,
+        collection_interface_param,
+        pay_interface_param,
+        collection_callback_addr,
+        pay_callback_addr,
+        currency,
+        create_time,
+        create_by,
+        update_time,
+        update_by,
+        remark,
+        is_checkout_counter,
+        checkout_counter_url,
+        payment_type,
+        bank_name,
+        bank_account,
+        bank_user_name,
+        status
+    </sql>
+
     <!-- findEByPaymentNo -->
     <select id="findEByPaymentNo" resultMap="PaymentResultMap">
         select
@@ -128,9 +167,8 @@
     <!-- insert -->
     <insert id="insert" parameterType="com.pakgopay.mapper.dto.PaymentDto">
         insert into payment (
-        <include refid="BaseColumns"/>
+        <include refid="InsertColumns"/>
         ) values (
-        #{paymentId},
         #{paymentName},
         #{supportType},
         #{orderQuantity},

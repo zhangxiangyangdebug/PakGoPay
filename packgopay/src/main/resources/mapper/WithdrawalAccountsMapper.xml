@@ -35,12 +35,23 @@
         remark
     </sql>
 
+    <sql id="InsertColumns">
+        merchant_agent_id,
+        wallet_addr,
+        wallet_name,
+        status,
+        create_time,
+        create_by,
+        update_time,
+        update_by,
+        remark
+    </sql>
+
     <!-- Insert -->
     <insert id="insert" parameterType="com.pakgopay.mapper.dto.WithdrawalAccountsDto">
         INSERT INTO withdrawal_accounts (
-        <include refid="BaseColumns"/>
+        <include refid="InsertColumns"/>
         ) VALUES (
-        #{id},
         #{merchantAgentId},
         #{walletAddr},
         #{walletName},

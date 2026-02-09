@@ -37,7 +37,6 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         try {
             String traceId = UUID.randomUUID().toString().replace("-", "");
             MDC.put(TRACE_ID, traceId);
-            log.info("doFilterInternal, traceId: {}", traceId);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -46,17 +45,26 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         response.setCharacterEncoding("UTF-8");
         String header = request.getHeader("Authorization");
         String token = header != null && header.startsWith("Bearer ") ? header.substring(7) : null;
+        String uri = request.getRequestURI();
+        boolean logEnabled = isLogEnabled(uri);
+        logInfo(logEnabled, "doFilterInternal, traceId: {}", MDC.get(TRACE_ID));
 
         try {
-            if (token == null && request.getRequestURI().contains("/pakGoPay/server/notify")) {
+            if (uri != null && uri.startsWith("/pakGoPay/server/v1/")) {
+                logInfo(logEnabled, "jwt filter skip TransactionController, uri={}", uri);
+                filterChain.doFilter(request, response);
+            } else if (token == null && uri != null && uri.contains("/pakGoPay/server/notify")) {
+                logInfo(logEnabled, "jwt filter skip notify auth, uri={}", request.getRequestURI());
                 filterChain.doFilter(request, response);
             } else if (token != null && AuthorizationService.verifyToken(token) != null) {
                 TokenClaims claims = AuthorizationService.verifyTokenClaims(token);
                 if (claims == null || !StringUtils.hasText(claims.account)) {
-                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+                    logWarn(logEnabled, "jwt filter invalid token claims, uri={}", request.getRequestURI());
+                    writeError(response, ResultCode.SC_UNAUTHORIZED);
                     return;
                 }
                 if (!matchClientInfo(request, claims)) {
+                    logWarn(logEnabled, "jwt filter client info mismatch, uri={}", request.getRequestURI());
                     writeError(response, ResultCode.CLIENT_INFO_MISMATCH);
                     return;
                 }
@@ -64,18 +72,21 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 request.setAttribute(CommonConstant.ATTR_USER_ID, userId);
                 String userName = claims.userName;
                 request.setAttribute(CommonConstant.ATTR_USER_NAME, userName);
+                logInfo(logEnabled, "jwt filter auth success, uri={}, userId={}", request.getRequestURI(), userId);
                 filterChain.doFilter(request, response);
             } else if (request.getRequestURI().contains("login")
                     || request.getRequestURI().contains("getCode")
                     || request.getRequestURI().equals("/pakGoPay/server/heart")
                     || request.getRequestURI().equals("/pakGoPay/server/Login/refreshToken")) {
+                logInfo(logEnabled, "jwt filter public endpoint, uri={}", request.getRequestURI());
                 filterChain.doFilter(request, response);
             } else {
                 // 处理无效token 重定向到登陆页
                 // response.sendRedirect("/web/login");
                 //filterChain.doFilter(request, response);
                 //response.sendError(200, "token is expire");
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+                logWarn(logEnabled, "jwt filter unauthorized, uri={}", request.getRequestURI());
+                writeError(response, ResultCode.SC_UNAUTHORIZED);
                 //response.sendError(ResultCode.TOKEN_IS_EXPIRE.getCode(), ResultCode.TOKEN_IS_EXPIRE.getMessage());
             }
             String userName = null;
@@ -92,9 +103,30 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 //                SecurityContextHolder.getContext().setAuthentication(authentication);
 //            }
         } catch (Exception e) {
-//            log.error("认证过程异常");
+            logError(logEnabled, "jwt filter error, uri={}", request.getRequestURI(), e);
         }
 
+    }
+    private boolean isLogEnabled(String uri) {
+        return uri != null && uri.startsWith("/pakGoPay/");
+    }
+
+    private void logInfo(boolean enabled, String message, Object... args) {
+        if (enabled) {
+            log.info(message, args);
+        }
+    }
+
+    private void logWarn(boolean enabled, String message, Object... args) {
+        if (enabled) {
+            log.warn(message, args);
+        }
+    }
+
+    private void logError(boolean enabled, String message, Object arg, Throwable t) {
+        if (enabled) {
+            log.error(message, arg, t);
+        }
     }
 
     private boolean matchClientInfo(HttpServletRequest request, TokenClaims claims) {

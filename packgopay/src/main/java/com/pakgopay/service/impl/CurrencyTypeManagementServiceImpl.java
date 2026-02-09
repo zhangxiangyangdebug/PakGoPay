@@ -14,9 +14,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -68,6 +68,8 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
             }
         } catch (PakGoPayException e) {
             return CommonResponse.fail(e);
+        } catch (DuplicateKeyException e) {
+            return CommonResponse.fail(ResultCode.FAIL, "currency already exists");
         } catch (Exception e) {
             return CommonResponse.fail(ResultCode.FAIL,"add currency type failed "+ e.getMessage());
         }
