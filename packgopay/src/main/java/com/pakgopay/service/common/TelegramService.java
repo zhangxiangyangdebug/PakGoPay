@@ -1,12 +1,17 @@
 package com.pakgopay.service.common;
 
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONObject;
 import com.pakgopay.mapper.BusinessConfigurationMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -54,6 +59,40 @@ public class TelegramService {
         return result;
     }
 
+    public String sendDocumentTo(String chatId, String fileName, byte[] content) {
+        String token = getConfig(TOKEN_KEY);
+        if (!StringUtils.hasText(token)) {
+            log.warn("Telegram token not configured.");
+            return null;
+        }
+        if (!StringUtils.hasText(chatId)) {
+            log.warn("Telegram chatId not configured.");
+            return null;
+        }
+        String url = API_BASE + "/bot" + token + "/sendDocument";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        ByteArrayResource resource = new ByteArrayResource(content) {
+            @Override
+            public String getFilename() {
+                return fileName;
+            }
+        };
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("chat_id", chatId);
+        body.add("document", resource);
+
+        ResponseEntity<String> response = restTemplate.postForEntity(url, new HttpEntity<>(body, headers), String.class);
+        String result = response.getBody();
+        if (result == null || !result.contains("\"ok\":true")) {
+            log.warn("Telegram sendDocument failed: {}", result);
+        }
+        return result;
+    }
+
     public String getUpdates() {
         String token = getConfig(TOKEN_KEY);
         if (!StringUtils.hasText(token)) {
@@ -74,6 +113,10 @@ public class TelegramService {
         result.put("chatId", getConfig(CHAT_ID_KEY));
         result.put("webhookSecret", getConfig(WEBHOOK_SECRET_KEY));
         return result;
+    }
+
+    public String getDefaultChatId() {
+        return getConfig(CHAT_ID_KEY);
     }
 
     public void updateTelegramConfig(String token, String chatId, String webhookSecret) {
