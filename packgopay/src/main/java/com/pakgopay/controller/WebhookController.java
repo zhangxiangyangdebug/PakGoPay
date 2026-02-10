@@ -60,20 +60,26 @@ public class WebhookController {
                 return CommonResponse.success("ignore");
             }
 
-            switch (text.trim()) {
-                case "/hello":
-                    telegramService.sendMessageTo(chatId, "Hello");
-                    break;
-                case "/help":
-                    telegramService.sendMessageTo(chatId, "/hello /help /todayOpsData");
-                    break;
-                case "/todayOpsData":
-                    String reply = buildTodayOpsData();
-                    telegramService.sendMessageTo(chatId, reply);
-                    break;
-                default:
-                    telegramService.sendMessageTo(chatId, "Unknown command. Use /help");
-                    break;
+            String trimmed = text.trim();
+            if ("/hello".equals(trimmed)) {
+                telegramService.sendMessageTo(chatId, "Hello");
+            } else if ("/help".equals(trimmed)) {
+                telegramService.sendMessageTo(chatId, "/hello /help /todayOpsData");
+            } else if (trimmed.startsWith("/todayOpsData")) {
+                String[] parts = trimmed.split("\\s+");
+                if (parts.length < 2) {
+                    telegramService.sendMessageTo(chatId, buildCurrencyPrompt());
+                } else {
+                    String currency = parts[1].trim().toUpperCase();
+                    if (!isSupportedCurrency(currency)) {
+                        telegramService.sendMessageTo(chatId, "Unsupported currency: " + currency + "\n" + buildCurrencyPrompt());
+                    } else {
+                        String reply = buildTodayOpsData(currency);
+                        telegramService.sendMessageTo(chatId, reply);
+                    }
+                }
+            } else {
+                telegramService.sendMessageTo(chatId, "Unknown command. Use /help");
             }
         } catch (Exception e) {
             log.error("telegram webhook handle failed: {}", e.getMessage());
@@ -91,22 +97,39 @@ public class WebhookController {
         return secret.equals(header);
     }
 
-    private String buildTodayOpsData() {
-        CurrencyTypeRequest request = new CurrencyTypeRequest();
-        request.setAllData(true);
-        request.setPageNo(1);
-        request.setPageSize(1);
-        List<CurrencyTypeDTO> currencyList = currencyTypeMapper.getAllCurrencyType(request);
-        if (currencyList == null || currencyList.isEmpty() || currencyList.get(0) == null) {
-            return "No currency config.";
-        }
-        String currency = currencyList.get(0).getCurrencyType();
+    private String buildTodayOpsData(String currency) {
         OpsReportRequest opsRequest = new OpsReportRequest();
-        opsRequest.setRecordDate(LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toEpochSecond());
+        opsRequest.setRecordDate(LocalDate.now().atStartOfDay(ZoneId.of("UTC")).toEpochSecond());
         opsRequest.setCurrency(currency);
         opsRequest.setScopeType(0);
         opsRequest.setScopeId("0");
         CommonResponse response = opsReportService.queryOpsDailyReports(opsRequest);
         return JSON.toJSONString(response);
+    }
+
+    private String buildCurrencyPrompt() {
+        List<String> currencies = getAllCurrencies();
+        if (currencies.isEmpty()) {
+            return "No currency config.";
+        }
+        return "Please input currency. Example: /todayOpsData USD\nAvailable: " + String.join(", ", currencies);
+    }
+
+    private boolean isSupportedCurrency(String currency) {
+        return getAllCurrencies().stream().anyMatch(item -> item.equalsIgnoreCase(currency));
+    }
+
+    private List<String> getAllCurrencies() {
+        CurrencyTypeRequest request = new CurrencyTypeRequest();
+        request.setAllData(true);
+        request.setPageNo(1);
+        request.setPageSize(1000);
+        List<CurrencyTypeDTO> currencyList = currencyTypeMapper.getAllCurrencyType(request);
+        return currencyList == null ? List.of()
+            : currencyList.stream()
+                .filter(item -> item != null && item.getCurrencyType() != null)
+                .map(item -> item.getCurrencyType().toUpperCase())
+                .distinct()
+                .toList();
     }
 }
