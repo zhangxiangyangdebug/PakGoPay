@@ -443,7 +443,7 @@ public class MerchantServiceImpl implements MerchantService {
                 // =====================
                 // 7) Channel Configuration
                 // =====================
-                .str(req::getChannelIds, dto::setChannelIds);
+                .ids(req::getChannelIds, dto::setChannelIds);
 
         // 4) meta
         dto.setCreateTime(now);

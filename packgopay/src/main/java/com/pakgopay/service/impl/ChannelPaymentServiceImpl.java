@@ -586,17 +586,33 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         loadCurrentAmountSums(enAblePaymentIds, supportType, currentDayAmountSum, currentMonthAmountSum);
 
         // filter no limit payment
-        List<PaymentDto> availablePayments = paymentDtoList.stream().filter(dto ->
-                        // compare daily limit amount
-                        CommonUtil.safeAdd(currentDayAmountSum.get(dto.getPaymentId()), amount).
-                                compareTo(CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType) ? dto.getCollectionDailyLimit() : dto.getPayDailyLimit()) < 0
-                                // compare monthly limit amount
-                                && CommonUtil.safeAdd(currentMonthAmountSum.get(dto.getPaymentId()), amount).
-                                compareTo(CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType) ? dto.getCollectionMonthlyLimit() : dto.getPayDailyLimit()) < 0
-                                // check payment min amount
-                                && amount.compareTo(dto.getPaymentMinAmount()) > 0
-                                // check payment max amount
-                                && amount.compareTo(dto.getPaymentMaxAmount()) < 0)
+        List<PaymentDto> availablePayments = paymentDtoList.stream().filter(dto -> {
+                    BigDecimal currentDaySum = CommonUtil.safeAdd(currentDayAmountSum.get(dto.getPaymentId()), amount);
+                    BigDecimal currentMonthSum = CommonUtil.safeAdd(currentMonthAmountSum.get(dto.getPaymentId()), amount);
+                    BigDecimal dailyLimit = CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)
+                            ? dto.getCollectionDailyLimit()
+                            : dto.getPayDailyLimit();
+                    BigDecimal monthlyLimit = CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)
+                            ? dto.getCollectionMonthlyLimit()
+                            : dto.getPayDailyLimit();
+                    boolean inDailyLimit = currentDaySum.compareTo(dailyLimit) <= 0;
+                    boolean inMonthlyLimit = currentMonthSum.compareTo(monthlyLimit) <= 0;
+                    boolean inMinAmount = amount.compareTo(dto.getPaymentMinAmount()) >= 0;
+                    boolean inMaxAmount = amount.compareTo(dto.getPaymentMaxAmount()) <= 0;
+                    boolean result = inDailyLimit && inMonthlyLimit && inMinAmount && inMaxAmount;
+                    if (!result) {
+                        log.warn("payment limit filtered, paymentId={}, dailySum={}, dailyLimit={}, monthlySum={}, monthlyLimit={}, minAmount={}, maxAmount={}, amount={}",
+                                dto.getPaymentId(),
+                                currentDaySum,
+                                dailyLimit,
+                                currentMonthSum,
+                                monthlyLimit,
+                                dto.getPaymentMinAmount(),
+                                dto.getPaymentMaxAmount(),
+                                amount);
+                    }
+                    return result;
+                })
                 .toList();
         if (availablePayments.isEmpty()) {
             throw new PakGoPayException(ResultCode.PAYMENT_AMOUNT_OVER_LIMIT, "Merchant‘s payments over daily/monthly limit");

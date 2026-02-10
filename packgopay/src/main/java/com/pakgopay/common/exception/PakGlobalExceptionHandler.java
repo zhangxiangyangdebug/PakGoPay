@@ -48,7 +48,7 @@ public class PakGlobalExceptionHandler {
      */
     @ExceptionHandler(PakGoPayException.class)
     public CommonResponse<Void> handleBiz(PakGoPayException e) {
-        log.error("PakGoPayException {}", e.getMessage());
+        log.error("PakGoPayException", e);
         return CommonResponse.fail(e.getCode(), e.getMessage());
     }
 

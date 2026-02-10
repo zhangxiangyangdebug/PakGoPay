@@ -32,6 +32,7 @@ public class CustomCorsConfig implements WebMvcConfigurer {
         ex.setMaxPoolSize(200);
         ex.setQueueCapacity(1000);
         ex.setThreadNamePrefix("mvc-io-");
+        ex.setTaskDecorator(new MdcTaskDecorator());
         ex.initialize();
         return ex;
     }

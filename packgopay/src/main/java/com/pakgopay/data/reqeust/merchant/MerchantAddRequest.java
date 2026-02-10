@@ -5,6 +5,7 @@ import jakarta.validation.constraints.*;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class MerchantAddRequest extends BaseRequest {
@@ -141,7 +142,7 @@ public class MerchantAddRequest extends BaseRequest {
     // =====================
 
     /** Channel IDs (comma-separated) */
-    private String channelIds;
+    private List<Long> channelIds;
 
 }
 

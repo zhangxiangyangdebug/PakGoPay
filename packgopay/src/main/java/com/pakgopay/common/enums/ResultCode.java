@@ -26,6 +26,7 @@ public enum ResultCode {
     INVALID_PARAMS(100115, "params is invalid"),
     USER_HAS_NO_ROLE_PERMISSION(100116, "user has no permission to view any menus"),
     CLIENT_INFO_MISMATCH(100117, "request failed"),
+    HTTP_REQUEST_ERROR(100118, "http request error"),
 
     // order code start with 1002
     ORDER_PARAM_VALID(100201, "request param is valid"),
@@ -40,7 +41,8 @@ public enum ResultCode {
     MERCHANT_NOT_SUPPORT_PAYOUT(100210, "merchant is not support payout"),
     MERCHANT_ORDER_NO_NOT_EXISTS(100211, "merchantOrderNo is not exits"),
     MERCHANT_HAS_NO_BALANCE_DATA(100212, "user has no balance data"),
-    MERCHANT_BALANCE_NOT_ENOUGH(100213, "merchants with insufficient available balance");
+    MERCHANT_BALANCE_NOT_ENOUGH(100213, "merchants with insufficient available balance"),
+    SC_UNAUTHORIZED(401, "Unauthorized");
 
     private final Integer code;
     private final String message;

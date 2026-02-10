@@ -74,6 +74,31 @@
         remark
     </sql>
 
+    <sql id="InsertColumns">
+        agent_name,
+        user_id,
+        user_name,
+        parent_id,
+        top_agent_id,
+        channel_ids,
+        status,
+        level,
+        collection_rate,
+        collection_fixed_fee,
+        collection_max_fee,
+        collection_min_fee,
+        pay_rate,
+        pay_fixed_fee,
+        pay_max_fee,
+        pay_min_fee,
+        create_time,
+        create_by,
+        update_time,
+        upeate_by,
+        version,
+        remark
+    </sql>
+
     <sql id="BaseColumnsForJoin">
         ai.agent_no,
         ai.agent_name,
@@ -107,9 +132,9 @@
     <!-- Insert -->
     <insert id="insert" parameterType="com.pakgopay.mapper.dto.AgentInfoDto">
         INSERT INTO agent_info (
-        <include refid="BaseColumns"/>
+        <include refid="InsertColumns"/>
         ) VALUES (
-        #{agentNo},#{agentName},#{userId},#{accountName},#{parentId},#{topAgentId},#{channelIds},#{status},
+        #{agentName},#{userId},#{accountName},#{parentId},#{topAgentId},#{channelIds},#{status},
         #{level},#{collectionRate},#{collectionFixedFee},#{collectionMaxFee},#{collectionMinFee},#{payRate},
         #{payFixedFee},#{payMaxFee},#{payMinFee},#{createTime},#{createBy},#{updateTime},#{updateBy},
         #{version},#{remark}

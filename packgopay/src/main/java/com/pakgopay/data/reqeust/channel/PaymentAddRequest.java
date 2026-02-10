@@ -77,7 +77,6 @@ public class PaymentAddRequest extends BaseRequest {
     /**
      * Enabled time period
      */
-    @NotBlank(message = "enableTimePeriod is empty")
     private String enableTimePeriod;
 
 

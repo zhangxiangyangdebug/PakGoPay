@@ -41,7 +41,7 @@
     <insert id="addNewCurrency">
         INSERT INTO currency (
                               <include refid="insertColumn"/>
-        ) values (#{currencyType},#{name},#{icon},#{createTime},#{createBy},#{updateTime},#{updateBy},#{exchangeRate},#{remark},#{isRate}, #{currencyAccuracy})
+        ) values (#{currencyType},#{name},#{icon},#{createTime},#{createBy},#{updateTime},#{updateBy},#{remark},#{currencyAccuracy})
     </insert>
 
     <select id="getCurrencyById" resultMap="currencyTypeMap">
@@ -62,4 +62,5 @@
         </if>
 
     </select>
+
 </mapper>
