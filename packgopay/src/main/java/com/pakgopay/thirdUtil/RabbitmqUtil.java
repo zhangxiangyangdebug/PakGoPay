@@ -1,6 +1,7 @@
 package com.pakgopay.thirdUtil;
 
 import com.alibaba.fastjson.JSON;
+import com.pakgopay.common.config.RabbitConfig;
 import com.pakgopay.data.entity.Message;
 import com.pakgopay.data.entity.TestMessage;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -34,5 +35,13 @@ public class RabbitmqUtil {
 
     public void sendFanout(String fanoutExchange, Message message) {
         rabbitTemplate.convertAndSend(fanoutExchange,"", JSON.toJSONString(message));
+    }
+
+    public void sendToDelayQueue(String message) {
+        rabbitTemplate.convertAndSend(
+            RabbitConfig.DELAY_EXCHANGE,
+            RabbitConfig.DELAY_ROUTING_KEY,
+            message
+        );
     }
 }

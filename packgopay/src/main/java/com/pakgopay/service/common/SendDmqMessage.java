@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-public class TestMq {
+public class SendDmqMessage {
 
 
     @Autowired
@@ -22,7 +22,16 @@ public class TestMq {
         rabbitmqUtil.sendDelay(queueName, message);
     }
 
+    /**
+     * send broad message
+     * @param queueName
+     * @param message
+     */
     public void sendFanout(String queueName, Message message) {
         rabbitmqUtil.sendFanout(queueName, message);
+    }
+
+    public void sendToDelayQueue(String message) {
+        rabbitmqUtil.sendToDelayQueue(message);
     }
 }

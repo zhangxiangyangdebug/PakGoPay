@@ -1,6 +1,7 @@
 package com.pakgopay.data.entity;
 
 import lombok.Data;
+import org.springframework.stereotype.Component;
 
 import java.io.Serializable;
 
@@ -11,7 +12,7 @@ public class Message implements Serializable {
     private String content;
     private long timestamp;
     private boolean read;
-
+    private String path;
     // getters/setters/constructors
 }
 
