@@ -20,8 +20,8 @@ import java.util.Map;
 @Configuration
 public class RabbitConfig {
     public static final String DELAY_EXCHANGE = "task.delay.exchange";
-    public static final String DELAY_QUEUE = "task.queue";
-    public static final String DELAY_ROUTING_KEY = "task.route";
+    public static final String TASK_COLLECTING_QUEUE = "task.collecting.queue";
+    public static final String TASK_PAYING_QUEUE = "task.paying.queue";
 
     @Value("${spring.rabbitmq.host}")
     private String rabbitHost;
@@ -57,13 +57,23 @@ public class RabbitConfig {
     }
 
     @Bean
-    public Queue delayedQueue() {
-        return new Queue(DELAY_QUEUE, true);
+    public Queue collectingQueue() {
+        return new Queue(TASK_COLLECTING_QUEUE, true);
     }
 
     @Bean
-    public Binding delayedBinding(Queue delayedQueue, CustomExchange delayedExchange) {
-        return BindingBuilder.bind(delayedQueue).to(delayedExchange).with(DELAY_ROUTING_KEY).noargs();
+    public Queue payingQueue() {
+        return new Queue(TASK_PAYING_QUEUE, true);
+    }
+
+    @Bean
+    public Binding collectingDelayBinding(Queue collectingQueue, CustomExchange delayedExchange) {
+        return BindingBuilder.bind(collectingQueue).to(delayedExchange).with(TASK_COLLECTING_QUEUE).noargs();
+    }
+
+    @Bean
+    public Binding payingDelayBinding(Queue payingQueue, CustomExchange delayedExchange) {
+        return BindingBuilder.bind(payingQueue).to(delayedExchange).with(TASK_PAYING_QUEUE).noargs();
     }
 
     @Bean

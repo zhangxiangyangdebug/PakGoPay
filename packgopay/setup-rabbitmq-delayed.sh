@@ -14,8 +14,8 @@ DATA_VOLUME="pakgopay_rabbitmq_data"
 
 DELAY_EXCHANGE="task.delay.exchange"
 DELAY_EXCHANGE_TYPE="direct"
-QUEUE_NAME="task.queue"
-ROUTING_KEY="task.route"
+COLLECTING_QUEUE="task.collecting.queue"
+PAYING_QUEUE="task.paying.queue"
 
 USER_NOTIFY_EXCHANGE="user-notify"
 USER_NOTIFY_EXCHANGE_TYPE="fanout"
@@ -149,26 +149,48 @@ else
   echo "Exchange created: ${USER_NOTIFY_EXCHANGE}"
 fi
 
-echo ">>> Ensuring queue..."
-if exists_queue "${QUEUE_NAME}"; then
-  echo "Queue exists: ${QUEUE_NAME}"
+echo ">>> Ensuring collecting queue..."
+if exists_queue "${COLLECTING_QUEUE}"; then
+  echo "Queue exists: ${COLLECTING_QUEUE}"
 else
   /tmp/rabbitmqadmin \
     -u "${RABBIT_USER}" -p "${RABBIT_PASS}" \
     -V "${RABBIT_VHOST}" \
-    declare queue name="${QUEUE_NAME}" durable=true
-  echo "Queue created: ${QUEUE_NAME}"
+    declare queue name="${COLLECTING_QUEUE}" durable=true
+  echo "Queue created: ${COLLECTING_QUEUE}"
 fi
 
-echo ">>> Ensuring binding..."
-if exists_binding "${DELAY_EXCHANGE}" "${QUEUE_NAME}" "${ROUTING_KEY}"; then
-  echo "Binding exists: ${DELAY_EXCHANGE} -> ${QUEUE_NAME} (${ROUTING_KEY})"
+echo ">>> Ensuring paying queue..."
+if exists_queue "${PAYING_QUEUE}"; then
+  echo "Queue exists: ${PAYING_QUEUE}"
 else
   /tmp/rabbitmqadmin \
     -u "${RABBIT_USER}" -p "${RABBIT_PASS}" \
     -V "${RABBIT_VHOST}" \
-    declare binding source="${DELAY_EXCHANGE}" destination="${QUEUE_NAME}" routing_key="${ROUTING_KEY}"
-  echo "Binding created: ${DELAY_EXCHANGE} -> ${QUEUE_NAME} (${ROUTING_KEY})"
+    declare queue name="${PAYING_QUEUE}" durable=true
+  echo "Queue created: ${PAYING_QUEUE}"
+fi
+
+echo ">>> Ensuring collecting binding..."
+if exists_binding "${DELAY_EXCHANGE}" "${COLLECTING_QUEUE}" "${COLLECTING_QUEUE}"; then
+  echo "Binding exists: ${DELAY_EXCHANGE} -> ${COLLECTING_QUEUE} (${COLLECTING_QUEUE})"
+else
+  /tmp/rabbitmqadmin \
+    -u "${RABBIT_USER}" -p "${RABBIT_PASS}" \
+    -V "${RABBIT_VHOST}" \
+    declare binding source="${DELAY_EXCHANGE}" destination="${COLLECTING_QUEUE}" routing_key="${COLLECTING_QUEUE}"
+  echo "Binding created: ${DELAY_EXCHANGE} -> ${COLLECTING_QUEUE} (${COLLECTING_QUEUE})"
+fi
+
+echo ">>> Ensuring paying binding..."
+if exists_binding "${DELAY_EXCHANGE}" "${PAYING_QUEUE}" "${PAYING_QUEUE}"; then
+  echo "Binding exists: ${DELAY_EXCHANGE} -> ${PAYING_QUEUE} (${PAYING_QUEUE})"
+else
+  /tmp/rabbitmqadmin \
+    -u "${RABBIT_USER}" -p "${RABBIT_PASS}" \
+    -V "${RABBIT_VHOST}" \
+    declare binding source="${DELAY_EXCHANGE}" destination="${PAYING_QUEUE}" routing_key="${PAYING_QUEUE}"
+  echo "Binding created: ${DELAY_EXCHANGE} -> ${PAYING_QUEUE} (${PAYING_QUEUE})"
 fi
 
 echo ">>> Done."

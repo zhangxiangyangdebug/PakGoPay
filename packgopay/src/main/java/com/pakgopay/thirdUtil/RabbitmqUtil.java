@@ -38,9 +38,13 @@ public class RabbitmqUtil {
     }
 
     public void sendToDelayQueue(String message) {
+        sendToDelayQueue(RabbitConfig.TASK_COLLECTING_QUEUE, message);
+    }
+
+    public void sendToDelayQueue(String routingKey, String message) {
         rabbitTemplate.convertAndSend(
             RabbitConfig.DELAY_EXCHANGE,
-            RabbitConfig.DELAY_ROUTING_KEY,
+            routingKey,
             message
         );
     }

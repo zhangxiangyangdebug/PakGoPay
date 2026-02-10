@@ -27,7 +27,7 @@ public class OrderMessageReceiver implements ChannelAwareMessageListener {
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
-    @RabbitListener(queues = RabbitConfig.DELAY_QUEUE)
+    @RabbitListener(queues = {RabbitConfig.TASK_COLLECTING_QUEUE, RabbitConfig.TASK_PAYING_QUEUE})
     @Override
     public void onMessage(Message message, Channel channel) throws Exception {
         long tag = message.getMessageProperties().getDeliveryTag();
@@ -48,7 +48,11 @@ public class OrderMessageReceiver implements ChannelAwareMessageListener {
                     .setHeader("x-delay", delay)
                     .setHeader("x-retry-count", nextRetry)
                     .build();
-                rabbitTemplate.send(RabbitConfig.DELAY_EXCHANGE, RabbitConfig.DELAY_ROUTING_KEY, retryMessage);
+                String targetQueue = message.getMessageProperties().getConsumerQueue();
+                String routingKey = (targetQueue == null || targetQueue.isEmpty())
+                    ? RabbitConfig.TASK_COLLECTING_QUEUE
+                    : targetQueue;
+                rabbitTemplate.send(RabbitConfig.DELAY_EXCHANGE, routingKey, retryMessage);
                 channel.basicAck(tag, false);
             } else {
                 // not retryable or exceed retry count, drop or move to dead-letter
@@ -87,6 +91,29 @@ public class OrderMessageReceiver implements ChannelAwareMessageListener {
     }
 
     private void process(Message message) throws Exception {
-        // TODO: implement business logic. Throw exception to trigger retry.
+        String queue = message.getMessageProperties().getConsumerQueue();
+        if (RabbitConfig.TASK_PAYING_QUEUE.equals(queue)) {
+            processPaying(message);
+            return;
+        }
+        if (RabbitConfig.TASK_COLLECTING_QUEUE.equals(queue)) {
+            processCollecting(message);
+            return;
+        }
+        // fallback: use received routing key if available
+        String routingKey = message.getMessageProperties().getReceivedRoutingKey();
+        if (RabbitConfig.TASK_PAYING_QUEUE.equals(routingKey)) {
+            processPaying(message);
+        } else {
+            processCollecting(message);
+        }
+    }
+
+    private void processCollecting(Message message) throws Exception {
+        // TODO: implement collecting logic. Throw exception to trigger retry.
+    }
+
+    private void processPaying(Message message) throws Exception {
+        // TODO: implement paying logic. Throw exception to trigger retry.
     }
 }
