@@ -7,7 +7,9 @@ import com.pakgopay.data.reqeust.roleManagement.AddRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.DeleteRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.ModifyRoleRequest;
 import com.pakgopay.data.reqeust.systemConfig.LoginUserRequest;
+import com.pakgopay.data.reqeust.systemConfig.TelegramConfigRequest;
 import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.service.common.TelegramService;
 import com.pakgopay.service.SystemConfigService;
 import com.pakgopay.service.impl.UserService;
 import com.pakgopay.thirdUtil.GoogleUtil;
@@ -28,6 +30,8 @@ public class SystemConfigController {
     private SystemConfigService systemConfigService;
     @Autowired
     private RedisUtil redisUtil;
+    @Autowired
+    private TelegramService telegramService;
 
     @PostMapping("/createUser")
     public CommonResponse createLoginUser(@RequestBody CreateUserRequest createUserRequest){
@@ -103,5 +107,16 @@ public class SystemConfigController {
         } else {
             return CommonResponse.success("success");
         }
+    }
+
+    @GetMapping("/telegramConfig")
+    public CommonResponse getTelegramConfig() {
+        return CommonResponse.success(telegramService.getTelegramConfig());
+    }
+
+    @PostMapping("/telegramConfig")
+    public CommonResponse updateTelegramConfig(@RequestBody TelegramConfigRequest request) {
+        telegramService.updateTelegramConfig(request.getToken(), request.getChatId(), request.getWebhookSecret());
+        return CommonResponse.success("ok");
     }
 }
