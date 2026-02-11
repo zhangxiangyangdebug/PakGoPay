@@ -35,6 +35,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.pakgopay.util.CalcUtil;
 
 @Slf4j
 @Service
@@ -190,7 +191,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
         calculateAgentFees(transactionInfo, orderType);
 
-        CommonUtil.FeeCalcInput feeInput = new CommonUtil.FeeCalcInput();
+        CalcUtil.FeeCalcInput feeInput = new CalcUtil.FeeCalcInput();
         feeInput.amount = amount;
         feeInput.merchantRate = rate;
         feeInput.merchantFixed = fixedFee;
@@ -201,9 +202,9 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         feeInput.agent3Rate = transactionInfo.getAgent3Rate();
         feeInput.agent3Fixed = transactionInfo.getAgent3FixedFee();
 
-        CommonUtil.FeeProfitResult feeProfit = CommonUtil.calculateTierProfits(feeInput);
+        CalcUtil.FeeProfitResult feeProfit = CalcUtil.calculateTierProfits(feeInput);
 
-        BigDecimal merchantFee = CommonUtil.defaultBigDecimal(feeProfit.merchantFee);
+        BigDecimal merchantFee = CalcUtil.defaultBigDecimal(feeProfit.merchantFee);
         if (amount != null && amount.compareTo(merchantFee) <= 0) {
             log.error("amount not support merchant fee, actualAmount={}, merchantFee={}", amount, merchantFee);
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "amount not support merchant fee");
@@ -587,8 +588,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
         // filter no limit payment
         List<PaymentDto> availablePayments = paymentDtoList.stream().filter(dto -> {
-                    BigDecimal currentDaySum = CommonUtil.safeAdd(currentDayAmountSum.get(dto.getPaymentId()), amount);
-                    BigDecimal currentMonthSum = CommonUtil.safeAdd(currentMonthAmountSum.get(dto.getPaymentId()), amount);
+                    BigDecimal currentDaySum = CalcUtil.safeAdd(currentDayAmountSum.get(dto.getPaymentId()), amount);
+                    BigDecimal currentMonthSum = CalcUtil.safeAdd(currentMonthAmountSum.get(dto.getPaymentId()), amount);
                     BigDecimal dailyLimit = CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)
                             ? dto.getCollectionDailyLimit()
                             : dto.getPayDailyLimit();

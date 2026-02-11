@@ -169,6 +169,7 @@
         UPDATE balance
         SET
             frozen_balance = frozen_balance - #{amount},
+            withdraw_amount = COALESCE(withdraw_amount, 0) + #{amount},
             update_time = #{now}
         WHERE user_id = #{userId}
           AND currency = #{currency}

@@ -5,20 +5,29 @@ import com.pakgopay.service.transaction.OrderHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Slf4j
 @Component
-public class PaySystemHandler extends OrderHandler {
+public class SystemHandler extends OrderHandler {
 
     @Override
-    public Object handle(Object request) {
+    public Object handleCol(Object request) {
+        // Handle in-house collection logic.
+        log.info("ColSystemHandler handle, request={}", request);
+        return "PK SYSTEM OK";
+    }
+
+    @Override
+    public Object handlePay(Object request) {
         // Handle in-house payout logic.
         log.info("PaySystemHandler handle, request={}", request);
         return "PK SYSTEM OK";
     }
 
     @Override
-    public NotifyRequest handleNotify(String body) {
-        // Handle in-house payout notify.
+    public NotifyRequest handleNotify(Map<String, Object> body) {
+        // Handle in-house collection notify.
         return buildNotifyResponse(body);
     }
 }

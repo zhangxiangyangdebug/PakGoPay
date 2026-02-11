@@ -6,10 +6,10 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.OrderQueryEntity;
 import com.pakgopay.data.entity.TransactionInfo;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
-import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
-import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.response.CollectionOrderPageResponse;
+import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
@@ -31,6 +31,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import com.pakgopay.util.CalcUtil;
 
 @Slf4j
 @Service
@@ -94,7 +95,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         BigDecimal actualAmount = colOrderRequest.getAmount();
         if (merchantInfoDto.getIsFloat() == 1) {
             BigDecimal floatingAmount = generateFloatAmount(merchantInfoDto.getFloatRange());
-            actualAmount = CommonUtil.safeSubtract(colOrderRequest.getAmount(), floatingAmount);
+            actualAmount = CalcUtil.safeSubtract(colOrderRequest.getAmount(), floatingAmount);
         }
         transactionInfo.setActualAmount(actualAmount);
         channelPaymentService.calculateTransactionFees(transactionInfo, OrderType.COLLECTION_ORDER);
@@ -196,13 +197,22 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
     }
 
     @Override
-    public CommonResponse handleNotify(String currency, String body) throws PakGoPayException {
-        log.info("handleNotify start, currency={}, bodySize={}", currency, body == null ? 0 : body.length());
+    public String handleNotify(Map<String, Object> notifyData) throws PakGoPayException {
+        log.info("handleNotify start, notifyData: {}", notifyData);
+        // Verify order existence and validate state transition.
+        CollectionOrderDto collectionOrderDto = validateNotifyOrder(notifyData);
+        log.info("notify order validated, transactionNo={}, orderStatus={}",
+                collectionOrderDto.getTransactionNo(),
+                collectionOrderDto.getOrderStatus());
+
+        OrderScope scope = Integer.valueOf(1).equals(collectionOrderDto.getCollectionMode())
+                ? OrderScope.THIRD_PARTY
+                : OrderScope.SYSTEM;
         OrderHandler handler = OrderHandlerFactory.get(
-                OrderType.COLLECTION_ORDER, OrderScope.THIRD_PARTY, currency);
+                scope, collectionOrderDto.getCurrencyType(), collectionOrderDto.getPaymentNo());
 
         // Parse notify payload into a structured response.
-        NotifyRequest response = handler.handleNotify(body);
+        NotifyRequest response = handler.handleNotify(notifyData);
         log.info("notify parsed, transactionNo={}, merchantNo={}, status={}",
                 response.getTransactionNo(), response.getMerchantNo(),
                 response.getStatus());
@@ -211,19 +221,15 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         OrderHandler.validateNotifyResponse(response);
         log.info("notify response validated, transactionNo={}", response.getTransactionNo());
 
-        // Verify order existence and validate state transition.
-        CollectionOrderDto collectionOrderDto = validateNotifyOrder(response);
-        log.info("notify order validated, transactionNo={}, orderStatus={}",
-                collectionOrderDto.getTransactionNo(),
-                collectionOrderDto.getOrderStatus());
-
         // Calculate fees, update order record, and apply balance changes.
         applyNotifyUpdate(collectionOrderDto, response);
         log.info("notify applied, transactionNo={}, status={}",
                 collectionOrderDto.getTransactionNo(),
                 response.getStatus());
 
-        return CommonResponse.success(response);
+        refreshReportData(collectionOrderDto.getCreateTime(),collectionOrderDto.getCurrencyType());
+
+        return "ok";
     }
 
     @Override
@@ -247,14 +253,11 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         return CommonResponse.success(response);
     }
 
-    private CollectionOrderDto validateNotifyOrder(NotifyRequest response) throws PakGoPayException {
-        CollectionOrderDto collectionOrderDto = collectionOrderMapper.findByTransactionNo(response.getTransactionNo())
+    private CollectionOrderDto validateNotifyOrder(Map<String, Object> notifyData) throws PakGoPayException {
+        String transactionNo = extractTransactionNo(notifyData);
+        CollectionOrderDto collectionOrderDto = collectionOrderMapper.findByTransactionNo(transactionNo)
                 .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS,
-                        "record is not exists, transactionNo:" + response.getTransactionNo()));
-        if (collectionOrderDto.getMerchantUserId() == null
-                || !collectionOrderDto.getMerchantUserId().equals(response.getMerchantNo())) {
-            throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "merchantNo does not match");
-        }
+                        "record is not exists, transactionNo:" + transactionNo));
         if (TransactionStatus.SUCCESS.getCode().toString().equals(collectionOrderDto.getOrderStatus())
                 || TransactionStatus.FAILED.getCode().toString().equals(collectionOrderDto.getOrderStatus())) {
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "order status can not be changed");
@@ -294,7 +297,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             }
 
             if (TransactionStatus.SUCCESS.equals(targetStatus)) {
-                BigDecimal creditAmount = CommonUtil.safeSubtract(
+                BigDecimal creditAmount = CalcUtil.safeSubtract(
                         resolveOrderAmount(collectionOrderDto.getActualAmount(), collectionOrderDto.getAmount()),
                         collectionOrderDto.getMerchantFee());
                 CommonUtil.withBalanceLogContext("collection.handleNotify", collectionOrderDto.getTransactionNo(), () -> {
@@ -367,7 +370,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         BigDecimal actualAmount = transactionInfo.getActualAmount();
         builder.obj(() -> actualAmount, dto::setActualAmount); // actual amount
         if (merchantInfo.getIsFloat() == 1) {
-            BigDecimal floatingAmount = CommonUtil.safeSubtract(request.getAmount(), actualAmount);
+            BigDecimal floatingAmount = CalcUtil.safeSubtract(request.getAmount(), actualAmount);
             builder.obj(() -> floatingAmount, dto::setFloatingAmount); // floating amount
         }
 
@@ -380,6 +383,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         // 3) Channel/payment association
         // -----------------------------
         builder.obj(transactionInfo::getPaymentId, dto::setPaymentId) // payment channel id
+                .obj(transactionInfo::getPaymentNo, dto::setPaymentNo) // payment channel no
                 .obj(transactionInfo::getChannelId, dto::setChannelId); // channel id
 
         // -----------------------------
@@ -439,23 +443,21 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 : OrderScope.SYSTEM;
         String channelCode = resolveChannelCode(channelParams);
         OrderHandler handler = OrderHandlerFactory.get(
-                OrderType.COLLECTION_ORDER, scope, resolveCurrencyKey(dto.getCurrencyType(), channelCode));
+                scope, resolveCurrencyKey(dto.getCurrencyType(), channelCode), dto.getPaymentNo());
         Map<String, Object> payload = new HashMap<>();
         payload.put("transactionNo", dto.getTransactionNo());
         // TODO 需要查看为什么为null
         payload.put("amount", dto.getActualAmount() != null ? dto.getActualAmount() : new BigDecimal("1"));
-        payload.put("currency", dto.getCurrencyType());
-        payload.put("merchantOrderNo", dto.getMerchantOrderNo());
+        payload.put("merchantOrderNo", dto.getTransactionNo());
         payload.put("merchantUserId", dto.getMerchantUserId());
-        payload.put("callbackUrl", dto.getCallbackUrl());
+        payload.put("callbackUrl", paymentInfo.getCollectionCallbackAddr());
         payload.put("ip", dto.getRequestIp());
         payload.put("paymentRequestCollectionUrl",
                 paymentInfo == null ? null : paymentInfo.getPaymentRequestCollectionUrl());
         payload.put("collectionInterfaceParam",
                 paymentInfo == null ? null : paymentInfo.getCollectionInterfaceParam());
         payload.put("channelCode", channelCode);
-        payload.put("channelParams", channelParams);
-        return handler.handle(payload);
+        return handler.handleCol(payload);
     }
 
     private String resolveChannelCode(Object channelParams) {

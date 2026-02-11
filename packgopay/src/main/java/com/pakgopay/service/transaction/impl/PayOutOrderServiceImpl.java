@@ -1,30 +1,24 @@
 package com.pakgopay.service.transaction.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.enums.*;
+import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.OrderQueryEntity;
 import com.pakgopay.data.entity.TransactionInfo;
-import com.pakgopay.common.enums.OrderScope;
-import com.pakgopay.common.enums.OrderStatus;
-import com.pakgopay.common.enums.OrderType;
-import com.pakgopay.common.enums.ResultCode;
-import com.pakgopay.common.enums.TransactionStatus;
-import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
-import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.PayOutOrderPageResponse;
 import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
+import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.*;
-import com.pakgopay.util.CommonUtil;
-import com.pakgopay.util.PatchBuilderUtil;
-import com.pakgopay.util.SnowflakeIdGenerator;
-import com.pakgopay.util.TransactionUtil;
+import com.pakgopay.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -68,11 +62,11 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         TransactionInfo transactionInfo = new TransactionInfo();
         try {
             // 1. get merchant info
-            MerchantInfoDto merchantInfoDto = merchantService.fetchMerchantInfo(payOrderRequest.getUserId());
+            MerchantInfoDto merchantInfoDto = merchantService.fetchMerchantInfo(payOrderRequest.getMerchantId());
             transactionInfo.setMerchantInfo(merchantInfoDto);
             // merchant is not exists
             if (merchantInfoDto == null) {
-                log.error("merchant info is not exist, userId {}", payOrderRequest.getUserId());
+                log.error("merchant info is not exist, userId {}", payOrderRequest.getMerchantId());
                 throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
             }
             log.info("merchant info loaded, userId={}, agentId={}, channelIds={}",
@@ -116,13 +110,13 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     payOrderDto.getChannelId(),
                     payOrderDto.getPaymentMode());
 
-            frozenAmount = CommonUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
+            frozenAmount = CalcUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
             BigDecimal frozenAmountSnapshot = frozenAmount;
             transactionUtil.runInTransaction(() -> {
                 CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
                     balanceService.freezeBalance(
                             frozenAmountSnapshot,
-                            payOrderRequest.getUserId(),
+                            payOrderRequest.getMerchantId(),
                             payOrderRequest.getCurrency());
                 });
 
@@ -133,10 +127,10 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             });
             frozen = true;
             log.info("balance frozen, userId={}, currency={}, frozenAmount={}",
-                    payOrderRequest.getUserId(), payOrderRequest.getCurrency(), frozenAmount);
+                    payOrderRequest.getMerchantId(), payOrderRequest.getCurrency(), frozenAmount);
             log.info("pay order inserted, transactionNo={}", payOrderDto.getTransactionNo());
 
-            Object handlerResponse = dispatchPayOutOrder(payOrderDto, payOrderRequest);
+            Object handlerResponse = dispatchPayOutOrder(payOrderDto, payOrderRequest, transactionInfo.getPaymentInfo());
             log.info("payout handler dispatched, transactionNo={}, responseType={}",
                     payOrderDto.getTransactionNo(),
                     handlerResponse == null ? null : handlerResponse.getClass().getSimpleName());
@@ -150,7 +144,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     BigDecimal frozenAmountSnapshot = frozenAmount;
                     CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
                         balanceService.releaseFrozenBalance(
-                                payOrderRequest.getUserId(),
+                                payOrderRequest.getMerchantId(),
                                 payOrderRequest.getCurrency(),
                                 frozenAmountSnapshot);
                     });
@@ -218,21 +212,28 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
     }
 
     @Override
-    public CommonResponse handleNotify(String currency, String body) throws PakGoPayException {
-        log.info("handleNotify start, currency={}, bodySize={}", currency, body == null ? 0 : body.length());
+    public String handleNotify(Map<String, Object> notifyData) throws PakGoPayException {
+        PayOrderDto payOrderDto = validateNotifyOrder(notifyData);
+        log.info("notify order validated, transactionNo={}, orderStatus={}",
+                payOrderDto.getTransactionNo(), payOrderDto.getOrderStatus());
+
+        OrderScope scope = Integer.valueOf(1).equals(payOrderDto.getPaymentMode())
+                ? OrderScope.THIRD_PARTY
+                : OrderScope.SYSTEM;
         OrderHandler handler = OrderHandlerFactory.get(
-                OrderType.PAY_OUT_ORDER, OrderScope.THIRD_PARTY, currency);
-        NotifyRequest response = handler.handleNotify(body);
+                scope, payOrderDto.getCurrencyType(), payOrderDto.getPaymentNo());
+
+        NotifyRequest response = handler.handleNotify(notifyData);
         log.info("notify parsed, transactionNo={}, merchantNo={}, status={}",
                 response.getTransactionNo(), response.getMerchantNo(), response.getStatus());
         OrderHandler.validateNotifyResponse(response);
         log.info("notify response validated, transactionNo={}", response.getTransactionNo());
-        PayOrderDto payOrderDto = validateNotifyOrder(response);
-        log.info("notify order validated, transactionNo={}, orderStatus={}",
-                payOrderDto.getTransactionNo(), payOrderDto.getOrderStatus());
         applyNotifyUpdate(payOrderDto, response);
         log.info("notify applied, transactionNo={}, status={}", payOrderDto.getTransactionNo(), response.getStatus());
-        return CommonResponse.success(response);
+
+        refreshReportData(payOrderDto.getCreateTime(),payOrderDto.getCurrencyType());
+
+        return "ok";
     }
 
     @Override
@@ -292,15 +293,12 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         log.info("validatePayoutRequest success");
     }
 
-    private PayOrderDto validateNotifyOrder(NotifyRequest response) throws PakGoPayException {
-        log.info("validateNotifyOrder start, transactionNo={}", response.getTransactionNo());
-        PayOrderDto payOrderDto = payOrderMapper.findByTransactionNo(response.getTransactionNo())
+    private PayOrderDto validateNotifyOrder(Map<String, Object> notifyData) throws PakGoPayException {
+        String transactionNo = extractTransactionNo(notifyData);
+        log.info("validateNotifyOrder start, transactionNo={}", transactionNo);
+        PayOrderDto payOrderDto = payOrderMapper.findByTransactionNo(transactionNo)
                 .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS,
-                        "record is not exists, transactionNo:" + response.getTransactionNo()));
-        if (payOrderDto.getMerchantUserId() == null
-                || !payOrderDto.getMerchantUserId().equals(response.getMerchantNo())) {
-            throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "merchantNo does not match");
-        }
+                        "record is not exists, transactionNo:" + transactionNo));
         if (TransactionStatus.SUCCESS.getCode().toString().equals(payOrderDto.getOrderStatus())
                 || TransactionStatus.FAILED.getCode().toString().equals(payOrderDto.getOrderStatus())) {
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "order status can not be changed");
@@ -344,7 +342,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
             BigDecimal payoutAmount = resolveOrderAmount(payOrderDto.getActualAmount(), payOrderDto.getAmount());
             BigDecimal merchantFee = payOrderDto.getMerchantFee() == null ? BigDecimal.ZERO : payOrderDto.getMerchantFee();
-            BigDecimal frozenAmount = CommonUtil.safeAdd(payoutAmount, merchantFee);
+            BigDecimal frozenAmount = CalcUtil.safeAdd(payoutAmount, merchantFee);
 
             if (TransactionStatus.SUCCESS.equals(targetStatus)) {
                 CommonUtil.withBalanceLogContext("payout.handleNotify", payOrderDto.getTransactionNo(), () -> {
@@ -374,28 +372,31 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
     }
 
 
-    private Object dispatchPayOutOrder(PayOrderDto dto, PayOutOrderRequest request) {
+    private Object dispatchPayOutOrder(PayOrderDto dto, PayOutOrderRequest request, PaymentDto paymentInfo) {
         OrderScope scope = Integer.valueOf(1).equals(dto.getPaymentMode())
                 ? OrderScope.THIRD_PARTY
                 : OrderScope.SYSTEM;
         OrderHandler handler = OrderHandlerFactory.get(
-                OrderType.PAY_OUT_ORDER, scope, dto.getCurrencyType());
+                scope, dto.getCurrencyType(), dto.getPaymentNo());
         Map<String, Object> payload = new HashMap<>();
         payload.put("transactionNo", dto.getTransactionNo());
         payload.put("amount", dto.getAmount());
         payload.put("currency", dto.getCurrencyType());
-        payload.put("merchantOrderNo", dto.getMerchantOrderNo());
+        payload.put("merchantOrderNo", dto.getTransactionNo());
         payload.put("merchantUserId", dto.getMerchantUserId());
-        payload.put("callbackUrl", dto.getCallbackUrl());
+        payload.put("callbackUrl", paymentInfo.getPayCallbackAddr());
         payload.put("bankCode", request.getBankCode());
         payload.put("accountName", request.getAccountName());
         payload.put("accountNo", request.getAccountNo());
-        // TODO pending: resolve channel code for payout handler
-        payload.put("channelCode", "digimone");
         payload.put("channelParams", request.getChannelParams());
+        payload.put("ip", dto.getRequestIp());
+        payload.put("paymentRequestPayUrl",
+                paymentInfo == null ? null : paymentInfo.getPaymentRequestPayUrl());
+        payload.put("payInterfaceParam",
+                paymentInfo == null ? null : paymentInfo.getPayInterfaceParam());
         log.info("dispatchPayOutOrder payload ready, transactionNo={}, paymentMode={}, currency={}",
                 dto.getTransactionNo(), dto.getPaymentMode(), dto.getCurrencyType());
-        return handler.handle(payload);
+        return handler.handlePay(payload);
     }
 
     private Map<String, Object> buildPayOutResponse(PayOrderDto dto, Object handlerResponse) {
@@ -444,6 +445,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         // 3) Channel/payment association
         // -----------------------------
         .obj(transactionInfo::getPaymentId, dto::setPaymentId) // payment channel id
+        .obj(transactionInfo::getPaymentNo, dto::setPaymentNo) // payment channel no
                 .obj(transactionInfo::getChannelId, dto::setChannelId); // channel id
 
         // -----------------------------

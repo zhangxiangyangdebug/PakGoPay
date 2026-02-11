@@ -10,15 +10,23 @@ import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.mapper.dto.AgentInfoDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.timer.ReportTask;
 import com.pakgopay.util.CommonUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
 @Slf4j
 public abstract class BaseOrderService {
+
+    @Autowired
+    private ReportTask reportTask;
 
     protected TransactionStatus resolveNotifyStatus(String status) throws PakGoPayException {
         if (status == null || status.isBlank()) {
@@ -72,6 +80,25 @@ public abstract class BaseOrderService {
         }
     }
 
+    protected String extractTransactionNo(Map<String, Object> notifyData) {
+        return extractDataField(notifyData, "order_no");
+    }
+
+    protected String extractMerchantNo(Map<String, Object> notifyData) {
+        return extractDataField(notifyData, "mid");
+    }
+
+    private String extractDataField(Map<String, Object> notifyData, String key) {
+        if (notifyData == null || key == null) {
+            return null;
+        }
+        Object value = notifyData.get(key);
+        if (value != null) {
+            return String.valueOf(value);
+        }
+        return null;
+    }
+
     protected OrderQueryEntity buildOrderQueryEntity(OrderQueryRequest request) {
         OrderQueryEntity entity = new OrderQueryEntity();
         entity.setMerchantUserId(request.getMerchantUserId());
@@ -121,6 +148,24 @@ public abstract class BaseOrderService {
                         agent.getUserId(), targetLevel, fee);
                 return;
             }
+        }
+    }
+
+    protected void refreshReportData(long recordDateEpoch, String currency) {
+        try {
+            if (currency != null && !currency.isBlank()) {
+                ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+                LocalDate targetDate = Instant.ofEpochSecond(recordDateEpoch).atZone(zoneId).toLocalDate();
+                LocalDate today = Instant.now().atZone(zoneId).toLocalDate();
+                if (targetDate.isEqual(today)) {
+                    log.info("refreshReportData skipped for today, recordDateEpoch={}, currency={}, targetDate={}",
+                            recordDateEpoch, currency, targetDate);
+                    return;
+                }
+            }
+            reportTask.refreshReportsByEpoch(recordDateEpoch, currency);
+        } catch (Exception e) {
+            log.error("refreshReportData failed, error message: {}", e.getMessage());
         }
     }
 }

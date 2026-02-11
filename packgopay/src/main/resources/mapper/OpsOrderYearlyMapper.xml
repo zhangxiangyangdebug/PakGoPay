@@ -87,12 +87,47 @@
             <if test="scopeId != null and scopeId != ''">
                 AND scope_id = #{scopeId}
             </if>
+            <if test="orderType != null">
+                AND order_type = #{orderType}
+            </if>
             <if test="recordDate != null">
                 AND report_year &lt;= to_char(to_timestamp(#{recordDate}), 'YYYY')
             </if>
         </where>
         ORDER BY report_year DESC
         LIMIT 5
+    </select>
+
+    <select id="sumTotals" parameterType="com.pakgopay.data.entity.report.OpsReportQueryEntity"
+            resultMap="OpsOrderYearlyResultMap">
+        SELECT
+            NULL as report_year,
+            NULL as order_type,
+            currency,
+            scope_type,
+            scope_id,
+            COALESCE(SUM(order_quantity), 0) as order_quantity,
+            COALESCE(SUM(success_quantity), 0) as success_quantity,
+            COALESCE(SUM(fail_quantity), 0) as fail_quantity,
+            NULL as success_rate,
+            COALESCE(SUM(agent_commission), 0) as agent_commission,
+            NULL as created_time,
+            NULL as updated_time
+        FROM ops_order_yearly
+        <where>
+            <if test="currency != null and currency != ''">
+                AND currency = #{currency}
+            </if>
+            <if test="scopeType != null">
+                AND scope_type = #{scopeType}
+            </if>
+            <if test="scopeId != null and scopeId != ''">
+                AND scope_id = #{scopeId}
+            </if>
+            <if test="orderType != null">
+                AND order_type = #{orderType}
+            </if>
+        </where>
     </select>
 
     <insert id="batchUpsert" parameterType="java.util.List">

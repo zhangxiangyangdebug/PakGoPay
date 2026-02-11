@@ -18,6 +18,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.WebAsyncTask;
 
+import java.util.Map;
+
 @Slf4j
 @RestController
 @RequestMapping("/pakGoPay/server/v1")
@@ -161,16 +163,41 @@ public class TransactionController {
     }
 
     @PostMapping(value = "/notifyTransaction")
-    public CommonResponse handleNotify(@RequestParam("orderType") String orderType,
-            @RequestParam("currency") String currency, @RequestBody(required = false) String body) {
-        log.info("notify received, orderType={}, currency={}, bodySize={}",
-                orderType, currency, body == null ? 0 : body.length());
-        if ("collection".equalsIgnoreCase(orderType)) {
-            return collectionOrderService.handleNotify(currency, body);
+    public String handleNotify(@RequestBody Map<String, Object> notifyData) {
+        log.info("notify received, notifyData={}", notifyData);
+        String orderNo = extractOrderNo(notifyData);
+        Map<String, Object> data = getDataMap(notifyData);
+        log.info("notify parsed, order_no={}", orderNo);
+        if (orderNo != null && orderNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
+            return collectionOrderService.handleNotify(data);
         }
-        if ("payout".equalsIgnoreCase(orderType)) {
-            return payOutOrderService.handleNotify(currency, body);
+        if (orderNo != null && orderNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
+            return payOutOrderService.handleNotify(data);
         }
-        return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "unsupported orderType");
+        return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "order_no is valid").toString();
+    }
+
+    private String extractOrderNo(Map<String, Object> payload) {
+        return extractDataField(payload, "order_no");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getDataMap(Map<String, Object> notifyData) {
+        Object dataObj = notifyData.get("data");
+        return dataObj instanceof Map<?, ?> ? (Map<String, Object>) dataObj : null;
+    }
+
+    private String extractDataField(Map<String, Object> payload, String key) {
+        if (payload == null || key == null) {
+            return null;
+        }
+        Object data = payload.get("data");
+        if (data instanceof Map<?, ?> dataMap) {
+            Object raw = dataMap.get(key);
+            if (raw != null) {
+                return String.valueOf(raw);
+            }
+        }
+        return null;
     }
 }

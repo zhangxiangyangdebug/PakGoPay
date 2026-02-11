@@ -8,6 +8,7 @@ import com.pakgopay.service.impl.AgentServiceImpl;
 import com.pakgopay.service.impl.MerchantServiceImpl;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.PatchBuilderUtil;
+import com.pakgopay.util.CalcUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,6 @@ import com.pakgopay.timer.data.OpsTotals;
 import com.pakgopay.timer.data.ReportCurrencyRange;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -585,10 +585,10 @@ public class ReportTask {
                     .obj(() -> dto.getCreateTime() == null ? nowEpochSecond : dto.getCreateTime(), dto::setCreateTime)
                     .obj(() -> CommonUtil.defaultLong(dto.getOrderQuantity(), 0L), dto::setOrderQuantity)
                     .obj(() -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L), dto::setSuccessQuantity)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getAgent1Fee()), dto::setAgent1Fee)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getAgent2Fee()), dto::setAgent2Fee)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getAgent3Fee()), dto::setAgent3Fee);
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getAgent1Fee()), dto::setAgent1Fee)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getAgent2Fee()), dto::setAgent2Fee)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getAgent3Fee()), dto::setAgent3Fee);
             dto.setOrderProfit(resolveOrderProfit(dto));
             return dto;
         }
@@ -622,9 +622,9 @@ public class ReportTask {
                     .obj(() -> dto.getCreateTime() == null ? nowEpochSecond : dto.getCreateTime(), dto::setCreateTime)
                     .obj(() -> CommonUtil.defaultLong(dto.getOrderQuantity(), 0L), dto::setOrderQuantity)
                     .obj(() -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L), dto::setSuccessQuantity)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
             return dto;
         }
 
@@ -657,9 +657,9 @@ public class ReportTask {
                     .obj(() -> dto.getCreateTime() == null ? nowEpochSecond : dto.getCreateTime(), dto::setCreateTime)
                     .obj(() -> CommonUtil.defaultLong(dto.getOrderQuantity(), 0L), dto::setOrderQuantity)
                     .obj(() -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L), dto::setSuccessQuantity)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
             return dto;
         }
 
@@ -688,9 +688,9 @@ public class ReportTask {
                     .obj(() -> dto.getCreateTime() == null ? nowEpochSecond : dto.getCreateTime(), dto::setCreateTime)
                     .obj(() -> CommonUtil.defaultLong(dto.getOrderQuantity(), 0L), dto::setOrderQuantity)
                     .obj(() -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L), dto::setSuccessQuantity)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
-                    .obj(() -> CommonUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
             return dto;
         }
 
@@ -702,9 +702,9 @@ public class ReportTask {
          */
         private BigDecimal resolveOrderProfit(MerchantReportDto dto) {
             BigDecimal profit = dto.getMerchantFee() == null ? BigDecimal.ZERO : dto.getMerchantFee();
-            profit = CommonUtil.safeSubtract(profit, dto.getAgent1Fee() == null ? BigDecimal.ZERO : dto.getAgent1Fee());
-            profit = CommonUtil.safeSubtract(profit, dto.getAgent2Fee() == null ? BigDecimal.ZERO : dto.getAgent2Fee());
-            profit = CommonUtil.safeSubtract(profit, dto.getAgent3Fee() == null ? BigDecimal.ZERO : dto.getAgent3Fee());
+            profit = CalcUtil.safeSubtract(profit, dto.getAgent1Fee() == null ? BigDecimal.ZERO : dto.getAgent1Fee());
+            profit = CalcUtil.safeSubtract(profit, dto.getAgent2Fee() == null ? BigDecimal.ZERO : dto.getAgent2Fee());
+            profit = CalcUtil.safeSubtract(profit, dto.getAgent3Fee() == null ? BigDecimal.ZERO : dto.getAgent3Fee());
             return profit;
         }
     }
@@ -873,7 +873,7 @@ public class ReportTask {
                     + CommonUtil.defaultLong(merchantReport == null ? null : merchantReport.getOrderQuantity(), 0L));
             dto.setSuccessQuantity(dto.getSuccessQuantity()
                     + CommonUtil.defaultLong(merchantReport == null ? null : merchantReport.getSuccessQuantity(), 0L));
-            dto.setCommission(CommonUtil.safeAdd(dto.getCommission(), commission));
+            dto.setCommission(CalcUtil.safeAdd(dto.getCommission(), commission));
             dto.setUpdateTime(nowEpochSecond);
         }
 
@@ -1035,10 +1035,10 @@ public class ReportTask {
                     continue;
                 }
                 // Merchant fee and agent commission for current merchant stats.
-                BigDecimal merchantFee = CommonUtil.defaultBigDecimal(dto.getMerchantFee());
+                BigDecimal merchantFee = CalcUtil.defaultBigDecimal(dto.getMerchantFee());
                 BigDecimal agentCommission = sumAgentCommission(dto);
                 // Platform profit = merchant fee - agent commission.
-                BigDecimal platformProfit = CommonUtil.safeSubtract(merchantFee, agentCommission);
+                BigDecimal platformProfit = CalcUtil.safeSubtract(merchantFee, agentCommission);
                 // Merchant scope uses merchant fee; all scope uses platform profit.
                 OpsTotals merchantTotals = buildOpsTotals(dto, merchantFee);
                 OpsTotals allTotals = buildOpsTotals(dto, platformProfit);
@@ -1201,7 +1201,7 @@ public class ReportTask {
             record.orderQuantity += totals.total;
             record.successQuantity += totals.success;
             record.failQuantity += Math.max(0, totals.total - totals.success);
-            record.agentCommission = CommonUtil.safeAdd(record.agentCommission, totals.agentCommission);
+            record.agentCommission = CalcUtil.safeAdd(record.agentCommission, totals.agentCommission);
         }
 
         /**
@@ -1283,7 +1283,7 @@ public class ReportTask {
             dto.setOrderQuantity(record.orderQuantity);
             dto.setSuccessQuantity(record.successQuantity);
             dto.setFailQuantity(record.failQuantity);
-            dto.setSuccessRate(resolveSuccessRate(record.successQuantity, record.orderQuantity));
+            dto.setSuccessRate(CalcUtil.resolveSuccessRate(record.successQuantity, record.orderQuantity));
             dto.setAgentCommission(record.agentCommission);
             dto.setCreateTime(nowEpochSecond);
             dto.setUpdateTime(nowEpochSecond);
@@ -1306,7 +1306,7 @@ public class ReportTask {
             dto.setOrderQuantity(record.orderQuantity);
             dto.setSuccessQuantity(record.successQuantity);
             dto.setFailQuantity(record.failQuantity);
-            dto.setSuccessRate(resolveSuccessRate(record.successQuantity, record.orderQuantity));
+            dto.setSuccessRate(CalcUtil.resolveSuccessRate(record.successQuantity, record.orderQuantity));
             dto.setAgentCommission(record.agentCommission);
             dto.setCreateTime(nowEpochSecond);
             dto.setUpdateTime(nowEpochSecond);
@@ -1329,7 +1329,7 @@ public class ReportTask {
             dto.setOrderQuantity(record.orderQuantity);
             dto.setSuccessQuantity(record.successQuantity);
             dto.setFailQuantity(record.failQuantity);
-            dto.setSuccessRate(resolveSuccessRate(record.successQuantity, record.orderQuantity));
+            dto.setSuccessRate(CalcUtil.resolveSuccessRate(record.successQuantity, record.orderQuantity));
             dto.setAgentCommission(record.agentCommission);
             dto.setCreateTime(nowEpochSecond);
             dto.setUpdateTime(nowEpochSecond);
@@ -1392,7 +1392,7 @@ public class ReportTask {
             BigDecimal a1 = dto.getAgent1Fee() == null ? BigDecimal.ZERO : dto.getAgent1Fee();
             BigDecimal a2 = dto.getAgent2Fee() == null ? BigDecimal.ZERO : dto.getAgent2Fee();
             BigDecimal a3 = dto.getAgent3Fee() == null ? BigDecimal.ZERO : dto.getAgent3Fee();
-            return CommonUtil.safeAdd(a1, a2, a3);
+            return CalcUtil.safeAdd(a1, a2, a3);
         }
 
         /**
@@ -1422,13 +1422,7 @@ public class ReportTask {
          * @param total total count
          * @return success rate
          */
-        private BigDecimal resolveSuccessRate(long success, long total) {
-            if (total <= 0) {
-                return BigDecimal.ZERO;
-            }
-            return BigDecimal.valueOf(success)
-                    .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP);
-        }
+        // moved to CalcUtil
 
 
         /**

@@ -2,8 +2,8 @@ package com.pakgopay.service.transaction.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pakgopay.common.http.RestTemplateUtil;
-import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
+import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.service.transaction.OrderHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,11 +14,12 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
 @Component
-public class ColThirdPartyBankTransferHandler extends OrderHandler {
+public class ThirdPartyBankTransferHandler extends OrderHandler {
 
     private static final String BASE_URL = "http://localhost:8092";
 
@@ -26,22 +27,47 @@ public class ColThirdPartyBankTransferHandler extends OrderHandler {
     private RestTemplateUtil restTemplateUtil;
 
     @Override
-    public Object handle(Object request) {
+    public Object handleCol(Object request) {
         String path = resolvePath(resolveChannelCode(request));
         Map<String, Object> payload = toPayload(request);
         validateRequiredFields(path, payload);
         String url = BASE_URL + path;
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, jsonHeaders());
         log.info("ColThirdPartyBankTransferHandler handle, channelCode={}, url={}, request={}", resolveChannelCode(request), url, request);
-        PaymentHttpResponse response = restTemplateUtil.request(entity, HttpMethod.POST, url);
-        log.info("third-party collection response, channelCode={}, code={}", resolveChannelCode(request), response == null ? null : response.getCode());
+//        PaymentHttpResponse response = restTemplateUtil.request(entity, HttpMethod.POST, url);
+        PaymentHttpResponse response = new PaymentHttpResponse();
+        response.setCode(200);
+        response.setMessage("success");
+        Map<String, Object> data = new HashMap<>();
+        data.put("payUrl",
+                "https://mock-digimone.local/Transaction/Index?transactionNo="
+                        + payload.get("transactionNo")
+                        + "&amount="
+                        + payload.get("amount")
+                        + "&channelCode=digimone");
+        response.setData(data);
+        log.info("third-party collection response, channelCode={}, code={}, response={}", resolveChannelCode(request), response == null ? null : response.getCode(), response);
         return response;
     }
 
     @Override
-    public NotifyRequest handleNotify(String body) {
-        Map<String, Object> payload = parseBodyMap(body);
-        log.info("third-party collection notify, channelCode={}, payload={}", resolveChannelCode(payload), payload);
+    public Object handlePay(Object request) {
+        String path = resolvePath(resolveChannelCode(request));
+        Map<String, Object> payload = toPayload(request);
+        validateRequiredFields(path, payload);
+        String url = BASE_URL + path;
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, jsonHeaders());
+        log.info("PayThirdPartyBankTransferHandler handle, channelCode={}, url={}, request={}",
+                resolveChannelCode(request), url, request);
+        PaymentHttpResponse response = restTemplateUtil.request(entity, HttpMethod.POST, url);
+        log.info("third-party payout response, channelCode={}, code={}",
+                resolveChannelCode(request), response == null ? null : response.getCode());
+        return response;
+    }
+
+    @Override
+    public NotifyRequest handleNotify(Map<String, Object> body) {
+        log.info("third-party collection notify, channelCode={}, payload={}", resolveChannelCode(body), body);
         return buildNotifyResponse(body);
     }
 

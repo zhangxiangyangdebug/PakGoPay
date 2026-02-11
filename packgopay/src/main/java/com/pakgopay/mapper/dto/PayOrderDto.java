@@ -100,6 +100,9 @@ public class PayOrderDto implements Serializable {
     /** Payment channel ID */
     private Long paymentId;
 
+    /** Payment channel no */
+    private String paymentNo;
+
     /** Channel ID */
     private Long channelId;
 

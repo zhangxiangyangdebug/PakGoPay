@@ -1,0 +1,25 @@
+package com.pakgopay.data.reqeust.report;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+@Data
+public class OpsOrderCardRequest {
+
+    /** Currency code. */
+    @NotBlank(message = "currency is empty")
+    private String currency;
+
+    /** Scope type (0=all,1=merchant,2=agent). */
+    @NotNull(message = "scopeType is null")
+    private Integer scopeType;
+
+    /** Scope id (merchant user id/agent user id or 0 for all). */
+    @NotBlank(message = "scopeId is empty")
+    private String scopeId;
+
+    /** Order type (0=collection,1=payout). */
+    @NotNull(message = "orderType is null")
+    private Integer orderType;
+}

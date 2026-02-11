@@ -16,4 +16,6 @@ public interface OpsOrderYearlyMapper {
     int batchUpsert(List<OpsOrderYearlyDto> list);
 
     List<OpsOrderYearlyDto> listLatest(OpsReportQueryEntity query);
+
+    OpsOrderYearlyDto sumTotals(OpsReportQueryEntity query);
 }
