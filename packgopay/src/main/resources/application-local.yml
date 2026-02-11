@@ -4,10 +4,10 @@ spring:
   application:
     name: PakGoPay
   rabbitmq:
-    host: 8.148.79.164
+    host: localhost
     port: 5672
-    username: zf
-    password: "ENC(r+SlzyvtWf7p/G5rfZ5ptQ2dZxjLu2ez9WyaSAqd8uZgLM/8FOa3x3poYoeHdjJe)"
+    username: admin
+    password: "ENC(sYYbVn+QvpMiw/NJQ40Fy181liOzDn9+X0kySN/Qcz8rxyeav3Da38MhZFVy5kAZ)"
   data:
     redis:
       host: 8.148.79.164

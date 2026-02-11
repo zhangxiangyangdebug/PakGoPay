@@ -3,11 +3,9 @@ package com.pakgopay.controller;
 import com.pakgopay.data.entity.Message;
 import com.pakgopay.data.reqeust.LoginRequest;
 import com.pakgopay.data.response.CommonResponse;
-import com.pakgopay.data.entity.TestMessage;
-import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.service.common.AuthorizationService;
 import com.pakgopay.service.LoginService;
-import com.pakgopay.service.common.TestMq;
+import com.pakgopay.service.common.SendDmqMessage;
 import com.pakgopay.service.impl.UserService;
 import com.pakgopay.thirdUtil.GoogleUtil;
 import com.pakgopay.thirdUtil.RedisUtil;
@@ -27,7 +25,7 @@ public class LoginController {
     private static Logger logger = LogManager.getLogger("RollingFile");
 
     @Autowired
-    private TestMq testMq;
+    private SendDmqMessage testMq;
 
     @Autowired
     private RedisUtil redisUtil;
@@ -53,7 +51,7 @@ public class LoginController {
         message.setUserId(userId);
         message.setRead(false);
         redisUtil.saveMessage(message);
-        testMq.sendFanout("notice2", message);
+        testMq.sendFanout("user-notify", message);
         /*testMessage.setContent("你滴，大大的良民");*/
        /* testMq.sendDelay("test-delay-L10S", testMessage);*/
         return CommonResponse.success("success");
