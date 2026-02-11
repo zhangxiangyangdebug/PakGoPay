@@ -103,9 +103,9 @@
         SELECT
             NULL as report_year,
             NULL as order_type,
-            currency,
-            scope_type,
-            scope_id,
+            MAX(currency) as currency,
+            MAX(scope_type) as scope_type,
+            MAX(scope_id) as scope_id,
             COALESCE(SUM(order_quantity), 0) as order_quantity,
             COALESCE(SUM(success_quantity), 0) as success_quantity,
             COALESCE(SUM(fail_quantity), 0) as fail_quantity,
