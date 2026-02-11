@@ -54,6 +54,7 @@ public class WebhookController {
 
     @PostMapping
     public CommonResponse webhook(@RequestBody String payload, HttpServletRequest request, HttpServletResponse response) {
+        logWebhookRequest(request, payload);
         if (!validateWebhookSecret(request)) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return CommonResponse.fail(ResultCode.SC_UNAUTHORIZED, "forbidden");
@@ -103,6 +104,31 @@ public class WebhookController {
             log.error("telegram webhook handle failed: {}", e.getMessage());
         }
         return CommonResponse.success("ok");
+    }
+
+    private void logWebhookRequest(HttpServletRequest request, String payload) {
+        try {
+            String secretHeader = request.getHeader("X-Telegram-Bot-Api-Secret-Token");
+            String maskedSecret = maskSecret(secretHeader);
+            String userAgent = request.getHeader("User-Agent");
+            String ip = request.getRemoteAddr();
+            String body = payload == null ? "" : payload;
+            String bodyPreview = body.length() > 800 ? body.substring(0, 800) + "...(truncated)" : body;
+            log.info("telegram webhook request ip={}, ua={}, secretHeader={}", ip, userAgent, maskedSecret);
+            log.info("telegram webhook payload={}", bodyPreview);
+        } catch (Exception e) {
+            log.warn("telegram webhook log failed: {}", e.getMessage());
+        }
+    }
+
+    private String maskSecret(String secret) {
+        if (secret == null || secret.isEmpty()) {
+            return "(empty)";
+        }
+        if (secret.length() <= 6) {
+            return "***";
+        }
+        return secret.substring(0, 3) + "***" + secret.substring(secret.length() - 3);
     }
 
     private boolean validateWebhookSecret(HttpServletRequest request) {
