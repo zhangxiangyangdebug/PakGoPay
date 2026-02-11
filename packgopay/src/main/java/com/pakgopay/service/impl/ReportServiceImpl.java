@@ -4,17 +4,17 @@ import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.entity.report.*;
 import com.pakgopay.data.reqeust.report.*;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.report.*;
-import com.pakgopay.data.entity.report.*;
 import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.service.ReportService;
 import com.pakgopay.service.common.CommonService;
 import com.pakgopay.service.common.ExportReportDataColumns;
-import com.pakgopay.service.ReportService;
-import com.pakgopay.util.CommonUtil;
+import com.pakgopay.util.CalcUtil;
 import com.pakgopay.util.ExportFileUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import com.pakgopay.util.CalcUtil;
 
 @Slf4j
 @Service
@@ -125,6 +124,7 @@ public class ReportServiceImpl implements ReportService {
 
     private AgentReportResponse buildAgentReportResponse(AgentReportRequest agentReportRequest) throws PakGoPayException {
         AgentReportEntity entity = new AgentReportEntity();
+        entity.setAgentName(agentReportRequest.getAgentName());
         entity.setOrderType(agentReportRequest.getOrderType());
         entity.setCurrency(agentReportRequest.getCurrency());
         entity.setStartTime(Long.valueOf(agentReportRequest.getStartTime()));

@@ -112,8 +112,8 @@
     <!-- Common WHERE conditions for AgentReportQuery -->
     <sql id="AgentReportWhere">
         <where>
-            <if test="userId != null and userId != ''">
-                AND user_id = #{userId}
+            <if test="agentName != null and agentName != ''">
+                AND agent_name = #{agentName}
             </if>
 
             <if test="currency != null and currency != ''">

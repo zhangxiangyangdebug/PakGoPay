@@ -129,7 +129,7 @@ public class OpsReportServiceImpl implements OpsReportService {
         Integer orderType = request.getOrderType();
         log.info("queryOpsOrderCardInfo params={}", JSON.toJSONString(request));
 
-        OpsOrderCardResponse yearly = loadYearlyCard(currency, scopeType, scopeId, orderType);
+        OpsOrderCardResponse yearly = loadYearlyCard(currency, scopeId, orderType);
         OpsOrderCardResponse today = loadTodayCard(request);
         response.setOrderQuantity(safeAdd(yearly.getOrderQuantity(), today.getOrderQuantity()));
         response.setSuccessQuantity(safeAdd(yearly.getSuccessQuantity(), today.getSuccessQuantity()));
@@ -154,9 +154,13 @@ public class OpsReportServiceImpl implements OpsReportService {
         return query;
     }
 
-    private OpsOrderCardResponse loadYearlyCard(String currency, Integer scopeType, String scopeId, Integer orderType) {
+    private OpsOrderCardResponse loadYearlyCard(String currency, String scopeId, Integer orderType) {
         OpsOrderCardResponse response = new OpsOrderCardResponse();
-        OpsOrderYearlyDto dto = opsOrderYearlyMapper.sumTotals(buildYearlyQuery(currency, scopeType, scopeId, orderType));
+        ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+        LocalDate today = Instant.now().atZone(zoneId).toLocalDate();
+        long todayStart = today.atStartOfDay(zoneId).toEpochSecond();
+        OpsOrderDailyDto dto = opsOrderDailyMapper.sumTotalsBeforeDate(
+                currency, 1, "0".equals(scopeId) ? null: scopeId, orderType, todayStart);
         long orderQuantity = dto == null || dto.getOrderQuantity() == null ? 0L : dto.getOrderQuantity();
         long successQuantity = dto == null || dto.getSuccessQuantity() == null ? 0L : dto.getSuccessQuantity();
         BigDecimal merchantFee = dto == null ? BigDecimal.ZERO : CalcUtil.defaultBigDecimal(dto.getAgentCommission());
@@ -168,15 +172,6 @@ public class OpsReportServiceImpl implements OpsReportService {
         response.setFrozenAmount(BigDecimal.ZERO);
         response.setAvailableAmount(BigDecimal.ZERO);
         return response;
-    }
-
-    private OpsReportQueryEntity buildYearlyQuery(String currency, Integer scopeType, String scopeId, Integer orderType) {
-        OpsReportQueryEntity query = new OpsReportQueryEntity();
-        query.setCurrency(currency);
-        query.setScopeType(scopeType);
-        query.setScopeId(scopeId);
-        query.setOrderType(orderType);
-        return query;
     }
 
     private OpsOrderCardResponse loadTodayCard(OpsOrderCardRequest request) {

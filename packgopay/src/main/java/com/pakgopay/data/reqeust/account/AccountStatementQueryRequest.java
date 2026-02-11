@@ -22,7 +22,7 @@ public class AccountStatementQueryRequest extends ExportBaseRequest {
     private Integer orderType;
 
     /**
-     * user role
+     * user role: 1.merchant 2.agent
      */
     private Integer userRole;
 

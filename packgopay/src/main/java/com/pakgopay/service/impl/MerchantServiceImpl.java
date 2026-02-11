@@ -345,14 +345,6 @@ public class MerchantServiceImpl implements MerchantService {
     }
 
     private void validateMerchantFeeAboveAgent(String parentId, Object request) throws PakGoPayException {
-        if (parentId == null || parentId.isBlank()) {
-            return;
-        }
-        AgentInfoDto agent = agentInfoMapper.findByUserId(parentId);
-        if (agent == null) {
-            return;
-        }
-
         BigDecimal merchantColRate = null;
         BigDecimal merchantColFixed = null;
         BigDecimal merchantPayRate = null;
@@ -362,11 +354,24 @@ public class MerchantServiceImpl implements MerchantService {
             merchantColFixed = addReq.getCollectionFixedFee();
             merchantPayRate = addReq.getPayRate();
             merchantPayFixed = addReq.getPayFixedFee();
+            List<Long> channelIds = addReq.getChannelIds();
+            boolean hasParentId = parentId != null && !parentId.isBlank();
+            boolean hasChannelIds = channelIds != null && !channelIds.isEmpty();
+            if (hasParentId == hasChannelIds) {
+                throw new PakGoPayException(ResultCode.INVALID_PARAMS, "channelIds and parentId must have only one");
+            }
         } else if (request instanceof MerchantEditRequest editReq) {
             merchantColRate = editReq.getCollectionRate();
             merchantColFixed = editReq.getCollectionFixedFee();
             merchantPayRate = editReq.getPayRate();
             merchantPayFixed = editReq.getPayFixedFee();
+        }
+        if (parentId == null || parentId.isBlank()) {
+            return;
+        }
+        AgentInfoDto agent = agentInfoMapper.findByUserId(parentId);
+        if (agent == null) {
+            return;
         }
 
         if (merchantColRate != null && agent.getCollectionRate() != null

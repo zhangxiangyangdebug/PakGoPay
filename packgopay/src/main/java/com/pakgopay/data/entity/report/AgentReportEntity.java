@@ -5,6 +5,6 @@ import lombok.Data;
 @Data
 public class AgentReportEntity extends BaseReportEntity {
 
-    /** Optional: agent user ID */
-    private String userId;
+    /** Optional: agent name */
+    private String agentName;
 }

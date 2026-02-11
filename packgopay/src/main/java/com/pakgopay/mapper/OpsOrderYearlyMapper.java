@@ -17,5 +17,4 @@ public interface OpsOrderYearlyMapper {
 
     List<OpsOrderYearlyDto> listLatest(OpsReportQueryEntity query);
 
-    OpsOrderYearlyDto sumTotals(OpsReportQueryEntity query);
 }

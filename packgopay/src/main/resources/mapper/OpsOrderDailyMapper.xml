@@ -145,4 +145,38 @@
         </foreach>
     </select>
 
+    <select id="sumTotalsBeforeDate" resultMap="OpsOrderDailyResultMap">
+        SELECT
+            NULL as report_date,
+            NULL as order_type,
+            MAX(currency) as currency,
+            MAX(scope_type) as scope_type,
+            MAX(scope_id) as scope_id,
+            COALESCE(SUM(order_quantity), 0) as order_quantity,
+            COALESCE(SUM(success_quantity), 0) as success_quantity,
+            COALESCE(SUM(fail_quantity), 0) as fail_quantity,
+            NULL as success_rate,
+            COALESCE(SUM(agent_commission), 0) as agent_commission,
+            NULL as create_time,
+            NULL as update_time
+        FROM ops_order_daily
+        <where>
+            <if test="currency != null and currency != ''">
+                AND currency = #{currency}
+            </if>
+            <if test="scopeType != null">
+                AND scope_type = #{scopeType}
+            </if>
+            <if test="scopeId != null and scopeId != ''">
+                AND scope_id = #{scopeId}
+            </if>
+            <if test="orderType != null">
+                AND order_type = #{orderType}
+            </if>
+            <if test="endTime != null">
+                AND report_date &lt; #{endTime}
+            </if>
+        </where>
+    </select>
+
 </mapper>

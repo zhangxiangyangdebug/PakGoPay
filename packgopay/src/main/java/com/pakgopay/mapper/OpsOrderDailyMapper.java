@@ -21,4 +21,10 @@ public interface OpsOrderDailyMapper {
 
     List<OpsOrderDailyDto> listOpsDailyStatsByDateRangeBatch(
             @Param("ranges") List<ReportCurrencyRange> ranges);
+
+    OpsOrderDailyDto sumTotalsBeforeDate(@Param("currency") String currency,
+                                         @Param("scopeType") Integer scopeType,
+                                         @Param("scopeId") String scopeId,
+                                         @Param("orderType") Integer orderType,
+                                         @Param("endTime") Long endTime);
 }

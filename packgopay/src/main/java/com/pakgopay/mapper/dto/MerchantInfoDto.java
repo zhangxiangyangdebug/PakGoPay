@@ -99,6 +99,12 @@ public class MerchantInfoDto implements Serializable {
     /** Channel IDs (comma-separated) */
     private String channelIds;
 
+    /** Login IP whitelist (comma-separated) */
+    private String loginIps;
+
+    /** Withdrawal IP whitelist (comma-separated) */
+    private String withdrawalIps;
+
     // ---------------------- external info -----------------
 
     /** Merchant's agent infos */
