@@ -3,6 +3,7 @@ package com.pakgopay.controller;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.data.reqeust.currencyTypeManagement.CurrencyTypeRequest;
 import com.pakgopay.data.reqeust.report.OpsReportRequest;
@@ -63,6 +64,9 @@ public class WebhookController {
             JSONObject root = JSON.parseObject(payload);
             JSONObject message = root.getJSONObject("message");
             if (message == null) {
+                message = root.getJSONObject("channel_post");
+            }
+            if (message == null) {
                 return CommonResponse.success("ignore");
             }
             String text = message.getString("text");
@@ -71,6 +75,14 @@ public class WebhookController {
 
             if (text == null || chatId == null) {
                 return CommonResponse.success("ignore");
+            }
+            if (!telegramService.isEnabled()) {
+                telegramService.sendMessageTo(chatId, "未启用");
+                return CommonResponse.success("disabled");
+            }
+            if (!isAllowedUser(message)) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                return CommonResponse.fail(ResultCode.SC_UNAUTHORIZED, "forbidden");
             }
 
             String trimmed = text.trim();
@@ -104,6 +116,15 @@ public class WebhookController {
             log.error("telegram webhook handle failed: {}", e.getMessage());
         }
         return CommonResponse.success("ok");
+    }
+
+    private boolean isAllowedUser(JSONObject message) {
+        JSONObject from = message.getJSONObject("from");
+        if (from == null) {
+            return false;
+        }
+        String userId = String.valueOf(from.get("id"));
+        return telegramService.isAllowedUser(userId);
     }
 
     private void logWebhookRequest(HttpServletRequest request, String payload) {
@@ -199,11 +220,17 @@ public class WebhookController {
 
             List<String> orderTrendRows = new ArrayList<>();
             List<String> commissionTrendRows = new ArrayList<>();
+            Long prevOrder = null;
+            BigDecimal prevCommission = null;
             for (int i = 0; i < 5; i++) {
                 if (i < trendDates.size()) {
                     String date = trendDates.get(i);
-                    orderTrendRows.add(date + ": " + dailyTotalOrders.getOrDefault(date, 0L));
-                    commissionTrendRows.add(date + ": " + formatDecimal(dailyAgentCommission.getOrDefault(date, BigDecimal.ZERO)));
+                    Long orderValue = dailyTotalOrders.getOrDefault(date, 0L);
+                    BigDecimal commissionValue = dailyAgentCommission.getOrDefault(date, BigDecimal.ZERO);
+                    orderTrendRows.add(buildTrendRow(date, orderValue, prevOrder));
+                    commissionTrendRows.add(buildTrendRow(date, commissionValue, prevCommission));
+                    prevOrder = orderValue;
+                    prevCommission = commissionValue;
                 } else {
                     orderTrendRows.add("-");
                     commissionTrendRows.add("-");
@@ -225,7 +252,11 @@ public class WebhookController {
                     commissionTrendRows.get(i)
                 ));
             }
-            EasyExcel.write(bos).head(head).sheet("todayOpsData").doWrite(rows);
+            EasyExcel.write(bos)
+                .head(head)
+                .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+                .sheet("todayOpsData")
+                .doWrite(rows);
             return bos.toByteArray();
         } catch (Exception e) {
             log.error("buildTodayOpsDataExcel failed: {}", e.getMessage());
@@ -246,6 +277,29 @@ public class WebhookController {
         rows.add(prefix + "订单成功率: " + formatPercent(successRate));
         rows.add(prefix + "订单佣金: " + formatDecimal(commission));
         return rows;
+    }
+
+    private String buildTrendRow(String date, long value, Long prevValue) {
+        return date + ": " + value + " " + trendArrow(prevValue, value);
+    }
+
+    private String buildTrendRow(String date, BigDecimal value, BigDecimal prevValue) {
+        return date + ": " + formatDecimal(value) + " " + trendArrow(prevValue, value);
+    }
+
+    private String trendArrow(Long prev, long current) {
+        if (prev == null) return "—";
+        if (current > prev) return "↑";
+        if (current < prev) return "↓";
+        return "→";
+    }
+
+    private String trendArrow(BigDecimal prev, BigDecimal current) {
+        if (prev == null || current == null) return "—";
+        int cmp = current.compareTo(prev);
+        if (cmp > 0) return "↑";
+        if (cmp < 0) return "↓";
+        return "→";
     }
 
     private void accumulateTrend(List<OpsOrderDailyDto> list,
@@ -270,7 +324,7 @@ public class WebhookController {
 
     private String formatPercent(BigDecimal value) {
         if (value == null) return "0%";
-        return value.stripTrailingZeros().toPlainString() + "%";
+        return value.multiply(BigDecimal.valueOf(100)).stripTrailingZeros().toPlainString() + "%";
     }
 
     private String buildCurrencyPrompt() {

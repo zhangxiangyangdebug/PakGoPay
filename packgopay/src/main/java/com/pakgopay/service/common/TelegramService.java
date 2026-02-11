@@ -23,6 +23,8 @@ public class TelegramService {
     private static final String TOKEN_KEY = "telegram.token";
     private static final String CHAT_ID_KEY = "telegram.chatId";
     private static final String WEBHOOK_SECRET_KEY = "telegram.webhookSecret";
+    private static final String ALLOWED_USER_IDS_KEY = "telegram.allowedUserIds";
+    private static final String ENABLED_KEY = "telegram.enabled";
     private static final String API_BASE = "https://api.telegram.org";
 
     private final RestTemplate restTemplate;
@@ -52,11 +54,18 @@ public class TelegramService {
         Map<String, String> body = new HashMap<>();
         body.put("chat_id", chatId);
         body.put("text", text);
-        String result = restTemplate.postForObject(url, body, String.class);
-        if (result == null || !result.contains("\"ok\":true")) {
-            log.warn("Telegram sendMessage failed: {}", result);
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(url, body, String.class);
+            String result = response.getBody();
+            if (response.getStatusCode().is2xxSuccessful() && result != null && result.contains("\"ok\":true")) {
+                return result;
+            }
+            log.warn("Telegram sendMessage failed: status={}, body={}", response.getStatusCode(), result);
+            return result;
+        } catch (Exception e) {
+            log.warn("Telegram sendMessage failed: {}", e.getMessage());
+            throw e;
         }
-        return result;
     }
 
     public String sendDocumentTo(String chatId, String fileName, byte[] content) {
@@ -87,9 +96,10 @@ public class TelegramService {
 
         ResponseEntity<String> response = restTemplate.postForEntity(url, new HttpEntity<>(body, headers), String.class);
         String result = response.getBody();
-        if (result == null || !result.contains("\"ok\":true")) {
-            log.warn("Telegram sendDocument failed: {}", result);
+        if (response.getStatusCode().is2xxSuccessful() && result != null && result.contains("\"ok\":true")) {
+            return result;
         }
+        log.warn("Telegram sendDocument failed: status={}, body={}", response.getStatusCode(), result);
         return result;
     }
 
@@ -107,11 +117,31 @@ public class TelegramService {
         return getConfig(WEBHOOK_SECRET_KEY);
     }
 
+    public boolean isAllowedUser(String userId) {
+        if (!StringUtils.hasText(userId)) {
+            return false;
+        }
+        String value = getConfig(ALLOWED_USER_IDS_KEY);
+        if (!StringUtils.hasText(value)) {
+            log.warn("Telegram allowed user ids not configured.");
+            return false;
+        }
+        String[] parts = value.split(",");
+        for (String part : parts) {
+            if (userId.trim().equals(part.trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public Map<String, String> getTelegramConfig() {
         Map<String, String> result = new HashMap<>();
         result.put("token", getConfig(TOKEN_KEY));
         result.put("chatId", getConfig(CHAT_ID_KEY));
         result.put("webhookSecret", getConfig(WEBHOOK_SECRET_KEY));
+        result.put("allowedUserIds", getConfig(ALLOWED_USER_IDS_KEY));
+        result.put("enabled", getConfig(ENABLED_KEY));
         return result;
     }
 
@@ -119,10 +149,22 @@ public class TelegramService {
         return getConfig(CHAT_ID_KEY);
     }
 
-    public void updateTelegramConfig(String token, String chatId, String webhookSecret) {
+    public void updateTelegramConfig(String token, String chatId, String webhookSecret, String allowedUserIds, Integer enabled) {
         upsertConfig(TOKEN_KEY, token);
         upsertConfig(CHAT_ID_KEY, chatId);
         upsertConfig(WEBHOOK_SECRET_KEY, webhookSecret);
+        upsertConfig(ALLOWED_USER_IDS_KEY, allowedUserIds);
+        if (enabled != null) {
+            upsertConfig(ENABLED_KEY, String.valueOf(enabled));
+        }
+    }
+
+    public boolean isEnabled() {
+        String value = getConfig(ENABLED_KEY);
+        if (!StringUtils.hasText(value)) {
+            return true;
+        }
+        return "1".equals(value.trim()) || "true".equalsIgnoreCase(value.trim());
     }
 
     private String getConfig(String key) {

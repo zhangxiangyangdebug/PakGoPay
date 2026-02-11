@@ -116,7 +116,13 @@ public class SystemConfigController {
 
     @PostMapping("/telegramConfig")
     public CommonResponse updateTelegramConfig(@RequestBody TelegramConfigRequest request) {
-        telegramService.updateTelegramConfig(request.getToken(), request.getChatId(), request.getWebhookSecret());
+        telegramService.updateTelegramConfig(
+            request.getToken(),
+            request.getChatId(),
+            request.getWebhookSecret(),
+            request.getAllowedUserIds(),
+            request.getEnabled()
+        );
         return CommonResponse.success("ok");
     }
 }
