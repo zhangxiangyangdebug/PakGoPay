@@ -54,6 +54,12 @@ public interface CollectionOrderMapper {
     List<CurrencyReportDto> listCurrencyReportStatsBatch(@Param("ranges") List<ReportCurrencyRange> ranges,
                                                          @Param("successStatus") String successStatus);
 
+    MerchantReportDto sumMerchantStatsByUserId(@Param("merchantUserId") String merchantUserId,
+                                               @Param("currency") String currency,
+                                               @Param("startTime") Long startTime,
+                                               @Param("endTime") Long endTime,
+                                               @Param("successStatus") String successStatus);
+
     /** Count by query */
     Integer countByQuery(@Param("q") OrderQueryEntity query);
 

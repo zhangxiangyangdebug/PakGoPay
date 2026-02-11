@@ -3,7 +3,7 @@ package com.pakgopay.service.common;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.mapper.RoleMapper;
+import com.pakgopay.mapper.UserMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -12,12 +12,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class CommonService {
     @Autowired
-    private RoleMapper roleMapper;
+    private UserMapper userMapper;
 
     public Integer getRoleIdByUserId(String userId) throws PakGoPayException {
         Integer roleId = 0;
         try {
-            roleId = roleMapper.queryRoleInfoByUserId(userId);
+            roleId = userMapper.queryRoleIdByUserId(userId);
         } catch (Exception e) {
             log.error("balance findByTransactionNo failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);

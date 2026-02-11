@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.pakgopay.util.CalcUtil;
 
 @Slf4j
 @Service
@@ -178,16 +179,16 @@ public class AccountStatementServiceImpl implements AccountStatementService {
 
         if (2 == req.getOrderType()) {
             dto.setStatus(0);
-            dto.setFrozenBalanceAfter(CommonUtil.safeAdd(frozenBalanceBefore, req.getAmount()));
+            dto.setFrozenBalanceAfter(CalcUtil.safeAdd(frozenBalanceBefore, req.getAmount()));
         } else {
             dto.setStatus(1);
             dto.setFrozenBalanceAfter(frozenBalanceBefore);
         }
         dto.setFrozenBalanceBefore(frozenBalanceBefore);
         dto.setAvailableBalanceBefore(availableBalanceBefore);
-        dto.setAvailableBalanceAfter(CommonUtil.safeAdd(availableBalanceBefore, req.getAmount()));
+        dto.setAvailableBalanceAfter(CalcUtil.safeAdd(availableBalanceBefore, req.getAmount()));
         dto.setTotalBalanceBefore(totalBalanceBefore);
-        dto.setTotalBalanceAfter(CommonUtil.safeAdd(totalBalanceBefore, req.getAmount()));
+        dto.setTotalBalanceAfter(CalcUtil.safeAdd(totalBalanceBefore, req.getAmount()));
 
         return b.build();
     }

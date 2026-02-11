@@ -1,6 +1,7 @@
 package com.pakgopay.controller;
 
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.reqeust.report.OpsOrderCardRequest;
 import com.pakgopay.data.reqeust.report.OpsReportRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.OpsReportService;
@@ -47,6 +48,16 @@ public class OpsReportController {
         } catch (PakGoPayException e) {
             log.error("queryOpsYearlyReport failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryOpsYearlyReport failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "queryOpsOrderCardInfo")
+    public CommonResponse queryOpsOrderCardInfo(@Valid @RequestBody OpsOrderCardRequest request) {
+        try {
+            return opsReportService.queryOpsOrderCardInfo(request);
+        } catch (PakGoPayException e) {
+            log.error("queryOpsOrderCardInfo failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryOpsOrderCardInfo failed: " + e.getMessage());
         }
     }
 }

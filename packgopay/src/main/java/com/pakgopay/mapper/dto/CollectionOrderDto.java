@@ -100,6 +100,9 @@ public class CollectionOrderDto implements Serializable {
     /** Payment channel ID */
     private Long paymentId;
 
+    /** Payment channel no */
+    private String paymentNo;
+
     /** Order type: 1-system order, 2-manual order */
     private Integer orderType;
 

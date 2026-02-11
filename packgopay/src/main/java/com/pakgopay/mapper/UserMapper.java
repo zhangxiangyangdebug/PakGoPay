@@ -28,6 +28,8 @@ public interface UserMapper {
 
      UserDTO findRoleId(@Param(value = "userName") String userName);
 
+     Integer queryRoleIdByUserId(@Param(value = "userId") String userId);
+
      int createUser(@Param(value="user") UserDTO user);
 
      String getSecretKeyByUserId(@Param(value = "userId") String userId);

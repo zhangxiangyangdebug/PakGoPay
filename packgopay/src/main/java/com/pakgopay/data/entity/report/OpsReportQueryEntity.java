@@ -16,4 +16,7 @@ public class OpsReportQueryEntity {
 
     /** Scope id (merchant user id/agent user id or 0 for all). */
     private String scopeId;
+
+    /** Order type (0=collection,1=payout). */
+    private Integer orderType;
 }

@@ -301,19 +301,19 @@ public class AgentServiceImpl implements AgentService {
         }
 
         if (agentColRate != null && parent.getCollectionRate() != null
-                && agentColRate.compareTo(parent.getCollectionRate()) <= 0) {
+                && agentColRate.compareTo(parent.getCollectionRate()) > 0) {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "agent collection rate must > parent rate");
         }
         if (agentColFixed != null && parent.getCollectionFixedFee() != null
-                && agentColFixed.compareTo(parent.getCollectionFixedFee()) <= 0) {
+                && agentColFixed.compareTo(parent.getCollectionFixedFee()) > 0) {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "agent collection fixed fee must > parent fixed fee");
         }
         if (agentPayRate != null && parent.getPayRate() != null
-                && agentPayRate.compareTo(parent.getPayRate()) <= 0) {
+                && agentPayRate.compareTo(parent.getPayRate()) > 0) {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "agent pay rate must > parent rate");
         }
         if (agentPayFixed != null && parent.getPayFixedFee() != null
-                && agentPayFixed.compareTo(parent.getPayFixedFee()) <= 0) {
+                && agentPayFixed.compareTo(parent.getPayFixedFee()) > 0) {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "agent pay fixed fee must > parent fixed fee");
         }
     }

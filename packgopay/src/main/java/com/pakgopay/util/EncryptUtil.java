@@ -73,6 +73,13 @@ public class EncryptUtil {
         }
         String stringA = params.entrySet().stream()
                 .filter(entry -> entry.getKey() != null && entry.getValue() != null)
+                .filter(entry -> {
+                    Object value = entry.getValue();
+                    if (value instanceof String s) {
+                        return !s.isBlank();
+                    }
+                    return true;
+                })
                 .sorted(Comparator.comparing(Map.Entry::getKey))
                 .map(entry -> entry.getKey() + KV_SEPARATOR + entry.getValue())
                 .collect(Collectors.joining(PARAM_SEPARATOR));

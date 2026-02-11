@@ -64,6 +64,7 @@
         <!-- Payment -->
         <result column="collection_mode" property="collectionMode" javaType="java.lang.Integer"/>
         <result column="payment_id" property="paymentId" javaType="java.lang.Long"/>
+        <result column="payment_no" property="paymentNo" javaType="java.lang.String"/>
 
         <!-- Order status -->
         <result column="order_type" property="orderType" javaType="java.lang.Integer"/>
@@ -126,7 +127,7 @@
         last_callback_time,merchant_fixed_fee,merchant_rate,merchant_fee,
         agent1_rate,agent1_fixed_fee,agent1_fee,agent2_rate,agent2_fixed_fee,agent2_fee,agent3_rate,agent3_fixed_fee,agent3_fee,
         request_ip,operate_type,remark,create_time,update_time,collection_mode,payment_id,order_type,callback_status,
-        order_status,request_time,success_callback_time,channel_id
+        order_status,request_time,success_callback_time,channel_id,payment_no
     </sql>
 
     <!-- Insert order -->
@@ -138,7 +139,7 @@
         #{lastCallbackTime},#{merchantFixedFee},#{merchantRate},#{merchantFee},
         #{agent1Rate},#{agent1FixedFee},#{agent1Fee},#{agent2Rate},#{agent2FixedFee},#{agent2Fee},#{agent3Rate},#{agent3FixedFee},#{agent3Fee},
         #{requestIp},#{operateType},#{remark},#{createTime},#{updateTime},#{collectionMode},#{paymentId},#{orderType},#{callbackStatus},
-        #{orderStatus},#{requestTime},#{successCallbackTime},#{channelId}
+        #{orderStatus},#{requestTime},#{successCallbackTime},#{channelId},#{paymentNo}
         )
     </insert>
 
@@ -177,6 +178,7 @@
 
         <if test="dto.merchantUserId != null">merchant_user_id = #{dto.merchantUserId},</if>
         <if test="dto.paymentId != null">payment_id = #{dto.paymentId},</if>
+        <if test="dto.paymentNo != null">payment_no = #{dto.paymentNo},</if>
         <if test="dto.channelId != null">channel_id = #{dto.channelId},</if>
         <if test="dto.collectionMode != null">collection_mode = #{dto.collectionMode},</if>
         <if test="dto.orderType != null">order_type = #{dto.orderType},</if>
@@ -322,6 +324,19 @@
               AND create_time &lt; #{item.endTime}
             GROUP BY currency_type
         </foreach>
+    </select>
+
+    <select id="sumMerchantStatsByUserId" resultMap="MerchantReportResultMap">
+        SELECT
+            merchant_user_id,
+            currency_type,
+            <include refid="CommonReportAggColumns"/>
+        FROM collection_order
+        WHERE merchant_user_id = #{merchantUserId}
+          AND currency_type = #{currency}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
+        GROUP BY merchant_user_id, currency_type
     </select>
 
     <select id="countByQuery" resultType="java.lang.Integer">

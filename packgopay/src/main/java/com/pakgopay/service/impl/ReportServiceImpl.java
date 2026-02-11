@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.pakgopay.util.CalcUtil;
 
 @Slf4j
 @Service
@@ -250,7 +251,7 @@ public class ReportServiceImpl implements ReportService {
                 Map<String, BigDecimal> currencyMap =
                         cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
 
-                currencyMap.put("total", CommonUtil.sum(balanceInfos));
+                currencyMap.put("total", CalcUtil.sum(balanceInfos));
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
@@ -284,7 +285,7 @@ public class ReportServiceImpl implements ReportService {
                 Map<String, BigDecimal> currencyMap =
                         cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
 
-                currencyMap.put("total", CommonUtil.sum(balanceInfos));
+                currencyMap.put("total", CalcUtil.sum(balanceInfos));
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
@@ -317,7 +318,7 @@ public class ReportServiceImpl implements ReportService {
                 Map<String, BigDecimal> currencyMap =
                         cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
 
-                currencyMap.put("total", CommonUtil.sum(balanceInfos));
+                currencyMap.put("total", CalcUtil.sum(balanceInfos));
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
@@ -350,7 +351,7 @@ public class ReportServiceImpl implements ReportService {
                 Map<String, BigDecimal> currencyMap =
                         cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
 
-                currencyMap.put("total", CommonUtil.sum(balanceInfos));
+                currencyMap.put("total", CalcUtil.sum(balanceInfos));
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {

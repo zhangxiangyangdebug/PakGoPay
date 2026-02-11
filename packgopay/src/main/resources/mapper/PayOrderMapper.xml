@@ -51,6 +51,7 @@
         <result column="payment_mode" property="paymentMode" javaType="java.lang.Integer"/>
 
         <result column="payment_id" property="paymentId" javaType="java.lang.Long"/>
+        <result column="payment_no" property="paymentNo" javaType="java.lang.String"/>
         <result column="channel_id" property="channelId" javaType="java.lang.Long"/>
 
         <result column="order_status" property="orderStatus" javaType="java.lang.String"/>
@@ -104,7 +105,7 @@
     <sql id="BaseColumns">
         transaction_no,merchant_order_no,amount,actual_amount,callback_token,callback_url,callback_times,last_callbak_time,success_callback_time,callback_status,merchant_user_id,
         merchant_fixed_fee,merchant_rate,merchant_fee,agent1_fixed_fee,agent1_rate,agent1_fee,agnet2_fixed_fee,agnet2_rate,agnet2_fee,agnet3_fixed_fee,agnet3_rate,agnet3_fee,
-        request_ip,create_time,update_time,request_time,order_type,payment_mode,payment_id,channel_id,order_status,
+        request_ip,create_time,update_time,request_time,order_type,payment_mode,payment_id,payment_no,channel_id,order_status,
         remark,currency_type,operate_type
     </sql>
 
@@ -115,7 +116,7 @@
         ) VALUES (
         #{transactionNo},#{merchantOrderNo},#{amount},#{actualAmount},#{callbackToken},#{callbackUrl},#{callbackTimes},#{lastCallbackTime},#{successCallbackTime},#{callbackStatus},#{merchantUserId},
         #{merchantFixedFee},#{merchantRate},#{merchantFee},#{agent1FixedFee},#{agent1Rate},#{agent1Fee},#{agent2FixedFee},#{agent2Rate},#{agent2Fee},#{agent3FixedFee},#{agent3Rate},#{agent3Fee},
-        #{requestIp},#{createTime},#{updateTime},#{requestTime},#{orderType},#{paymentMode},#{paymentId},#{channelId},#{orderStatus},
+        #{requestIp},#{createTime},#{updateTime},#{requestTime},#{orderType},#{paymentMode},#{paymentId},#{paymentNo},#{channelId},#{orderStatus},
         #{remark},#{currencyType},#{operateType}
         )
     </insert>
@@ -186,6 +187,7 @@
 
         <if test="dto.orderType != null">order_type = #{dto.orderType},</if>
         <if test="dto.paymentMode != null">payment_mode = #{dto.paymentMode},</if>
+        <if test="dto.paymentNo != null">payment_no = #{dto.paymentNo},</if>
 
         <if test="dto.orderStatus != null">order_status = #{dto.orderStatus},</if>
         <if test="dto.remark != null">remark = #{dto.remark},</if>
@@ -302,6 +304,19 @@
               AND create_time &lt; #{item.endTime}
             GROUP BY currency_type
         </foreach>
+    </select>
+
+    <select id="sumMerchantStatsByUserId" resultMap="MerchantReportResultMap">
+        SELECT
+            merchant_user_id,
+            currency_type,
+            <include refid="CommonReportAggColumns"/>
+        FROM pay_order
+        WHERE merchant_user_id = #{merchantUserId}
+          AND currency_type = #{currency}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
+        GROUP BY merchant_user_id, currency_type
     </select>
 
     <select id="countByQuery" resultType="java.lang.Integer">
