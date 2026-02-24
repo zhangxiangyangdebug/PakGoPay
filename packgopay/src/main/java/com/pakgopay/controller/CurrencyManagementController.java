@@ -30,6 +30,11 @@ public class CurrencyManagementController {
         return currencyTypeManagementService.createCurrencyType(currencyTypeRequest, request);
     }
 
+    @PostMapping("/updateCurrencyType")
+    public CommonResponse updateCurrencyType(@RequestBody CurrencyTypeRequest currencyTypeRequest, HttpServletRequest request) {
+        return currencyTypeManagementService.updateCurrencyType(currencyTypeRequest, request);
+    }
+
     /*@GetMapping("/getCurrencyById")
     public CommonResponse updateCurrencyType(Integer id) {
         return currencyTypeManagementService.fetchCurrencyById(id);

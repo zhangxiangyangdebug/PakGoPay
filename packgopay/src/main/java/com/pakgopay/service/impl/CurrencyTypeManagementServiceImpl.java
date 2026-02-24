@@ -75,6 +75,35 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
         }
     }
 
+    @Override
+    public CommonResponse updateCurrencyType(CurrencyTypeRequest currencyTypeRequest, HttpServletRequest request) {
+        try {
+            if (currencyTypeRequest.getId() == null) {
+                return CommonResponse.fail(ResultCode.FAIL, "currency id is required");
+            }
+            String operatorInfo = verifyGoogleCode(currencyTypeRequest.getGoogleCode(), request);
+            if (operatorInfo == null) {
+                return CommonResponse.fail(ResultCode.CODE_IS_EXPIRE);
+            }
+            String operatorName = operatorInfo.split("&")[1];
+            CurrencyTypeDTO currencyTypeDTO = new CurrencyTypeDTO();
+            BeanUtils.copyProperties(currencyTypeRequest, currencyTypeDTO);
+            currencyTypeDTO.setUpdateTime(System.currentTimeMillis() / 1000);
+            currencyTypeDTO.setUpdateBy(operatorName);
+            Integer updateResult = currencyTypeMapper.updateCurrencyType(currencyTypeDTO);
+            if (updateResult == 1) {
+                return CommonResponse.success(ResultCode.SUCCESS);
+            }
+            return CommonResponse.fail(ResultCode.FAIL, "update currency type failed");
+        } catch (PakGoPayException e) {
+            return CommonResponse.fail(e);
+        } catch (DuplicateKeyException e) {
+            return CommonResponse.fail(ResultCode.FAIL, "currency already exists");
+        } catch (Exception e) {
+            return CommonResponse.fail(ResultCode.FAIL, "update currency type failed " + e.getMessage());
+        }
+    }
+
     public String verifyGoogleCode(Long googleCode, HttpServletRequest request) throws PakGoPayException {
         String userInfo = GoogleUtil.getUserInfoFromToken(request);
         if(userInfo==null){

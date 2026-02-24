@@ -14,4 +14,6 @@ public interface CurrencyTypeMapper {
     Integer getCount( CurrencyTypeRequest entity);
 
     Integer addNewCurrency(CurrencyTypeDTO currencyTypeDTO);
+
+    Integer updateCurrencyType(CurrencyTypeDTO currencyTypeDTO);
 }
