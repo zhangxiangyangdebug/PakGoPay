@@ -17,6 +17,9 @@ public interface AgentInfoMapper {
 
     List<AgentInfoDto> findByUserIds(@Param("userIds") List<String> userIds);
 
+    Optional<AgentInfoDto> findByAgentNameOrAccountName(@Param("agentName") String agentName,
+                                                        @Param("accountName") String accountName);
+
     /** Insert agent info */
     int insert(AgentInfoDto dto);
 

@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +44,9 @@ public class ReportServiceImpl implements ReportService {
 
     @Autowired
     private AgentReportMapper agentReportMapper;
+
+    @Autowired
+    private AgentInfoMapper agentInfoMapper;
 
     @Autowired
     private CurrencyReportMapper currencyReportMapper;
@@ -124,7 +128,26 @@ public class ReportServiceImpl implements ReportService {
 
     private AgentReportResponse buildAgentReportResponse(AgentReportRequest agentReportRequest) throws PakGoPayException {
         AgentReportEntity entity = new AgentReportEntity();
-        entity.setAgentName(agentReportRequest.getAgentName());
+        String agentName = agentReportRequest.getAgentName();
+        Integer roleId = commonService.getRoleIdByUserId(agentReportRequest.getUserId());
+        if (agentName != null && !agentName.isBlank()) {
+            Optional<AgentInfoDto> target =
+                    agentInfoMapper.findByAgentName(agentName);
+            AgentReportResponse emptyResponse =
+                    applyAgentScopeOrEmpty(agentReportRequest, entity, target.orElse(null));
+            if (emptyResponse != null) {
+                return emptyResponse;
+            }
+        } else if (roleId != null && roleId == CommonConstant.ROLE_AGENT) {
+            AgentInfoDto currentAgent = agentInfoMapper.findByUserId(agentReportRequest.getUserId());
+            AgentReportResponse emptyResponse =
+                    applyAgentScopeOrEmpty(agentReportRequest, entity, currentAgent);
+            if (emptyResponse != null) {
+                return emptyResponse;
+            }
+        } else {
+            entity.setAgentName(agentName);
+        }
         entity.setOrderType(agentReportRequest.getOrderType());
         entity.setCurrency(agentReportRequest.getCurrency());
         entity.setStartTime(Long.valueOf(agentReportRequest.getStartTime()));
@@ -134,6 +157,22 @@ public class ReportServiceImpl implements ReportService {
         log.info("queryAgentReports condition is {}", JSON.toJSONString(entity));
 
         return fetchAgentReportPage(entity, agentReportRequest.getIsNeedCardData());
+    }
+
+    private AgentReportResponse applyAgentScopeOrEmpty(AgentReportRequest request,
+                                                      AgentReportEntity entity,
+                                                      AgentInfoDto currentAgent) {
+        if (currentAgent == null) {
+            AgentReportResponse response = new AgentReportResponse();
+            response.setAgentReportDtoList(new ArrayList<>());
+            response.setTotalNumber(0);
+            response.setPageNo(request.getPageNo());
+            response.setPageSize(request.getPageSize());
+            return response;
+        }
+        entity.setTopAgentId(currentAgent.getTopAgentId());
+        entity.setMaxLevel(currentAgent.getLevel());
+        return null;
     }
 
     @Override

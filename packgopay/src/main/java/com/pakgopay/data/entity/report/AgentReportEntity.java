@@ -7,4 +7,10 @@ public class AgentReportEntity extends BaseReportEntity {
 
     /** Optional: agent name */
     private String agentName;
+
+    /** Optional: top agent id */
+    private String topAgentId;
+
+    /** Optional: max level */
+    private Integer maxLevel;
 }

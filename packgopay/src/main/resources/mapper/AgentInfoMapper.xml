@@ -211,6 +211,23 @@
                 AND agent_name = #{agentName}
             </if>
 
+            <choose>
+                <when test="topAgentId != null and topAgentId != ''">
+                    AND top_agent_id = #{topAgentId}
+                </when>
+                <when test="userId != null and userId != ''">
+                    AND top_agent_id = (SELECT top_agent_id FROM agent_info WHERE user_id = #{userId})
+                </when>
+            </choose>
+            <choose>
+                <when test="maxLevel != null">
+                    AND level &gt;= #{maxLevel}
+                </when>
+                <when test="userId != null and userId != ''">
+                    AND level &gt;= (SELECT level FROM agent_info WHERE user_id = #{userId})
+                </when>
+            </choose>
+
             <if test="status != null">
                 AND status = #{status}
             </if>
@@ -228,6 +245,23 @@
             <if test="agentName != null and agentName != ''">
                 AND ai.agent_name = #{agentName}
             </if>
+
+            <choose>
+                <when test="topAgentId != null and topAgentId != ''">
+                    AND ai.top_agent_id = #{topAgentId}
+                </when>
+                <when test="userId != null and userId != ''">
+                    AND ai.top_agent_id = (SELECT top_agent_id FROM agent_info WHERE user_id = #{userId})
+                </when>
+            </choose>
+            <choose>
+                <when test="maxLevel != null">
+                    AND ai.level &gt;= #{maxLevel}
+                </when>
+                <when test="userId != null and userId != ''">
+                    AND ai.level &gt;= (SELECT level FROM agent_info WHERE user_id = #{userId})
+                </when>
+            </choose>
 
             <if test="status != null">
                 AND ai.status = #{status}
@@ -254,6 +288,21 @@
         <include refid="AgentQueryWhereForJoin"/>
         ORDER BY ai.agent_no DESC
         LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="findByAgentNameOrAccountName" resultMap="AgentInfoResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM agent_info
+        <where>
+            <if test="agentName != null and agentName != ''">
+                AND agent_name = #{agentName}
+            </if>
+            <if test="accountName != null and accountName != ''">
+                AND user_name = #{accountName}
+            </if>
+        </where>
+        LIMIT 1
     </select>
 
     <select id="findByAgentName" resultMap="AgentInfoResultMap">

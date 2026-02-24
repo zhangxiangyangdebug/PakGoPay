@@ -42,6 +42,21 @@
         remark
     </sql>
 
+    <!-- Base columns with alias -->
+    <sql id="BaseColumnsWithAlias">
+        ar.user_id,
+        ar.agent_name,
+        ar.order_type,
+        ar.order_quantity,
+        ar.success_quantity,
+        ar.currency,
+        ar.commission,
+        ar.record_date,
+        ar.create_time,
+        ar.update_time,
+        ar.remark
+    </sql>
+
     <!-- Insert -->
     <insert id="insert" parameterType="com.pakgopay.mapper.dto.AgentReportDto">
         INSERT INTO agent_report (
@@ -113,23 +128,30 @@
     <sql id="AgentReportWhere">
         <where>
             <if test="agentName != null and agentName != ''">
-                AND agent_name = #{agentName}
+                AND ar.agent_name = #{agentName}
             </if>
 
             <if test="currency != null and currency != ''">
-                AND currency = #{currency}
+                AND ar.currency = #{currency}
             </if>
 
             <if test="orderType != null">
-                AND order_type = #{orderType}
+                AND ar.order_type = #{orderType}
+            </if>
+
+            <if test="topAgentId != null and topAgentId != ''">
+                AND ai.top_agent_id = #{topAgentId}
+            </if>
+            <if test="maxLevel != null">
+                AND ai.level &gt;= #{maxLevel}
             </if>
 
             <if test="startTime != null">
-                AND record_date &gt;= #{startTime}
+                AND ar.record_date &gt;= #{startTime}
             </if>
 
             <if test="endTime != null">
-                AND record_date &lt;= #{endTime}
+                AND ar.record_date &lt;= #{endTime}
             </if>
         </where>
     </sql>
@@ -139,8 +161,9 @@
             parameterType="com.pakgopay.data.entity.report.AgentReportEntity"
             resultType="java.math.BigDecimal">
         SELECT
-        commission
-        FROM agent_report
+        ar.commission
+        FROM agent_report ar
+        LEFT JOIN agent_info ai ON ar.user_id = ai.user_id
         <include refid="AgentReportWhere"/>
     </select>
 
@@ -149,10 +172,11 @@
             parameterType="com.pakgopay.data.entity.report.AgentReportEntity"
             resultMap="AgentReportResultMap">
         SELECT
-        <include refid="BaseColumns"/>
-        FROM agent_report
+        <include refid="BaseColumnsWithAlias"/>
+        FROM agent_report ar
+        LEFT JOIN agent_info ai ON ar.user_id = ai.user_id
         <include refid="AgentReportWhere"/>
-        ORDER BY record_date DESC
+        ORDER BY ar.record_date DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 
