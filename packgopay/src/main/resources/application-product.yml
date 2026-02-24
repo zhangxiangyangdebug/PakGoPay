@@ -40,3 +40,7 @@ turnstile:
   enabled: true
   secret: ${TURNSTILE_SECRET:}
   verify-url: https://challenges.cloudflare.com/turnstile/v0/siteverify
+pakgopay:
+  cloudflare:
+    apiToken: ENC(uQnD8BqKnGKfVYhNyDHStCpmbTFxducJZSNRKYFpcqyN6IuaB8nJC/GLV4vnzIpBAemp2ciNQsiiU7atVtMFRwCQnflC5vFVnNzVP5RbiII=)
+    zoneId: 1b5b29d8df1d0f084a28393d5c7032ed
