@@ -6,9 +6,8 @@ import java.util.Map;
 
 @Data
 public class CollectionQueryEntity {
-    private String orderNo;
+    private String transactionNo;
     private String sign;
     private String paymentCheckCollectionUrl;
-    private String paymentRequestCollectionQueryUrl;
     private Map<String, Object> channelParams;
 }

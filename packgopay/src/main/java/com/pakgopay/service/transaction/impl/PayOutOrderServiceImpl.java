@@ -396,7 +396,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         }
         try {
             PayQueryEntity query = new PayQueryEntity();
-            query.setOrderNo(payOrderDto.getTransactionNo());
+            query.setTransactionNo(payOrderDto.getTransactionNo());
             query.setSign(payOrderDto.getCallbackToken());
             Long paymentId = payOrderDto.getPaymentId();
             if (paymentId == null) {

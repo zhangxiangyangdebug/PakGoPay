@@ -141,13 +141,7 @@ public abstract class OrderHandler {
         Object value = payload.getPaymentCheckCollectionUrl();
         Map<String, Object> params = extractChannelParams(payload);
         if (value == null) {
-            value = payload.getPaymentRequestCollectionQueryUrl();
-        }
-        if (value == null) {
             value = params.get("paymentCheckCollectionUrl");
-        }
-        if (value == null) {
-            value = params.get("paymentRequestCollectionQueryUrl");
         }
         if (value == null) {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS,
@@ -163,13 +157,7 @@ public abstract class OrderHandler {
         Object value = payload.getPaymentCheckPayUrl();
         Map<String, Object> params = extractChannelParams(payload);
         if (value == null) {
-            value = payload.getPaymentRequestPayQueryUrl();
-        }
-        if (value == null) {
             value = params.get("paymentCheckPayUrl");
-        }
-        if (value == null) {
-            value = params.get("paymentRequestPayQueryUrl");
         }
         if (value == null) {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS,

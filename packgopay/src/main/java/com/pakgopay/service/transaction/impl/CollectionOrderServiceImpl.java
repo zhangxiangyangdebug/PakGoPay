@@ -328,7 +328,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         }
         try {
             CollectionQueryEntity query = new CollectionQueryEntity();
-            query.setOrderNo(collectionOrderDto.getTransactionNo());
+            query.setTransactionNo(collectionOrderDto.getTransactionNo());
             query.setSign(collectionOrderDto.getCallbackToken());
             Long paymentId = collectionOrderDto.getPaymentId();
             if (paymentId == null) {

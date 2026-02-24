@@ -168,7 +168,7 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
     private Map<String, Object> buildCollectionQueryPayload(CollectionQueryEntity payload) {
         Map<String, Object> result = new HashMap<>();
         Map<String, Object> params = extractChannelParams(payload);
-        result.put("order_no", resolveValue(params, "order_no", payload.getOrderNo()));
+        result.put("order_no", resolveValue(params, "order_no", payload.getTransactionNo()));
         result.put("sign", resolveValue(params, "sign", payload.getSign()));
         return result;
     }
@@ -176,7 +176,7 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
     private Map<String, Object> buildPayQueryPayload(PayQueryEntity payload) {
         Map<String, Object> result = new HashMap<>();
         Map<String, Object> params = extractChannelParams(payload);
-        result.put("order_no", resolveValue(params, "order_no", payload.getOrderNo()));
+        result.put("order_no", resolveValue(params, "order_no", payload.getTransactionNo()));
         result.put("sign", resolveValue(params, "sign", payload.getSign()));
         return result;
     }
