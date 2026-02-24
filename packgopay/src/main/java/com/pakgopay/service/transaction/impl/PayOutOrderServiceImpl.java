@@ -5,12 +5,15 @@ import com.pakgopay.common.enums.*;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.OrderQueryEntity;
 import com.pakgopay.data.entity.TransactionInfo;
+import com.pakgopay.data.entity.transaction.PayCreateEntity;
+import com.pakgopay.data.entity.transaction.PayQueryEntity;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.PayOutOrderPageResponse;
 import com.pakgopay.mapper.PayOrderMapper;
+import com.pakgopay.mapper.PaymentMapper;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.mapper.dto.PaymentDto;
@@ -45,6 +48,9 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
     @Autowired
     private PayOrderMapper payOrderMapper;
+
+    @Autowired
+    private PaymentMapper paymentMapper;
 
     @Autowired
     private TransactionUtil transactionUtil;
@@ -212,7 +218,9 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
     }
 
     @Override
-    public String handleNotify(Map<String, Object> notifyData) throws PakGoPayException {
+    public Object handleNotify(Map<String, Object> notifyData) throws PakGoPayException {
+        log.info("handleNotify start, notifyData: {}", notifyData);
+        // Verify order existence and validate state transition.
         PayOrderDto payOrderDto = validateNotifyOrder(notifyData);
         log.info("notify order validated, transactionNo={}, orderStatus={}",
                 payOrderDto.getTransactionNo(), payOrderDto.getOrderStatus());
@@ -223,17 +231,25 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         OrderHandler handler = OrderHandlerFactory.get(
                 scope, payOrderDto.getCurrencyType(), payOrderDto.getPaymentNo());
 
+        // Parse notify payload into a structured response.
         NotifyRequest response = handler.handleNotify(notifyData);
         log.info("notify parsed, transactionNo={}, merchantNo={}, status={}",
                 response.getTransactionNo(), response.getMerchantNo(), response.getStatus());
+
+        // Validate required fields in the notify response.
         OrderHandler.validateNotifyResponse(response);
         log.info("notify response validated, transactionNo={}", response.getTransactionNo());
-        applyNotifyUpdate(payOrderDto, response);
+
+        // Query order status from channel and use it as the target status.
+        TransactionStatus targetStatus = queryOrderTargetStatus(payOrderDto, handler);
+
+        // Calculate fees, update order record, and apply balance changes.
+        applyNotifyUpdate(payOrderDto, targetStatus);
         log.info("notify applied, transactionNo={}, status={}", payOrderDto.getTransactionNo(), response.getStatus());
 
         refreshReportData(payOrderDto.getCreateTime(),payOrderDto.getCurrencyType());
 
-        return "ok";
+        return handler.getNotifySuccessResponse();
     }
 
     @Override
@@ -308,9 +324,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         return payOrderDto;
     }
 
-    private void applyNotifyUpdate(PayOrderDto payOrderDto, NotifyRequest response) throws PakGoPayException {
+    private void applyNotifyUpdate(PayOrderDto payOrderDto, TransactionStatus targetStatus) throws PakGoPayException {
         log.info("applyNotifyUpdate start, transactionNo={}", payOrderDto.getTransactionNo());
-        TransactionStatus targetStatus = resolveNotifyStatus(response.getStatus());
         MerchantInfoDto merchantInfo = merchantService.fetchMerchantInfo(payOrderDto.getMerchantUserId());
         if (merchantInfo == null) {
             throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
@@ -371,6 +386,42 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         });
     }
 
+    private TransactionStatus queryOrderTargetStatus(PayOrderDto payOrderDto, OrderHandler handler) {
+        log.info("queryOrderTargetStatus start, transactionNo={}",
+                payOrderDto == null ? null : payOrderDto.getTransactionNo());
+        if (handler == null || payOrderDto == null) {
+            log.warn("queryOrderTargetStatus fallback FAILED, reason=handler_or_order_null, transactionNo={}",
+                    payOrderDto == null ? null : payOrderDto.getTransactionNo());
+            return TransactionStatus.FAILED;
+        }
+        try {
+            PayQueryEntity query = new PayQueryEntity();
+            query.setOrderNo(payOrderDto.getTransactionNo());
+            query.setSign(payOrderDto.getCallbackToken());
+            Long paymentId = payOrderDto.getPaymentId();
+            if (paymentId == null) {
+                throw new PakGoPayException(ResultCode.INVALID_PARAMS,
+                        "paymentId is null, transactionNo=" + payOrderDto.getTransactionNo());
+            }
+            PaymentDto paymentDto = paymentMapper.findByPaymentId(paymentId);
+            if (paymentDto == null) {
+                throw new PakGoPayException(ResultCode.INVALID_PARAMS,
+                        "payment not found, paymentId=" + paymentId + ", transactionNo=" + payOrderDto.getTransactionNo());
+            }
+            query.setPaymentCheckPayUrl(paymentDto.getPaymentCheckPayUrl());
+            TransactionStatus queryStatus = handler.handlePayQuery(query);
+            log.info("queryOrderTargetStatus result, transactionNo={}, queryStatus={}",
+                    payOrderDto.getTransactionNo(), queryStatus);
+            return queryStatus;
+        } catch (PakGoPayException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("queryOrderTargetStatus failed, transactionNo={}, message={}",
+                    payOrderDto.getTransactionNo(), e.getMessage());
+            return TransactionStatus.FAILED;
+        }
+    }
+
 
     private Object dispatchPayOutOrder(PayOrderDto dto, PayOutOrderRequest request, PaymentDto paymentInfo) {
         OrderScope scope = Integer.valueOf(1).equals(dto.getPaymentMode())
@@ -378,25 +429,27 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 : OrderScope.SYSTEM;
         OrderHandler handler = OrderHandlerFactory.get(
                 scope, dto.getCurrencyType(), dto.getPaymentNo());
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("transactionNo", dto.getTransactionNo());
-        payload.put("amount", dto.getAmount());
-        payload.put("currency", dto.getCurrencyType());
-        payload.put("merchantOrderNo", dto.getTransactionNo());
-        payload.put("merchantUserId", dto.getMerchantUserId());
-        payload.put("callbackUrl", paymentInfo.getPayCallbackAddr());
-        payload.put("bankCode", request.getBankCode());
-        payload.put("accountName", request.getAccountName());
-        payload.put("accountNo", request.getAccountNo());
-        payload.put("channelParams", request.getChannelParams());
-        payload.put("ip", dto.getRequestIp());
-        payload.put("paymentRequestPayUrl",
+        PayCreateEntity payRequest = new PayCreateEntity();
+        payRequest.setTransactionNo(dto.getTransactionNo());
+        payRequest.setAmount(dto.getAmount());
+        payRequest.setCurrency(dto.getCurrencyType());
+        payRequest.setMerchantOrderNo(dto.getTransactionNo());
+        payRequest.setMerchantUserId(dto.getMerchantUserId());
+        payRequest.setCallbackUrl(paymentInfo == null ? null : paymentInfo.getPayCallbackAddr());
+        payRequest.setBankCode(request.getBankCode());
+        payRequest.setAccountName(request.getAccountName());
+        payRequest.setAccountNo(request.getAccountNo());
+        if (request.getChannelParams() instanceof Map<?, ?> params) {
+            payRequest.setChannelParams((Map<String, Object>) params);
+        }
+        payRequest.setIp(dto.getRequestIp());
+        payRequest.setPaymentRequestPayUrl(
                 paymentInfo == null ? null : paymentInfo.getPaymentRequestPayUrl());
-        payload.put("payInterfaceParam",
+        payRequest.setPayInterfaceParam(
                 paymentInfo == null ? null : paymentInfo.getPayInterfaceParam());
         log.info("dispatchPayOutOrder payload ready, transactionNo={}, paymentMode={}, currency={}",
                 dto.getTransactionNo(), dto.getPaymentMode(), dto.getCurrencyType());
-        return handler.handlePay(payload);
+        return handler.handlePay(payRequest);
     }
 
     private Map<String, Object> buildPayOutResponse(PayOrderDto dto, Object handlerResponse) {

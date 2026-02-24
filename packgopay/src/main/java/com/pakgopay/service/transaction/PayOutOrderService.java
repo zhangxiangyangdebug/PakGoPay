@@ -12,7 +12,7 @@ public interface PayOutOrderService {
 
     CommonResponse queryOrderInfo(String userId, String transactionNo) throws PakGoPayException;
 
-    String handleNotify(Map<String, Object> notifyData) throws PakGoPayException;
+    Object handleNotify(Map<String, Object> notifyData) throws PakGoPayException;
 
     CommonResponse queryPayOutOrders(OrderQueryRequest request) throws PakGoPayException;
 }

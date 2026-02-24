@@ -163,7 +163,7 @@ public class TransactionController {
     }
 
     @PostMapping(value = "/notifyTransaction")
-    public String handleNotify(@RequestBody Map<String, Object> notifyData) {
+    public Object handleNotify(@RequestBody Map<String, Object> notifyData) {
         log.info("notify received, notifyData={}", notifyData);
         String orderNo = extractOrderNo(notifyData);
         Map<String, Object> data = getDataMap(notifyData);

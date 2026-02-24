@@ -1,8 +1,12 @@
 package com.pakgopay.service.transaction.handler;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.http.RestTemplateUtil;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
+import com.pakgopay.data.entity.transaction.CollectionQueryEntity;
+import com.pakgopay.data.entity.transaction.CollectionCreateEntity;
+import com.pakgopay.data.entity.transaction.PayQueryEntity;
+import com.pakgopay.data.entity.transaction.PayCreateEntity;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.service.transaction.OrderHandler;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +31,7 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
     private RestTemplateUtil restTemplateUtil;
 
     @Override
-    public Object handleCol(Object request) {
+    public Object handleCol(CollectionCreateEntity request) {
         String path = resolvePath(resolveChannelCode(request));
         Map<String, Object> payload = toPayload(request);
         validateRequiredFields(path, payload);
@@ -51,7 +55,7 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
     }
 
     @Override
-    public Object handlePay(Object request) {
+    public Object handlePay(PayCreateEntity request) {
         String path = resolvePath(resolveChannelCode(request));
         Map<String, Object> payload = toPayload(request);
         validateRequiredFields(path, payload);
@@ -66,19 +70,54 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
     }
 
     @Override
+    public TransactionStatus handleCollectionQuery(CollectionQueryEntity request) {
+        throw new UnsupportedOperationException("collection query is not supported for ThirdPartyBankTransferHandler");
+    }
+
+    @Override
+    public TransactionStatus handlePayQuery(PayQueryEntity request) {
+        throw new UnsupportedOperationException("pay query is not supported for ThirdPartyBankTransferHandler");
+    }
+
+    @Override
     public NotifyRequest handleNotify(Map<String, Object> body) {
         log.info("third-party collection notify, channelCode={}, payload={}", resolveChannelCode(body), body);
         return buildNotifyResponse(body);
     }
 
-    private Map<String, Object> toPayload(Object request) {
+    @Override
+    public Object getNotifySuccessResponse() {
+        return "ok";
+    }
+
+    private Map<String, Object> toPayload(CollectionCreateEntity request) {
         if (request == null) {
             return Collections.emptyMap();
         }
-        if (request instanceof Map) {
-            return (Map<String, Object>) request;
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("transactionNo", request.getTransactionNo());
+        payload.put("amount", request.getAmount());
+        payload.put("channelCode", request.getChannelCode());
+        payload.put("channelParams", request.getChannelParams());
+        if (request.getChannelParams() != null) {
+            payload.putAll(request.getChannelParams());
         }
-        return new ObjectMapper().convertValue(request, Map.class);
+        return payload;
+    }
+
+    private Map<String, Object> toPayload(PayCreateEntity request) {
+        if (request == null) {
+            return Collections.emptyMap();
+        }
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("transactionNo", request.getTransactionNo());
+        payload.put("amount", request.getAmount());
+        payload.put("channelCode", resolveChannelCodeFromParams(request.getChannelParams()));
+        payload.put("channelParams", request.getChannelParams());
+        if (request.getChannelParams() != null) {
+            payload.putAll(request.getChannelParams());
+        }
+        return payload;
     }
 
     private HttpHeaders jsonHeaders() {
@@ -87,16 +126,40 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
         return headers;
     }
 
-    private String resolveChannelCode(Object request) {
+    private String resolveChannelCode(CollectionCreateEntity request) {
         Map<String, Object> payload = toPayload(request);
         Object raw = payload.get("channelCode");
         if (raw == null) {
-            Object channelParams = payload.get("channelParams");
-            if (channelParams instanceof Map<?, ?> params) {
-                raw = params.get("channelCode");
-            }
+            raw = resolveChannelCodeFromParams(request == null ? null : request.getChannelParams());
         }
         return raw == null ? null : String.valueOf(raw);
+    }
+
+    private String resolveChannelCode(PayCreateEntity request) {
+        Map<String, Object> payload = toPayload(request);
+        Object raw = payload.get("channelCode");
+        if (raw == null) {
+            raw = resolveChannelCodeFromParams(request == null ? null : request.getChannelParams());
+        }
+        return raw == null ? null : String.valueOf(raw);
+    }
+
+    private String resolveChannelCode(Map<String, Object> payload) {
+        if (payload == null) {
+            return null;
+        }
+        Object raw = payload.get("channelCode");
+        if (raw == null && payload.get("channelParams") instanceof Map<?, ?> params) {
+            raw = params.get("channelCode");
+        }
+        return raw == null ? null : String.valueOf(raw);
+    }
+
+    private Object resolveChannelCodeFromParams(Map<String, Object> channelParams) {
+        if (channelParams == null) {
+            return null;
+        }
+        return channelParams.get("channelCode");
     }
 
     private void validateRequiredFields(String path, Map<String, Object> payload) {
@@ -127,13 +190,6 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
                 break;
             default:
                 break;
-        }
-    }
-
-    private void requireNonBlank(Map<String, Object> payload, String key) {
-        Object value = payload.get(key);
-        if (value == null || String.valueOf(value).trim().isEmpty()) {
-            throw new IllegalArgumentException("missing required field: " + key);
         }
     }
 

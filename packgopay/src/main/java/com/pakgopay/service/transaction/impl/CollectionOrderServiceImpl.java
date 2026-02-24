@@ -5,12 +5,15 @@ import com.pakgopay.common.enums.*;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.OrderQueryEntity;
 import com.pakgopay.data.entity.TransactionInfo;
+import com.pakgopay.data.entity.transaction.CollectionCreateEntity;
+import com.pakgopay.data.entity.transaction.CollectionQueryEntity;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.response.CollectionOrderPageResponse;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.CollectionOrderMapper;
+import com.pakgopay.mapper.PaymentMapper;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PaymentDto;
@@ -18,10 +21,7 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.transaction.*;
-import com.pakgopay.util.CommonUtil;
-import com.pakgopay.util.PatchBuilderUtil;
-import com.pakgopay.util.SnowflakeIdGenerator;
-import com.pakgopay.util.TransactionUtil;
+import com.pakgopay.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -31,7 +31,6 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
-import com.pakgopay.util.CalcUtil;
 
 @Slf4j
 @Service
@@ -51,6 +50,9 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
 
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;
+
+    @Autowired
+    private PaymentMapper paymentMapper;
 
     @Autowired
     private TransactionUtil transactionUtil;
@@ -197,7 +199,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
     }
 
     @Override
-    public String handleNotify(Map<String, Object> notifyData) throws PakGoPayException {
+    public Object handleNotify(Map<String, Object> notifyData) throws PakGoPayException {
         log.info("handleNotify start, notifyData: {}", notifyData);
         // Verify order existence and validate state transition.
         CollectionOrderDto collectionOrderDto = validateNotifyOrder(notifyData);
@@ -221,15 +223,18 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         OrderHandler.validateNotifyResponse(response);
         log.info("notify response validated, transactionNo={}", response.getTransactionNo());
 
+        // Query order status from channel and use it as the target status.
+        TransactionStatus targetStatus = queryOrderTargetStatus(collectionOrderDto, handler);
+
         // Calculate fees, update order record, and apply balance changes.
-        applyNotifyUpdate(collectionOrderDto, response);
+        applyNotifyUpdate(collectionOrderDto, targetStatus);
         log.info("notify applied, transactionNo={}, status={}",
                 collectionOrderDto.getTransactionNo(),
                 response.getStatus());
 
         refreshReportData(collectionOrderDto.getCreateTime(),collectionOrderDto.getCurrencyType());
 
-        return "ok";
+        return handler.getNotifySuccessResponse();
     }
 
     @Override
@@ -265,8 +270,9 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         return collectionOrderDto;
     }
 
-    private void applyNotifyUpdate(CollectionOrderDto collectionOrderDto, NotifyRequest response) throws PakGoPayException {
-        TransactionStatus targetStatus = resolveNotifyStatus(response.getStatus());
+    private void applyNotifyUpdate(
+            CollectionOrderDto collectionOrderDto,
+            TransactionStatus targetStatus) throws PakGoPayException {
         MerchantInfoDto merchantInfo = merchantService.fetchMerchantInfo(collectionOrderDto.getMerchantUserId());
         if (merchantInfo == null) {
             throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
@@ -312,6 +318,40 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                         collectionOrderDto.getAgent3Fee());
             }
         });
+    }
+
+    private TransactionStatus queryOrderTargetStatus(CollectionOrderDto collectionOrderDto, OrderHandler handler) {
+        if (handler == null || collectionOrderDto == null) {
+            log.warn("queryOrderTargetStatus fallback FAILED, reason=handler_or_order_null, transactionNo={}",
+                    collectionOrderDto == null ? null : collectionOrderDto.getTransactionNo());
+            return TransactionStatus.FAILED;
+        }
+        try {
+            CollectionQueryEntity query = new CollectionQueryEntity();
+            query.setOrderNo(collectionOrderDto.getTransactionNo());
+            query.setSign(collectionOrderDto.getCallbackToken());
+            Long paymentId = collectionOrderDto.getPaymentId();
+            if (paymentId == null) {
+                throw new PakGoPayException(ResultCode.INVALID_PARAMS,
+                        "paymentId is null, transactionNo=" + collectionOrderDto.getTransactionNo());
+            }
+            PaymentDto paymentDto = paymentMapper.findByPaymentId(paymentId);
+            if (paymentDto == null) {
+                throw new PakGoPayException(ResultCode.INVALID_PARAMS,
+                        "payment not found, paymentId=" + paymentId + ", transactionNo=" + collectionOrderDto.getTransactionNo());
+            }
+            query.setPaymentCheckCollectionUrl(paymentDto.getPaymentCheckCollectionUrl());
+            TransactionStatus queryStatus = handler.handleCollectionQuery(query);
+            log.info("queryOrderTargetStatus result, transactionNo={}, queryStatus={}",
+                    collectionOrderDto.getTransactionNo(), queryStatus);
+            return queryStatus;
+        } catch (PakGoPayException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("queryOrderTargetStatus failed, transactionNo={}, message={}",
+                    collectionOrderDto.getTransactionNo(), e.getMessage());
+            return TransactionStatus.FAILED;
+        }
     }
 
 
@@ -444,20 +484,23 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         String channelCode = resolveChannelCode(channelParams);
         OrderHandler handler = OrderHandlerFactory.get(
                 scope, resolveCurrencyKey(dto.getCurrencyType(), channelCode), dto.getPaymentNo());
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("transactionNo", dto.getTransactionNo());
+        CollectionCreateEntity entity = new CollectionCreateEntity();
+        entity.setTransactionNo(dto.getTransactionNo());
         // TODO 需要查看为什么为null
-        payload.put("amount", dto.getActualAmount() != null ? dto.getActualAmount() : new BigDecimal("1"));
-        payload.put("merchantOrderNo", dto.getTransactionNo());
-        payload.put("merchantUserId", dto.getMerchantUserId());
-        payload.put("callbackUrl", paymentInfo.getCollectionCallbackAddr());
-        payload.put("ip", dto.getRequestIp());
-        payload.put("paymentRequestCollectionUrl",
+        entity.setAmount(dto.getActualAmount() != null ? dto.getActualAmount() : new BigDecimal("1"));
+        entity.setMerchantOrderNo(dto.getTransactionNo());
+        entity.setMerchantUserId(dto.getMerchantUserId());
+        entity.setCallbackUrl(paymentInfo == null ? null : paymentInfo.getCollectionCallbackAddr());
+        entity.setIp(dto.getRequestIp());
+        entity.setPaymentRequestCollectionUrl(
                 paymentInfo == null ? null : paymentInfo.getPaymentRequestCollectionUrl());
-        payload.put("collectionInterfaceParam",
+        entity.setCollectionInterfaceParam(
                 paymentInfo == null ? null : paymentInfo.getCollectionInterfaceParam());
-        payload.put("channelCode", channelCode);
-        return handler.handleCol(payload);
+        entity.setChannelCode(channelCode);
+        if (channelParams instanceof Map<?, ?> params) {
+            entity.setChannelParams((Map<String, Object>) params);
+        }
+        return handler.handleCol(entity);
     }
 
     private String resolveChannelCode(Object channelParams) {

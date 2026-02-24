@@ -6,6 +6,10 @@ import com.pakgopay.common.http.RestTemplateUtil;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
+import com.pakgopay.data.entity.transaction.CollectionQueryEntity;
+import com.pakgopay.data.entity.transaction.CollectionCreateEntity;
+import com.pakgopay.data.entity.transaction.PayQueryEntity;
+import com.pakgopay.data.entity.transaction.PayCreateEntity;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.service.transaction.OrderHandler;
 import com.pakgopay.util.EncryptUtil;
@@ -18,7 +22,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,12 +35,12 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
     private RestTemplateUtil restTemplateUtil;
 
     @Override
-    public Object handleCol(Object request) {
-        Map<String, Object> payload = toPayload(request);
-        Map<String, Object> finalPayload = buildPayload(payload);
-        validateRequiredFields(finalPayload);
-        String url = resolveDirectUrl(payload);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(finalPayload, jsonHeadersWithApiKey(payload));
+    public Object handleCol(CollectionCreateEntity request) {
+        request = requireRequest(request, "collection request is null");
+        Map<String, Object> finalPayload = buildPayload(request);
+        validateColRequiredFields(finalPayload);
+        String url = resolveDirectUrl(request);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(finalPayload, jsonHeadersWithApiKey(request));
         log.info("ColThirdPartyAlipayHandler handle, channelCode={}, url={}, request={}", CHANNEL_CODE, url, finalPayload);
         PaymentHttpResponse response = restTemplateUtil.request(entity, HttpMethod.POST, url);
         adaptResponse(response);
@@ -46,12 +49,12 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
     }
 
     @Override
-    public Object handlePay(Object request) {
-        Map<String, Object> payload = toPayload(request);
-        Map<String, Object> finalPayload = buildPayPayload(payload);
+    public Object handlePay(PayCreateEntity request) {
+        request = requireRequest(request, "pay request is null");
+        Map<String, Object> finalPayload = buildPayPayload(request);
         validatePayRequiredFields(finalPayload);
-        String url = resolvePayUrl(payload);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(finalPayload, jsonHeadersWithApiKey(payload));
+        String url = resolvePayUrl(request);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(finalPayload, jsonHeadersWithApiKey(request));
         log.info("ThirdPartyAlipayHandler handlePay, channelCode={}, url={}, request={}", CHANNEL_CODE, url, finalPayload);
         PaymentHttpResponse response = restTemplateUtil.request(entity, HttpMethod.POST, url);
         adaptResponse(response);
@@ -59,17 +62,58 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
         return response;
     }
 
-    private Map<String, Object> toPayload(Object request) {
-        if (request == null) {
-            return Collections.emptyMap();
-        }
-        if (request instanceof Map) {
-            return (Map<String, Object>) request;
-        }
-        return new ObjectMapper().convertValue(request, Map.class);
+    @Override
+    public TransactionStatus handleCollectionQuery(CollectionQueryEntity request) {
+        request = requireRequest(request, "collection query request is null");
+        Map<String, Object> finalPayload = buildCollectionQueryPayload(request);
+        validateQueryRequiredFields(finalPayload);
+        String url = resolveCollectionQueryUrl(request);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(finalPayload, jsonHeadersWithApiKey(request));
+        log.info("ThirdPartyAlipayHandler handleCollectionQuery, channelCode={}, url={}, request={}",
+                CHANNEL_CODE, url, finalPayload);
+        PaymentHttpResponse response = restTemplateUtil.request(entity, HttpMethod.POST, url);
+        adaptResponse(response);
+        log.info("third-party collection query response, channelCode={}, code={}, response={}",
+                CHANNEL_CODE, response == null ? null : response.getCode(), response);
+        return resolveQueryStatus(response);
     }
 
-    private HttpHeaders jsonHeadersWithApiKey(Map<String, Object> payload) {
+    @Override
+    public TransactionStatus handlePayQuery(PayQueryEntity request) {
+        request = requireRequest(request, "pay query request is null");
+        Map<String, Object> finalPayload = buildPayQueryPayload(request);
+        validateQueryRequiredFields(finalPayload);
+        String url = resolvePayQueryUrl(request);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(finalPayload, jsonHeadersWithApiKey(request));
+        log.info("ThirdPartyAlipayHandler handlePayQuery, channelCode={}, url={}, request={}",
+                CHANNEL_CODE, url, finalPayload);
+        PaymentHttpResponse response = restTemplateUtil.request(entity, HttpMethod.POST, url);
+        adaptResponse(response);
+        log.info("third-party payout query response, channelCode={}, code={}, response={}",
+                CHANNEL_CODE, response == null ? null : response.getCode(), response);
+        return resolveQueryStatus(response);
+    }
+
+    @Override
+    public NotifyRequest handleNotify(Map<String, Object> body) {
+        verifyNotifySign(body);
+        log.info("third-party collection notify, channelCode={}, payload={}", CHANNEL_CODE, body);
+        return buildNotifyResponse(body);
+    }
+
+    @Override
+    public Object getNotifySuccessResponse(){
+        return "ok";
+    }
+
+    @Override
+    public NotifyRequest buildNotifyResponse(Map<String, Object> bodyMap) {
+        NotifyRequest response = super.buildNotifyResponse(bodyMap);
+        response.setStatus(convertStatus(response.getStatus()).getMessage());
+        return response;
+    }
+
+    private HttpHeaders jsonHeadersWithApiKey(Object request) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 //        String apiKey = resolveApiKey(payload);
@@ -81,32 +125,32 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
         return headers;
     }
 
-    private Map<String, Object> buildPayload(Map<String, Object> payload) {
+    private Map<String, Object> buildPayload(CollectionCreateEntity payload) {
         Map<String, Object> result = new HashMap<>();
         Map<String, Object> params = extractChannelParams(payload);
         result.put("mid", 24);
-        result.put("amount", resolveAmountString(payload.get("amount")));
-        result.put("order_no", resolveValue(params, "orderNo", payload.get("merchantOrderNo")));
+        result.put("amount", resolveAmountString(payload.getAmount()));
+        result.put("order_no", resolveValue(params, "orderNo", payload.getMerchantOrderNo()));
         result.put("gateway", CHANNEL_CODE);
         result.put("ip", IpAddressUtil.resolveServerIp());
-        result.put("notify_url", resolveValue(params, "notifyUrl", payload.get("callbackUrl")));
-        result.put("return_url", resolveValue(params, "returnUrl", payload.get("returnUrl")));
-        result.put("name", resolveValue(params, "name", payload.get("name")));
-        result.put("bank_name", resolveValue(params, "bankName", payload.get("bank_name")));
-        result.put("card_no", resolveValue(params, "cardNo", payload.get("card_no")));
-        result.put("card_name", resolveValue(params, "cardName", payload.get("card_name")));
+        result.put("notify_url", resolveValue(params, "notifyUrl", payload.getCallbackUrl()));
+        result.put("return_url", resolveValue(params, "returnUrl", null));
+        result.put("name", resolveValue(params, "name", null));
+        result.put("bank_name", resolveValue(params, "bankName", params.get("bank_name")));
+        result.put("card_no", resolveValue(params, "cardNo", params.get("card_no")));
+        result.put("card_name", resolveValue(params, "cardName", params.get("card_name")));
         result.put("sign", EncryptUtil.signHmacSha1Base64(result,"75b7cb58f2f9fc7cf477172364c4ff39"));
         return result;
     }
 
-    private Map<String, Object> buildPayPayload(Map<String, Object> payload) {
+    private Map<String, Object> buildPayPayload(PayCreateEntity payload) {
         Map<String, Object> result = new HashMap<>();
         Map<String, Object> params = extractChannelParams(payload);
         result.put("mid", 24);
-        result.put("amount", resolveAmountString(payload.get("amount")));
-        result.put("order_no", resolveValue(params, "orderNo", payload.get("merchantOrderNo")));
-        result.put("ip", resolveValue(params, "ip", payload.get("ip")));
-        result.put("notify_url", resolveValue(params, "notifyUrl", payload.get("callbackUrl")));
+        result.put("amount", resolveAmountString(payload.getAmount()));
+        result.put("order_no", resolveValue(params, "orderNo", payload.getMerchantOrderNo()));
+        result.put("ip", resolveValue(params, "ip", payload.getIp()));
+        result.put("notify_url", resolveValue(params, "notifyUrl", payload.getCallbackUrl()));
         result.put("bank_code", "SHB");
         result.put("card_no", "123123123123123123123");
         result.put("holder_name", "bob");
@@ -121,7 +165,23 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
         return result;
     }
 
-    private void validateRequiredFields(Map<String, Object> payload) {
+    private Map<String, Object> buildCollectionQueryPayload(CollectionQueryEntity payload) {
+        Map<String, Object> result = new HashMap<>();
+        Map<String, Object> params = extractChannelParams(payload);
+        result.put("order_no", resolveValue(params, "order_no", payload.getOrderNo()));
+        result.put("sign", resolveValue(params, "sign", payload.getSign()));
+        return result;
+    }
+
+    private Map<String, Object> buildPayQueryPayload(PayQueryEntity payload) {
+        Map<String, Object> result = new HashMap<>();
+        Map<String, Object> params = extractChannelParams(payload);
+        result.put("order_no", resolveValue(params, "order_no", payload.getOrderNo()));
+        result.put("sign", resolveValue(params, "sign", payload.getSign()));
+        return result;
+    }
+
+    private void validateColRequiredFields(Map<String, Object> payload) {
         requireNonBlank(payload, "mid");
         requireNonBlank(payload, "amount");
         requireNonBlank(payload, "order_no");
@@ -146,47 +206,17 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
         requireNonBlank(payload, "sign");
     }
 
-    private void requireNonBlank(Map<String, Object> payload, String key) {
-        Object value = payload.get(key);
-        if (value == null || String.valueOf(value).trim().isEmpty()) {
-            throw new IllegalArgumentException("missing required field: " + key);
-        }
+    private void validateQueryRequiredFields(Map<String, Object> payload) {
+        requireNonBlank(payload, "order_no");
+        requireNonBlank(payload, "sign");
     }
 
-    private String resolveDirectUrl(Map<String, Object> payload) {
-        Object value = payload.get("paymentRequestCollectionUrl");
-        if (value == null) {
-            Object channelParams = payload.get("channelParams");
-            if (channelParams instanceof Map<?, ?> params) {
-                value = params.get("paymentRequestCollectionUrl");
-            }
-        }
-        if (value == null) {
-            throw new IllegalArgumentException("missing required field: paymentRequestCollectionUrl");
-        }
-        return String.valueOf(value);
-    }
-
-    private String resolvePayUrl(Map<String, Object> payload) {
-        Object value = payload.get("paymentRequestPayUrl");
-        if (value == null) {
-            Object channelParams = payload.get("channelParams");
-            if (channelParams instanceof Map<?, ?> params) {
-                value = params.get("paymentRequestPayUrl");
-            }
-        }
-        if (value == null) {
-            throw new IllegalArgumentException("missing required field: paymentRequestPayUrl");
-        }
-        return String.valueOf(value);
-    }
-
-    private String resolveApiKey(Map<String, Object> payload) {
-        Object raw = resolveValue(extractChannelParams(payload), "apiKey", payload.get("apiKey"));
+    private String resolveApiKey(CollectionCreateEntity payload) {
+        Object raw = resolveValue(extractChannelParams(payload), "apiKey", null);
         if (raw != null) {
             return String.valueOf(raw);
         }
-        Object interfaceParam = payload.get("collectionInterfaceParam");
+        Object interfaceParam = payload.getCollectionInterfaceParam();
         if (interfaceParam instanceof String str && !str.isBlank()) {
             try {
                 Map<String, Object> parsed = new ObjectMapper().readValue(str, Map.class);
@@ -199,32 +229,6 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
             }
         }
         return null;
-    }
-
-    private Map<String, Object> extractChannelParams(Map<String, Object> payload) {
-        Object channelParams = payload.get("channelParams");
-        if (channelParams instanceof Map<?, ?> params) {
-            return (Map<String, Object>) params;
-        }
-        return Collections.emptyMap();
-    }
-
-    private Object resolveValue(Map<String, Object> params, String key, Object fallback) {
-        Object value = params.get(key);
-        return value == null ? fallback : value;
-    }
-
-    private String resolveAmountString(Object amount) {
-        if (amount == null) {
-            return null;
-        }
-        try {
-            return new java.math.BigDecimal(String.valueOf(amount))
-                    .setScale(2, java.math.RoundingMode.HALF_UP)
-                    .toPlainString();
-        } catch (Exception e) {
-            return String.valueOf(amount);
-        }
     }
 
     private void adaptResponse(PaymentHttpResponse response) {
@@ -240,28 +244,33 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
         }
     }
 
-    @Override
-    public NotifyRequest handleNotify(Map<String, Object> body) {
-        verifyNotifySign(body);
-        log.info("third-party collection notify, channelCode={}, payload={}", CHANNEL_CODE, body);
-        return buildNotifyResponse(body);
+    private TransactionStatus resolveQueryStatus(PaymentHttpResponse response) {
+        if (response == null) {
+            return TransactionStatus.FAILED;
+        }
+        Map<String, Object> data = null;
+        Object rawData = response.getData();
+        if (rawData instanceof Map<?, ?> map) {
+            data = (Map<String, Object>) map;
+        }
+        Object statusObj = data == null ? null : data.get("status");
+        String status = statusObj == null ? null : String.valueOf(statusObj);
+        if (status == null || status.isBlank()) {
+            return TransactionStatus.FAILED;
+        }
+        return convertStatus(status);
     }
 
-    @Override
-    public NotifyRequest buildNotifyResponse(Map<String, Object> bodyMap) {
-        NotifyRequest response = super.buildNotifyResponse(bodyMap);
-        response.setStatus(convertStatus(response.getStatus()));
-        return response;
-    }
-
-    private String convertStatus(String status) {
+    private TransactionStatus convertStatus(String status) {
         switch (status){
             case "succeeded":
-                return TransactionStatus.SUCCESS.getMessage();
+                return TransactionStatus.SUCCESS;
+            case "inprogress":
+                return TransactionStatus.PROCESSING;
             case "failed":
-                return TransactionStatus.FAILED.getMessage();
+                return TransactionStatus.FAILED;
             default:
-                return TransactionStatus.FAILED.getMessage();
+                return TransactionStatus.FAILED;
         }
     }
 
@@ -276,6 +285,4 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "notify sign invalid");
         }
     }
-
-    // resolveServerIp moved to IpUtil
 }
