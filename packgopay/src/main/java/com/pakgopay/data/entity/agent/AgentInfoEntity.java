@@ -20,6 +20,21 @@ public class AgentInfoEntity {
      */
     private Integer status;
 
+    /**
+     * user id
+     */
+    private String userId;
+
+    /**
+     * top agent id
+     */
+    private String topAgentId;
+
+    /**
+     * max level
+     */
+    private Integer maxLevel;
+
     /** Page number (start from 1) */
     private Integer pageNo;
 

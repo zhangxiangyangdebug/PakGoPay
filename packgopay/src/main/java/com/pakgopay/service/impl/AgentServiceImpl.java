@@ -1,5 +1,6 @@
 package com.pakgopay.service.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
@@ -24,6 +25,7 @@ import com.pakgopay.mapper.dto.ChannelDto;
 import com.pakgopay.mapper.dto.WithdrawalAccountsDto;
 import com.pakgopay.service.AgentService;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.service.common.CommonService;
 import com.pakgopay.service.common.ExportReportDataColumns;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.ExportFileUtils;
@@ -61,6 +63,9 @@ public class AgentServiceImpl implements AgentService {
     @Autowired
     private TransactionUtil transactionUtil;
 
+    @Autowired
+    private CommonService commonService;
+
     @Override
     public CommonResponse queryAgents(AgentQueryRequest agentQueryRequest) throws PakGoPayException {
         AgentResponse response = fetchAgentPage(agentQueryRequest);
@@ -69,11 +74,38 @@ public class AgentServiceImpl implements AgentService {
 
     private AgentResponse fetchAgentPage(AgentQueryRequest agentQueryRequest) throws PakGoPayException {
         AgentInfoEntity entity = new AgentInfoEntity();
-        entity.setAgentName(agentQueryRequest.getAgentName());
-        entity.setAccountName(agentQueryRequest.getAccountName());
+
+        Integer roleId = commonService.getRoleIdByUserId(agentQueryRequest.getUserId());
+        String agentName = agentQueryRequest.getAgentName();
+        String accountName = agentQueryRequest.getAccountName();
+        boolean hasAgentName = agentName != null && !agentName.isBlank();
+        boolean hasAccountName = accountName != null && !accountName.isBlank();
+        if (hasAgentName || hasAccountName) {
+            Optional<AgentInfoDto> target =
+                    agentInfoMapper.findByAgentNameOrAccountName(agentName, accountName);
+            if (target.isEmpty()) {
+                AgentResponse response = new AgentResponse();
+                response.setAgentInfoDtoList(Collections.emptyList());
+                response.setTotalNumber(0);
+                response.setPageNo(agentQueryRequest.getPageNo());
+                response.setPageSize(agentQueryRequest.getPageSize());
+                return response;
+            }
+            AgentInfoDto targetAgent = target.get();
+            entity.setUserId(targetAgent.getUserId());
+            if (targetAgent.getTopAgentId() != null && !targetAgent.getTopAgentId().isBlank()) {
+                entity.setTopAgentId(targetAgent.getTopAgentId());
+            }
+            if (targetAgent.getLevel() != null) {
+                entity.setMaxLevel(targetAgent.getLevel());
+            }
+        } else if (roleId != null && roleId == CommonConstant.ROLE_AGENT) {
+            entity.setUserId(agentQueryRequest.getUserId());
+        }
         entity.setStatus(agentQueryRequest.getStatus());
         entity.setPageNo(agentQueryRequest.getPageNo());
         entity.setPageSize(agentQueryRequest.getPageSize());
+        log.info("fetchAgentPage query condition: {}", JSON.toJSONString(entity));
 
         AgentResponse response = new AgentResponse();
         try {
