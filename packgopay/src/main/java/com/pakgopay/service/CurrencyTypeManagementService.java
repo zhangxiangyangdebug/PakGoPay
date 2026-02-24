@@ -11,4 +11,6 @@ public interface CurrencyTypeManagementService {
 
     CommonResponse createCurrencyType(CurrencyTypeRequest currencyTypeRequest, HttpServletRequest httpServletRequest);
 
+    CommonResponse updateCurrencyType(CurrencyTypeRequest currencyTypeRequest, HttpServletRequest httpServletRequest);
+
 }

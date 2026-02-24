@@ -44,6 +44,19 @@
         ) values (#{currencyType},#{name},#{icon},#{createTime},#{createBy},#{updateTime},#{updateBy},#{remark},#{currencyAccuracy})
     </insert>
 
+    <update id="updateCurrencyType">
+        UPDATE currency
+        <set>
+            <if test="currencyType != null">currency_type = #{currencyType},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="icon != null">icon = #{icon},</if>
+            <if test="currencyAccuracy != null">currency_scale = #{currencyAccuracy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
     <select id="getCurrencyById" resultMap="currencyTypeMap">
         SELECT
           <include refid="allColumn"/>
