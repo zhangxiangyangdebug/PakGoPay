@@ -13,7 +13,6 @@ import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.response.CollectionOrderPageResponse;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.CollectionOrderMapper;
-import com.pakgopay.mapper.PaymentMapper;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PaymentDto;
@@ -50,9 +49,6 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
 
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;
-
-    @Autowired
-    private PaymentMapper paymentMapper;
 
     @Autowired
     private TransactionUtil transactionUtil;
@@ -213,28 +209,71 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         OrderHandler handler = OrderHandlerFactory.get(
                 scope, collectionOrderDto.getCurrencyType(), collectionOrderDto.getPaymentNo());
 
-        // Parse notify payload into a structured response.
-        NotifyRequest response = handler.handleNotify(notifyData);
-        log.info("notify parsed, transactionNo={}, merchantNo={}, status={}",
-                response.getTransactionNo(), response.getMerchantNo(),
-                response.getStatus());
+        // Query payment config early for subsequent channel query.
+        PaymentDto paymentDto = fetchPaymentById(collectionOrderDto.getPaymentId());
 
-        // Validate required fields in the notify response.
-        OrderHandler.validateNotifyResponse(response);
-        log.info("notify response validated, transactionNo={}", response.getTransactionNo());
+        NotifyRequest response = null;
+        TransactionStatus targetStatus = TransactionStatus.FAILED;
+        try {
+            // Parse notify payload into a structured response.
+            response = handler.handleNotify(notifyData, collectionOrderDto.getCallbackToken());
+            log.info("notify parsed, transactionNo={}, merchantNo={}, status={}",
+                    response.getTransactionNo(), response.getMerchantNo(),
+                    response.getStatus());
 
-        // Query order status from channel and use it as the target status.
-        TransactionStatus targetStatus = queryOrderTargetStatus(collectionOrderDto, handler);
+            // Validate required fields in the notify response.
+            OrderHandler.validateNotifyResponse(response);
+            log.info("notify response validated, transactionNo={}", response.getTransactionNo());
+
+            TransactionStatus notifyStatus = resolveNotifyStatus(response.getStatus());
+            if (TransactionStatus.FAILED.equals(notifyStatus)) {
+                log.warn("notify status is FAILED, transactionNo={}", collectionOrderDto.getTransactionNo());
+                targetStatus = TransactionStatus.FAILED;
+            } else {
+                // Query order status from channel and use it as the target status.
+                targetStatus = queryOrderTargetStatus(collectionOrderDto, paymentDto, handler);
+            }
+        } catch (Exception e) {
+            log.warn("handleNotify pre-check failed, transactionNo={}, message={}",
+                    collectionOrderDto.getTransactionNo(), e.getMessage());
+            targetStatus = TransactionStatus.FAILED;
+        }
 
         // Calculate fees, update order record, and apply balance changes.
         applyNotifyUpdate(collectionOrderDto, targetStatus);
-        log.info("notify applied, transactionNo={}, status={}",
-                collectionOrderDto.getTransactionNo(),
-                response.getStatus());
+        log.info("notify applied, transactionNo={}, targetStatus={}",
+                collectionOrderDto.getTransactionNo(), targetStatus);
+
+        // Send final notify payload to merchant.
+        if (collectionOrderDto.getCallbackUrl() != null && !collectionOrderDto.getCallbackUrl().isBlank()) {
+            OrderHandler.NotifyResult notifyResult = handler.sendNotifyToMerchant(
+                    buildCollectionNotifyBody(collectionOrderDto, targetStatus, collectionOrderDto.getCallbackToken()),
+                    collectionOrderDto.getCallbackUrl());
+            updateNotifyCallbackMeta(collectionOrderDto, notifyResult);
+        }
 
         refreshReportData(collectionOrderDto.getCreateTime(),collectionOrderDto.getCurrencyType());
 
         return handler.getNotifySuccessResponse();
+    }
+
+    private void updateNotifyCallbackMeta(CollectionOrderDto orderDto, OrderHandler.NotifyResult notifyResult) {
+        long now = System.currentTimeMillis() / 1000;
+        boolean success = notifyResult != null && notifyResult.isSuccess();
+        int failedAttempts = notifyResult == null ? 1 : Math.max(notifyResult.getFailedAttempts(), 0);
+        int totalAttempts = failedAttempts + (success ? 1 : 0);
+        try {
+            collectionOrderMapper.increaseCallbackTimes(
+                    orderDto.getTransactionNo(),
+                    now,
+                    totalAttempts,
+                    success ? now : null);
+            log.info("merchant notify callback meta updated, transactionNo={}, totalAttempts={}, success={}",
+                    orderDto.getTransactionNo(), totalAttempts, success);
+        } catch (Exception e) {
+            log.error("update notify callback meta failed, transactionNo={}, message={}",
+                    orderDto.getTransactionNo(), e.getMessage());
+        }
     }
 
     @Override
@@ -320,7 +359,8 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         });
     }
 
-    private TransactionStatus queryOrderTargetStatus(CollectionOrderDto collectionOrderDto, OrderHandler handler) {
+    private TransactionStatus queryOrderTargetStatus(
+            CollectionOrderDto collectionOrderDto, PaymentDto paymentDto, OrderHandler handler) {
         if (handler == null || collectionOrderDto == null) {
             log.warn("queryOrderTargetStatus fallback FAILED, reason=handler_or_order_null, transactionNo={}",
                     collectionOrderDto == null ? null : collectionOrderDto.getTransactionNo());
@@ -330,16 +370,6 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             CollectionQueryEntity query = new CollectionQueryEntity();
             query.setTransactionNo(collectionOrderDto.getTransactionNo());
             query.setSign(collectionOrderDto.getCallbackToken());
-            Long paymentId = collectionOrderDto.getPaymentId();
-            if (paymentId == null) {
-                throw new PakGoPayException(ResultCode.INVALID_PARAMS,
-                        "paymentId is null, transactionNo=" + collectionOrderDto.getTransactionNo());
-            }
-            PaymentDto paymentDto = paymentMapper.findByPaymentId(paymentId);
-            if (paymentDto == null) {
-                throw new PakGoPayException(ResultCode.INVALID_PARAMS,
-                        "payment not found, paymentId=" + paymentId + ", transactionNo=" + collectionOrderDto.getTransactionNo());
-            }
             query.setPaymentCheckCollectionUrl(paymentDto.getPaymentCheckCollectionUrl());
             TransactionStatus queryStatus = handler.handleCollectionQuery(query);
             log.info("queryOrderTargetStatus result, transactionNo={}, queryStatus={}",
@@ -353,7 +383,6 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             return TransactionStatus.FAILED;
         }
     }
-
 
     private void validateCollectionRequest(
             CollectionOrderRequest collectionOrderRequest, MerchantInfoDto merchantInfoDto) throws PakGoPayException {
@@ -454,6 +483,8 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         builder.obj(() -> 1, dto::setOrderType) // order type: 1-system, 2-manual
                 .obj(() -> OrderStatus.PROCESSING.getCode().toString(), dto::setOrderStatus) // order status: 1-processing, 2-failed
                 .obj(request::getNotificationUrl, dto::setCallbackUrl) // async callback url
+                //TODO 商户的加密密钥
+//                .obj(merchantInfo::get, dto::setCallbackToken) // async callback url
                 .obj(() -> CommonConstant.ZERO, dto::setCallbackTimes) // initial callback times
                 .obj(request::getClientIp, dto::setRequestIp) // request ip
                 .obj(request::getRemark, dto::setRemark) // remark

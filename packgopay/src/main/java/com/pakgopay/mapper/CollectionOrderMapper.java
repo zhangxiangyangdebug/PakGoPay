@@ -33,7 +33,9 @@ public interface CollectionOrderMapper {
 
     /** Increase callback retry times */
     int increaseCallbackTimes(@Param("transactionNo") String transactionNo,
-                              @Param("lastCallbackTime") Long lastCallbackTime);
+                              @Param("lastCallbackTime") Long lastCallbackTime,
+                              @Param("increment") Integer increment,
+                              @Param("successCallbackTime") Long successCallbackTime);
 
     /** Query orders by payment IDs and time range */
     List<CollectionOrderDto> getCollectionOrderInfosByPaymentIds(

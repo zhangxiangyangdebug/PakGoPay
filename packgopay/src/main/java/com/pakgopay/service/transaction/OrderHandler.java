@@ -36,12 +36,35 @@ public abstract class OrderHandler {
     /**
      * Handle async notification callbacks.
      */
-    public abstract NotifyRequest handleNotify(Map<String, Object> body);
+    public abstract NotifyRequest handleNotify(Map<String, Object> body, String sign);
 
     /**
      * Return provider-specific success response body for notify callback acknowledgment.
      */
     public abstract Object getNotifySuccessResponse();
+
+    /**
+     * Send notify payload to merchant callback endpoint.
+     */
+    public abstract NotifyResult sendNotifyToMerchant(Map<String, Object> body, String url);
+
+    public static class NotifyResult {
+        private final boolean success;
+        private final int failedAttempts;
+
+        public NotifyResult(boolean success, int failedAttempts) {
+            this.success = success;
+            this.failedAttempts = failedAttempts;
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public int getFailedAttempts() {
+            return failedAttempts;
+        }
+    }
 
     /**
      * Build a normalized notify response from provider payload.

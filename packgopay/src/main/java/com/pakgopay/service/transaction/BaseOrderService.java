@@ -7,11 +7,16 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.OrderQueryEntity;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
+import com.pakgopay.mapper.PaymentMapper;
 import com.pakgopay.mapper.dto.AgentInfoDto;
+import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
+import com.pakgopay.mapper.dto.PayOrderDto;
+import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.timer.ReportTask;
 import com.pakgopay.util.CommonUtil;
+import com.pakgopay.util.EncryptUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -19,6 +24,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,6 +33,9 @@ public abstract class BaseOrderService {
 
     @Autowired
     private ReportTask reportTask;
+
+    @Autowired
+    protected PaymentMapper paymentMapper;
 
     protected TransactionStatus resolveNotifyStatus(String status) throws PakGoPayException {
         if (status == null || status.isBlank()) {
@@ -114,6 +123,63 @@ public abstract class BaseOrderService {
         entity.setPageNo(request.getPageNo());
         entity.setPageSize(request.getPageSize());
         return entity;
+    }
+
+    protected PaymentDto fetchPaymentById(Long paymentId) {
+        if (paymentId == null) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "paymentId is null");
+        }
+        PaymentDto paymentDto = paymentMapper.findByPaymentId(paymentId);
+        if (paymentDto == null) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS,
+                    "payment not found, paymentId=" + paymentId);
+        }
+        return paymentDto;
+    }
+
+    protected Map<String, Object> buildCollectionNotifyBody(
+            CollectionOrderDto orderDto, TransactionStatus targetStatus, String key) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("merchantUserId", orderDto.getMerchantUserId());
+        body.put("transactionNo", orderDto.getTransactionNo());
+        body.put("merchantOrderNo", orderDto.getMerchantOrderNo());
+        body.put("amount", formatNotifyAmount(orderDto.getAmount()));
+        body.put("actualAmount", formatNotifyAmount(resolveOrderAmount(orderDto.getActualAmount(), orderDto.getAmount())));
+        body.put("merchantFee", formatNotifyAmount(orderDto.getMerchantFee()));
+        body.put("createTime", orderDto.getCreateTime());
+        body.put("depositTime", orderDto.getSuccessCallbackTime());
+        body.put("notifyTime", System.currentTimeMillis() / 1000);
+        body.put("status", targetStatus.getMessage());
+        body.put("origAmount", formatNotifyAmount(orderDto.getAmount()));
+        body.put("payerName", null);
+        body.put("sign", EncryptUtil.signHmacSha1Base64(body, key));
+        return body;
+    }
+
+    protected Map<String, Object> buildPayNotifyBody(
+            PayOrderDto orderDto, TransactionStatus targetStatus, String key) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("merchantUserId", orderDto.getMerchantUserId());
+        body.put("transactionNo", orderDto.getTransactionNo());
+        body.put("merchantOrderNo", orderDto.getMerchantOrderNo());
+        body.put("amount", formatNotifyAmount(orderDto.getAmount()));
+        body.put("actualAmount", formatNotifyAmount(resolveOrderAmount(orderDto.getActualAmount(), orderDto.getAmount())));
+        body.put("merchantFee", formatNotifyAmount(orderDto.getMerchantFee()));
+        body.put("createTime", orderDto.getCreateTime());
+        body.put("depositTime", orderDto.getSuccessCallbackTime());
+        body.put("notifyTime", System.currentTimeMillis() / 1000);
+        body.put("status", targetStatus.getMessage());
+        body.put("origAmount", formatNotifyAmount(orderDto.getAmount()));
+        body.put("fromCardNo", null);
+        body.put("sign", EncryptUtil.signHmacSha1Base64(body, key));
+        return body;
+    }
+
+    protected String formatNotifyAmount(BigDecimal amount) {
+        if (amount == null) {
+            return null;
+        }
+        return amount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 
     protected void updateAgentFeeBalance(BalanceService balanceService,
