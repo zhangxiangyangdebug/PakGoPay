@@ -157,7 +157,11 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     }
 
     private void writeError(HttpServletResponse response, ResultCode code) throws IOException {
-        response.setStatus(HttpServletResponse.SC_OK);
+        int status = HttpServletResponse.SC_UNAUTHORIZED;
+        if (code != null && code.getCode() != null && code.getCode() == 401) {
+            status = HttpServletResponse.SC_UNAUTHORIZED;
+        }
+        response.setStatus(status);
         response.setContentType("application/json;charset=UTF-8");
         CommonResponse<Void> body = CommonResponse.fail(code, code.getMessage());
         response.getWriter().write(JSON.toJSONString(body));
