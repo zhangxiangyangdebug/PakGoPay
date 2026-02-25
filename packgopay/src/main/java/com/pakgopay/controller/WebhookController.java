@@ -77,10 +77,11 @@ public class WebhookController {
                 return CommonResponse.success("ignore");
             }
             if (!telegramService.isEnabled()) {
-                telegramService.sendMessageTo(chatId, "未启用");
+                telegramService.sendMessageTo(chatId, "disabled");
                 return CommonResponse.success("disabled");
             }
             if (!isAllowedUser(message)) {
+                telegramService.sendMessageTo(chatId, "you have no permission");
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return CommonResponse.fail(ResultCode.SC_UNAUTHORIZED, "forbidden");
             }
