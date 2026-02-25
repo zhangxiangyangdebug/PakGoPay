@@ -41,7 +41,7 @@ public class SystemHandler extends OrderHandler {
     }
 
     @Override
-    public NotifyRequest handleNotify(Map<String, Object> body) {
+    public NotifyRequest handleNotify(Map<String, Object> body, String sign) {
         // Handle in-house collection notify.
         return buildNotifyResponse(body);
     }
@@ -49,5 +49,11 @@ public class SystemHandler extends OrderHandler {
     @Override
     public Object getNotifySuccessResponse() {
         return "ok";
+    }
+
+    @Override
+    public NotifyResult sendNotifyToMerchant(Map<String, Object> body, String url) {
+        log.info("sendNotifyToMerchant, channelCode=system, url={}, body={}", url, body);
+        return new NotifyResult(true, 0);
     }
 }

@@ -33,7 +33,9 @@ public interface PayOrderMapper {
 
     /** Increase callback retry times (atomic) */
     int increaseCallbackTimes(@Param("transactionNo") String transactionNo,
-                              @Param("lastCallbackTime") Long lastCallbackTime);
+                              @Param("lastCallbackTime") Long lastCallbackTime,
+                              @Param("increment") Integer increment,
+                              @Param("successCallbackTime") Long successCallbackTime);
 
     /** Query by payment IDs and time range */
     List<PayOrderDto> getPayOrderInfosByPaymentIds(@Param("paymentIds") List<Long> paymentIds,

@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 @Component
@@ -95,8 +96,8 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
     }
 
     @Override
-    public NotifyRequest handleNotify(Map<String, Object> body) {
-        verifyNotifySign(body);
+    public NotifyRequest handleNotify(Map<String, Object> body, String sign) {
+        verifyNotifySign(body, sign);
         log.info("third-party collection notify, channelCode={}, payload={}", CHANNEL_CODE, body);
         return buildNotifyResponse(body);
     }
@@ -104,6 +105,55 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
     @Override
     public Object getNotifySuccessResponse(){
         return "ok";
+    }
+
+    @Override
+    public NotifyResult sendNotifyToMerchant(Map<String, Object> body, String url) {
+        if (url == null || url.isBlank()) {
+            log.warn("sendNotifyToMerchant skipped, channelCode={}, reason=callback_url_empty", CHANNEL_CODE);
+            return new NotifyResult(false, 1);
+        }
+        Map<String, Object> payload = body == null ? new HashMap<>() : body;
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+        int maxAttempts = 5;
+        long delayMs = 500L;
+        long maxDelayMs = 8000L;
+        int failedAttempts = 0;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                PaymentHttpResponse response = restTemplateUtil.request(entity, HttpMethod.POST, url);
+                if (response != null && Integer.valueOf(200).equals(response.getCode())) {
+                    log.info("sendNotifyToMerchant success, channelCode={}, url={}, attempt={}, responseCode={}",
+                            CHANNEL_CODE, url, attempt, response.getCode());
+                    return new NotifyResult(true, failedAttempts);
+                }
+                throw new PakGoPayException(ResultCode.HTTP_REQUEST_ERROR,
+                        "merchant notify response not success");
+            } catch (Exception e) {
+                failedAttempts++;
+                if (attempt >= maxAttempts) {
+                    log.error("sendNotifyToMerchant failed after retries, channelCode={}, url={}, attempts={}, message={}",
+                            CHANNEL_CODE, url, maxAttempts, e.getMessage());
+                    return new NotifyResult(false, failedAttempts);
+                }
+                long jitterMs = ThreadLocalRandom.current().nextLong(0, 201);
+                long sleepMs = Math.min(delayMs, maxDelayMs) + jitterMs;
+                log.warn("sendNotifyToMerchant retry, channelCode={}, url={}, attempt={}, nextDelayMs={}, message={}",
+                        CHANNEL_CODE, url, attempt, sleepMs, e.getMessage());
+                try {
+                    Thread.sleep(sleepMs);
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    log.error("sendNotifyToMerchant interrupted, channelCode={}, url={}, attempt={}",
+                            CHANNEL_CODE, url, attempt);
+                    return new NotifyResult(false, failedAttempts);
+                }
+                delayMs = Math.min(delayMs * 2, maxDelayMs);
+            }
+        }
+        return new NotifyResult(false, failedAttempts);
     }
 
     @Override
@@ -275,13 +325,17 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
     }
 
     @SuppressWarnings("unchecked")
-    private void verifyNotifySign(Map<String, Object> body) {
-        Object sign = body.remove("sign");
-        if (sign == null || String.valueOf(sign).isBlank()) {
+    private void verifyNotifySign(Map<String, Object> body, String signKey) {
+        Object notifySign = body.remove("sign");
+        if (notifySign == null || String.valueOf(notifySign).isBlank()) {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "notify sign is empty");
         }
-        String expected = EncryptUtil.signHmacSha1Base64(body, "75b7cb58f2f9fc7cf477172364c4ff39");
-        if (expected == null || !expected.equals(String.valueOf(sign))) {
+        if (signKey == null || signKey.isBlank()) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "notify sign key is empty");
+        }
+        signKey = "75b7cb58f2f9fc7cf477172364c4ff39";
+        String expected = EncryptUtil.signHmacSha1Base64(body, signKey);
+        if (expected == null || !expected.equals(String.valueOf(notifySign))) {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "notify sign invalid");
         }
     }

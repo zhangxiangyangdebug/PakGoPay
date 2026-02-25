@@ -201,8 +201,12 @@
     <update id="increaseCallbackTimes">
         UPDATE pay_order
         SET
-            callback_times = COALESCE(callback_times, 0) + 1,
+            callback_times = COALESCE(callback_times, 0) + #{increment},
             last_callbak_time = #{lastCallbackTime},
+            success_callback_time = CASE
+                WHEN #{successCallbackTime} IS NOT NULL THEN #{successCallbackTime}
+                ELSE success_callback_time
+            END,
             update_time = #{lastCallbackTime}
         WHERE transaction_no = #{transactionNo}
     </update>

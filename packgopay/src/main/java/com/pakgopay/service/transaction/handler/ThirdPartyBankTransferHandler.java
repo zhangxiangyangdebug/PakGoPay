@@ -80,7 +80,7 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
     }
 
     @Override
-    public NotifyRequest handleNotify(Map<String, Object> body) {
+    public NotifyRequest handleNotify(Map<String, Object> body, String sign) {
         log.info("third-party collection notify, channelCode={}, payload={}", resolveChannelCode(body), body);
         return buildNotifyResponse(body);
     }
@@ -88,6 +88,12 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
     @Override
     public Object getNotifySuccessResponse() {
         return "ok";
+    }
+
+    @Override
+    public NotifyResult sendNotifyToMerchant(Map<String, Object> body, String url) {
+        log.info("sendNotifyToMerchant, url={}, body={}", url, body);
+        return new NotifyResult(true, 0);
     }
 
     private Map<String, Object> toPayload(CollectionCreateEntity request) {

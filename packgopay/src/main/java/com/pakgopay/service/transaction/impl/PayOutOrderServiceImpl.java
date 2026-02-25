@@ -13,7 +13,6 @@ import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.PayOutOrderPageResponse;
 import com.pakgopay.mapper.PayOrderMapper;
-import com.pakgopay.mapper.PaymentMapper;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.mapper.dto.PaymentDto;
@@ -48,9 +47,6 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
     @Autowired
     private PayOrderMapper payOrderMapper;
-
-    @Autowired
-    private PaymentMapper paymentMapper;
 
     @Autowired
     private TransactionUtil transactionUtil;
@@ -230,26 +226,70 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 : OrderScope.SYSTEM;
         OrderHandler handler = OrderHandlerFactory.get(
                 scope, payOrderDto.getCurrencyType(), payOrderDto.getPaymentNo());
+        // Query payment config early for subsequent channel query.
+        PaymentDto paymentDto = fetchPaymentById(payOrderDto.getPaymentId());
 
-        // Parse notify payload into a structured response.
-        NotifyRequest response = handler.handleNotify(notifyData);
-        log.info("notify parsed, transactionNo={}, merchantNo={}, status={}",
-                response.getTransactionNo(), response.getMerchantNo(), response.getStatus());
+        NotifyRequest response = null;
+        TransactionStatus targetStatus = TransactionStatus.FAILED;
+        try {
+            // Parse notify payload into a structured response.
+            response = handler.handleNotify(notifyData, payOrderDto.getCallbackToken());
+            log.info("notify parsed, transactionNo={}, merchantNo={}, status={}",
+                    response.getTransactionNo(), response.getMerchantNo(), response.getStatus());
 
-        // Validate required fields in the notify response.
-        OrderHandler.validateNotifyResponse(response);
-        log.info("notify response validated, transactionNo={}", response.getTransactionNo());
+            // Validate required fields in the notify response.
+            OrderHandler.validateNotifyResponse(response);
+            log.info("notify response validated, transactionNo={}", response.getTransactionNo());
 
-        // Query order status from channel and use it as the target status.
-        TransactionStatus targetStatus = queryOrderTargetStatus(payOrderDto, handler);
+            TransactionStatus notifyStatus = resolveNotifyStatus(response.getStatus());
+            if (TransactionStatus.FAILED.equals(notifyStatus)) {
+                log.warn("notify status is FAILED, transactionNo={}", payOrderDto.getTransactionNo());
+                targetStatus = TransactionStatus.FAILED;
+            } else {
+                // Query order status from channel and use it as the target status.
+                targetStatus = queryOrderTargetStatus(payOrderDto, paymentDto, handler);
+            }
+        } catch (Exception e) {
+            log.warn("handleNotify pre-check failed, transactionNo={}, message={}",
+                    payOrderDto.getTransactionNo(), e.getMessage());
+            targetStatus = TransactionStatus.FAILED;
+        }
 
         // Calculate fees, update order record, and apply balance changes.
         applyNotifyUpdate(payOrderDto, targetStatus);
-        log.info("notify applied, transactionNo={}, status={}", payOrderDto.getTransactionNo(), response.getStatus());
+        log.info("notify applied, transactionNo={}, targetStatus={}",
+                payOrderDto.getTransactionNo(), targetStatus);
+
+        // Send final notify payload to merchant.
+        if (payOrderDto.getCallbackUrl() != null && !payOrderDto.getCallbackUrl().isBlank()) {
+            OrderHandler.NotifyResult notifyResult = handler.sendNotifyToMerchant(
+                    buildPayNotifyBody(payOrderDto, targetStatus, payOrderDto.getCallbackToken()),
+                    payOrderDto.getCallbackUrl());
+            updateNotifyCallbackMeta(payOrderDto, notifyResult);
+        }
 
         refreshReportData(payOrderDto.getCreateTime(),payOrderDto.getCurrencyType());
 
         return handler.getNotifySuccessResponse();
+    }
+
+    private void updateNotifyCallbackMeta(PayOrderDto orderDto, OrderHandler.NotifyResult notifyResult) {
+        long now = System.currentTimeMillis() / 1000;
+        boolean success = notifyResult != null && notifyResult.isSuccess();
+        int failedAttempts = notifyResult == null ? 1 : Math.max(notifyResult.getFailedAttempts(), 0);
+        int totalAttempts = failedAttempts + (success ? 1 : 0);
+        try {
+            payOrderMapper.increaseCallbackTimes(
+                    orderDto.getTransactionNo(),
+                    now,
+                    totalAttempts,
+                    success ? now : null);
+            log.info("merchant notify callback meta updated, transactionNo={}, totalAttempts={}, success={}",
+                    orderDto.getTransactionNo(), totalAttempts, success);
+        } catch (Exception e) {
+            log.error("update notify callback meta failed, transactionNo={}, message={}",
+                    orderDto.getTransactionNo(), e.getMessage());
+        }
     }
 
     @Override
@@ -324,7 +364,9 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         return payOrderDto;
     }
 
-    private void applyNotifyUpdate(PayOrderDto payOrderDto, TransactionStatus targetStatus) throws PakGoPayException {
+    private void applyNotifyUpdate(
+            PayOrderDto payOrderDto,
+            TransactionStatus targetStatus) throws PakGoPayException {
         log.info("applyNotifyUpdate start, transactionNo={}", payOrderDto.getTransactionNo());
         MerchantInfoDto merchantInfo = merchantService.fetchMerchantInfo(payOrderDto.getMerchantUserId());
         if (merchantInfo == null) {
@@ -386,7 +428,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         });
     }
 
-    private TransactionStatus queryOrderTargetStatus(PayOrderDto payOrderDto, OrderHandler handler) {
+    private TransactionStatus queryOrderTargetStatus(
+            PayOrderDto payOrderDto, PaymentDto paymentDto, OrderHandler handler) {
         log.info("queryOrderTargetStatus start, transactionNo={}",
                 payOrderDto == null ? null : payOrderDto.getTransactionNo());
         if (handler == null || payOrderDto == null) {
@@ -398,16 +441,6 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             PayQueryEntity query = new PayQueryEntity();
             query.setTransactionNo(payOrderDto.getTransactionNo());
             query.setSign(payOrderDto.getCallbackToken());
-            Long paymentId = payOrderDto.getPaymentId();
-            if (paymentId == null) {
-                throw new PakGoPayException(ResultCode.INVALID_PARAMS,
-                        "paymentId is null, transactionNo=" + payOrderDto.getTransactionNo());
-            }
-            PaymentDto paymentDto = paymentMapper.findByPaymentId(paymentId);
-            if (paymentDto == null) {
-                throw new PakGoPayException(ResultCode.INVALID_PARAMS,
-                        "payment not found, paymentId=" + paymentId + ", transactionNo=" + payOrderDto.getTransactionNo());
-            }
             query.setPaymentCheckPayUrl(paymentDto.getPaymentCheckPayUrl());
             TransactionStatus queryStatus = handler.handlePayQuery(query);
             log.info("queryOrderTargetStatus result, transactionNo={}, queryStatus={}",
@@ -421,7 +454,6 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             return TransactionStatus.FAILED;
         }
     }
-
 
     private Object dispatchPayOutOrder(PayOrderDto dto, PayOutOrderRequest request, PaymentDto paymentInfo) {
         OrderScope scope = Integer.valueOf(1).equals(dto.getPaymentMode())
