@@ -20,6 +20,7 @@ public interface CollectionOrderMapper {
 
     /** Query order by order ID */
     Optional<CollectionOrderDto> findByTransactionNo(@Param("transactionNo") String transactionNo);
+    Optional<CollectionOrderDto> findByMerchantOrderNo(@Param("merchantOrderNo") String merchantOrderNo);
 
     /** Insert order */
     int insert(CollectionOrderDto dto);

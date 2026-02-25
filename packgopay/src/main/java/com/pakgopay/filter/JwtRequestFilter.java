@@ -50,7 +50,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         logInfo(logEnabled, "doFilterInternal, traceId: {}", MDC.get(TRACE_ID));
 
         try {
-            if (uri != null && uri.startsWith("/pakGoPay/server/v1/")) {
+            if (uri != null && uri.startsWith("/pakGoPay/api/server/v1/")) {
                 logInfo(logEnabled, "jwt filter skip TransactionController, uri={}", uri);
                 filterChain.doFilter(request, response);
             } else if (uri != null && uri.equals("/pakGoPay/server/telegram")) {

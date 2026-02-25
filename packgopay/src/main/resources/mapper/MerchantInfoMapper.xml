@@ -47,6 +47,8 @@
         <result column="col_white_ips" property="colWhiteIps" javaType="java.lang.String"/>
         <result column="pay_white_ips" property="payWhiteIps" javaType="java.lang.String"/>
         <result column="channel_ids" property="channelIds" javaType="java.lang.String"/>
+        <result column="api_key" property="apiKey" javaType="java.lang.String"/>
+        <result column="sign_key" property="signKey" javaType="java.lang.String"/>
 
     </resultMap>
 
@@ -75,7 +77,9 @@
         float_range,
         col_white_ips,
         pay_white_ips,
-        channel_ids
+        channel_ids,
+        api_key,
+        sign_key
     </sql>
 
     <sql id="BaseColumnsForJoin">
@@ -108,6 +112,8 @@
         m.col_white_ips,
         m.pay_white_ips,
         m.channel_ids,
+        m.api_key,
+        m.sign_key,
         ui.login_ips,
         ui.withdrawal_ips
     </sql>
@@ -117,6 +123,13 @@
         select <include refid="BaseColumns"/>
         from merchant_info
         where user_id = #{userId}
+        limit 1
+    </select>
+
+    <select id="findByApiKey" resultMap="MerchantInfoDtoMap">
+        select <include refid="BaseColumns"/>
+        from merchant_info
+        where api_key = #{apiKey}
         limit 1
     </select>
 
@@ -154,7 +167,9 @@
         #{floatRange},
         #{colWhiteIps},
         #{payWhiteIps},
-        #{channelIds}
+        #{channelIds},
+        #{apiKey},
+        #{signKey}
         )
     </insert>
 
@@ -190,6 +205,8 @@
             <if test="payWhiteIps != null and payWhiteIps != ''">pay_white_ips = #{payWhiteIps},</if>
 
             <if test="channelIds != null and channelIds != ''">channel_ids = #{channelIds},</if>
+            <if test="apiKey != null and apiKey != ''">api_key = #{apiKey},</if>
+            <if test="signKey != null and signKey != ''">sign_key = #{signKey},</if>
         </set>
         WHERE user_id = #{userId}
     </update>

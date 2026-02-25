@@ -51,6 +51,12 @@ public class OrderBaseRequest extends BaseRequest implements Serializable {
     private String notificationUrl;
 
     /**
+     * Request signature
+     */
+    @NotBlank(message = "sign is empty")
+    private String sign;
+
+    /**
      * Channel-specific parameters
      */
     private Object channelParams;

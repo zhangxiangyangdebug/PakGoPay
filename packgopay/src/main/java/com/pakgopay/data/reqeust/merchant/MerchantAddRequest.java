@@ -136,7 +136,6 @@ public class MerchantAddRequest extends BaseRequest {
     @NotBlank(message = "withdrawalIps is empty")
     private String withdrawalIps;
 
-
     // =====================
     // 7) Channel Configuration
     // =====================
@@ -145,4 +144,3 @@ public class MerchantAddRequest extends BaseRequest {
     private List<Long> channelIds;
 
 }
-

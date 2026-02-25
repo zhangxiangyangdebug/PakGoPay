@@ -10,7 +10,7 @@ import java.util.Map;
 
 public interface BalanceService {
 
-    CommonResponse fetchMerchantAvailableBalance(String userId) throws PakGoPayException;
+    CommonResponse fetchMerchantAvailableBalance(String userId, String authorization) throws PakGoPayException;
 
     void freezeBalance(
             BigDecimal freezeFee, String userId, String currency) throws PakGoPayException;

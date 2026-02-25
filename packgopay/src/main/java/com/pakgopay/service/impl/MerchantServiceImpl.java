@@ -22,7 +22,9 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.common.ExportReportDataColumns;
 import com.pakgopay.util.CommonUtil;
+import com.pakgopay.util.CryptoUtil;
 import com.pakgopay.util.ExportFileUtils;
+import com.pakgopay.util.KeySignManager;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.TransactionUtil;
 import jakarta.servlet.http.HttpServletResponse;
@@ -455,6 +457,9 @@ public class MerchantServiceImpl implements MerchantService {
         dto.setUpdateTime(now);
         dto.setCreateBy(req.getUserName());
         dto.setUpdateBy(req.getUserName());
+        KeySignManager.KeyPairResult keyPair = KeySignManager.generateKeyPair();
+        dto.setApiKey(keyPair.getApiKey());
+        dto.setSignKey(CryptoUtil.encryptSignKey(keyPair.getSignKey()));
 
         return b.build();
     }

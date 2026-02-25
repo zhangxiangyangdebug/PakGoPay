@@ -105,6 +105,12 @@ public class MerchantInfoDto implements Serializable {
     /** Withdrawal IP whitelist (comma-separated) */
     private String withdrawalIps;
 
+    /** Merchant API key */
+    private String apiKey;
+
+    /** Merchant sign key */
+    private String signKey;
+
     // ---------------------- external info -----------------
 
     /** Merchant's agent infos */

@@ -151,6 +151,14 @@
         LIMIT 1
     </select>
 
+    <select id="findByMerchantOrderNo" parameterType="string" resultMap="CollectionOrderResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM collection_order
+        WHERE merchant_order_no = #{merchantOrderNo}
+        LIMIT 1
+    </select>
+
     <update id="updateByTransactionNo">
         UPDATE collection_order
         <set>

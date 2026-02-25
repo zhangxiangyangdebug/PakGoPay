@@ -10,6 +10,7 @@ import com.pakgopay.data.entity.transaction.PayQueryEntity;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
+import com.pakgopay.data.reqeust.transaction.QueryOrderApiRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.PayOutOrderPageResponse;
 import com.pakgopay.mapper.PayOrderMapper;
@@ -52,7 +53,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
     private TransactionUtil transactionUtil;
 
     @Override
-    public CommonResponse createPayOutOrder(PayOutOrderRequest payOrderRequest) throws PakGoPayException {
+    public CommonResponse createPayOutOrder(
+            PayOutOrderRequest payOrderRequest, String authorization) throws PakGoPayException {
         log.info("createPayOutOrder start, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
                 payOrderRequest.getMerchantId(),
                 payOrderRequest.getMerchantOrderNo(),
@@ -63,14 +65,10 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         boolean frozen = false;
         TransactionInfo transactionInfo = new TransactionInfo();
         try {
-            // 1. get merchant info
-            MerchantInfoDto merchantInfoDto = merchantService.fetchMerchantInfo(payOrderRequest.getMerchantId());
+            // 1. validate apiKey and load merchant info
+            MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(payOrderRequest.getMerchantId(), authorization);
+            validatePayOutSign(payOrderRequest, merchantInfoDto);
             transactionInfo.setMerchantInfo(merchantInfoDto);
-            // merchant is not exists
-            if (merchantInfoDto == null) {
-                log.error("merchant info is not exist, userId {}", payOrderRequest.getMerchantId());
-                throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
-            }
             log.info("merchant info loaded, userId={}, agentId={}, channelIds={}",
                     merchantInfoDto.getUserId(),
                     merchantInfoDto.getParentId(),
@@ -132,7 +130,10 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     payOrderRequest.getMerchantId(), payOrderRequest.getCurrency(), frozenAmount);
             log.info("pay order inserted, transactionNo={}", payOrderDto.getTransactionNo());
 
-            Object handlerResponse = dispatchPayOutOrder(payOrderDto, payOrderRequest, transactionInfo.getPaymentInfo());
+            Object handlerResponse = dispatchPayOutOrder(
+                    payOrderDto,
+                    payOrderRequest,
+                    transactionInfo.getPaymentInfo());
             log.info("payout handler dispatched, transactionNo={}, responseType={}",
                     payOrderDto.getTransactionNo(),
                     handlerResponse == null ? null : handlerResponse.getClass().getSimpleName());
@@ -163,24 +164,29 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
     }
 
     @Override
-    public CommonResponse queryOrderInfo(String userId, String transactionNo) throws PakGoPayException {
-        log.info("queryOrderInfo start, userId={}, transactionNo={}", userId, transactionNo);
+    public CommonResponse queryOrderInfo(
+            QueryOrderApiRequest queryRequest, String authorization) throws PakGoPayException {
+        String userId = queryRequest.getMerchantId();
+        String merchantOrderNo = queryRequest.getMerchantOrderNo();
+        log.info("queryOrderInfo start, userId={}, merchantOrderNo={}", userId, merchantOrderNo);
+        MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(userId, authorization);
+        validateQueryOrderSign(queryRequest, merchantInfoDto);
         // query payout order info  from db
         PayOrderDto payOrderDto;
         try {
-            payOrderDto = payOrderMapper.findByTransactionNo(transactionNo)
+            payOrderDto = payOrderMapper.findByMerchantOrderNo(merchantOrderNo)
                             .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS));
         } catch (PakGoPayException e) {
-            log.error("record is not exists, transactionNo {}", transactionNo);
+            log.error("record is not exists, merchantOrderNo {}", merchantOrderNo);
             throw e;
         } catch (Exception e) {
-            log.error("payOrderMapper findByTransactionNo failed, message {}", e.getMessage());
+            log.error("payOrderMapper findByMerchantOrderNo failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
         // check if the requester and the order owner are the same.
         if (!payOrderDto.getMerchantUserId().equals(userId)) {
-            log.error("he order does not belong to user, userId: {} transactionNo: {}", userId, transactionNo);
+            log.error("he order does not belong to user, userId: {} merchantOrderNo: {}", userId, merchantOrderNo);
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "the order does not belong to user");
         }
 
@@ -205,12 +211,34 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 result.put("successCallBackTime", successCallBackTime.toString());
             } else {
                 result.put("successCallBackTime", null);
-                log.warn("The transaction status is successful, but the payment time is empty. transaction number: {}"
-                        , payOrderDto.getMerchantOrderNo());
+                log.warn(
+                        "The transaction status is successful, but the payment time is empty. transaction number: {}",
+                        payOrderDto.getMerchantOrderNo());
             }
         }
 
         return CommonResponse.success(result);
+    }
+
+    @Override
+    public CommonResponse queryPayOutOrders(OrderQueryRequest request) throws PakGoPayException {
+        log.info("queryPayOutOrders start, merchantUserId={}, transactionNo={}, merchantOrderNo={}",
+                request.getMerchantUserId(), request.getTransactionNo(), request.getMerchantOrderNo());
+        OrderQueryEntity entity = buildOrderQueryEntity(request);
+
+        PayOutOrderPageResponse response = new PayOutOrderPageResponse();
+        try {
+            Integer totalNumber = payOrderMapper.countByQuery(entity);
+            response.setTotalNumber(totalNumber);
+            response.setPayOrderDtoList(payOrderMapper.pageByQuery(entity));
+        } catch (Exception e) {
+            log.error("queryPayOutOrders failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+        response.setPageNo(entity.getPageNo());
+        response.setPageSize(entity.getPageSize());
+        log.info("queryPayOutOrders end, totalNumber={}", response.getTotalNumber());
+        return CommonResponse.success(response);
     }
 
     @Override
@@ -268,7 +296,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             updateNotifyCallbackMeta(payOrderDto, notifyResult);
         }
 
-        refreshReportData(payOrderDto.getCreateTime(),payOrderDto.getCurrencyType());
+        refreshReportData(payOrderDto.getCreateTime(), payOrderDto.getCurrencyType());
 
         return handler.getNotifySuccessResponse();
     }
@@ -292,25 +320,28 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         }
     }
 
-    @Override
-    public CommonResponse queryPayOutOrders(OrderQueryRequest request) throws PakGoPayException {
-        log.info("queryPayOutOrders start, merchantUserId={}, transactionNo={}, merchantOrderNo={}",
-                request.getMerchantUserId(), request.getTransactionNo(), request.getMerchantOrderNo());
-        OrderQueryEntity entity = buildOrderQueryEntity(request);
+    /**
+     * Validate sign for payout create API request.
+     */
+    private void validatePayOutSign(PayOutOrderRequest request, MerchantInfoDto merchantInfoDto) {
+        Map<String, Object> payload = buildSignPayload(request,
+                "merchantId", "merchantOrderNo", "paymentNo", "amount", "currency",
+                "notificationUrl", "bankCode", "accountName", "accountNo",
+                "channelParams", "remark");
+        log.info("validatePayOutSign, merchantId={}, merchantOrderNo={}",
+                request.getMerchantId(), request.getMerchantOrderNo());
+        validateRequestSign(payload, request.getSign(), merchantInfoDto, "payout");
+    }
 
-        PayOutOrderPageResponse response = new PayOutOrderPageResponse();
-        try {
-            Integer totalNumber = payOrderMapper.countByQuery(entity);
-            response.setTotalNumber(totalNumber);
-            response.setPayOrderDtoList(payOrderMapper.pageByQuery(entity));
-        } catch (Exception e) {
-            log.error("queryPayOutOrders failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
-        response.setPageNo(entity.getPageNo());
-        response.setPageSize(entity.getPageSize());
-        log.info("queryPayOutOrders end, totalNumber={}", response.getTotalNumber());
-        return CommonResponse.success(response);
+    /**
+     * Validate sign for query order API request.
+     */
+    private void validateQueryOrderSign(QueryOrderApiRequest request, MerchantInfoDto merchantInfoDto) {
+        Map<String, Object> payload = buildSignPayload(request,
+                "merchantId", "merchantOrderNo", "orderType");
+        log.info("validateQueryOrderSign, merchantId={}, merchantOrderNo={}",
+                request.getMerchantId(), request.getMerchantOrderNo());
+        validateRequestSign(payload, request.getSign(), merchantInfoDto, "queryOrder");
     }
 
     private void validatePayOutRequest(
@@ -330,7 +361,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         }
 
         // check Merchant order code is uniqueness
-        if(!merchantCheckService.existsPayMerchantOrderNo(payOutOrderRequest.getMerchantOrderNo())){
+        if (!merchantCheckService.existsPayMerchantOrderNo(payOutOrderRequest.getMerchantOrderNo())) {
             log.error("existsColMerchantOrderNo failed, merchantOrderNo: {}", payOutOrderRequest.getMerchantOrderNo());
             throw new PakGoPayException(ResultCode.MERCHANT_CODE_IS_EXISTS);
         }

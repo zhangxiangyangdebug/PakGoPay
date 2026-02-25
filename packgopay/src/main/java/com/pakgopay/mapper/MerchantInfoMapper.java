@@ -16,6 +16,7 @@ public interface MerchantInfoMapper {
      * 1、findByUserId 通过 userId 查询
      */
     MerchantInfoDto findByUserId(@Param("userId") String userId);
+    MerchantInfoDto findByApiKey(@Param("apiKey") String apiKey);
 
     /** Insert agent info */
     int insert(MerchantInfoDto dto);

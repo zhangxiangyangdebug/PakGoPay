@@ -20,6 +20,7 @@ public interface PayOrderMapper {
 
     /** Query order by order ID */
     Optional<PayOrderDto> findByTransactionNo(@Param("transactionNo") String transactionNo);
+    Optional<PayOrderDto> findByMerchantOrderNo(@Param("merchantOrderNo") String merchantOrderNo);
 
     /** Insert order */
     int insert(PayOrderDto dto);

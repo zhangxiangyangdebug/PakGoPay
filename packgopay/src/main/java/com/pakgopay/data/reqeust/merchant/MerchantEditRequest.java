@@ -70,4 +70,5 @@ public class MerchantEditRequest extends BaseRequest {
 
     /** Channel IDs (comma-separated) */
     private List<Long> channelIds;
+
 }

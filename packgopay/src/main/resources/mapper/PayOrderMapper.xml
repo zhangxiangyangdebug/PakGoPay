@@ -130,6 +130,14 @@
         LIMIT 1
     </select>
 
+    <select id="findByMerchantOrderNo" parameterType="string" resultMap="PayOrderResultMap">
+        SELECT
+        <include refid="BaseColumns"/>
+        FROM pay_order
+        WHERE merchant_order_no = #{merchantOrderNo}
+        LIMIT 1
+    </select>
+
     <!-- Check if merchant order number exists -->
     <select id="isExitMerchantOrderNo" resultType="java.lang.Integer">
         SELECT COUNT(1)

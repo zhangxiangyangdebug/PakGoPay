@@ -12,7 +12,7 @@ import com.pakgopay.data.entity.transaction.PayQueryEntity;
 import com.pakgopay.data.entity.transaction.PayCreateEntity;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.service.transaction.OrderHandler;
-import com.pakgopay.util.EncryptUtil;
+import com.pakgopay.util.CryptoUtil;
 import com.pakgopay.util.IpAddressUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -189,7 +189,7 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
         result.put("bank_name", resolveValue(params, "bankName", params.get("bank_name")));
         result.put("card_no", resolveValue(params, "cardNo", params.get("card_no")));
         result.put("card_name", resolveValue(params, "cardName", params.get("card_name")));
-        result.put("sign", EncryptUtil.signHmacSha1Base64(result,"75b7cb58f2f9fc7cf477172364c4ff39"));
+        result.put("sign", CryptoUtil.signHmacSha1Base64(result,"75b7cb58f2f9fc7cf477172364c4ff39"));
         return result;
     }
 
@@ -211,7 +211,7 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
         if (result.get("ip") == null) {
             result.put("ip", IpAddressUtil.resolveServerIp());
         }
-        result.put("sign", EncryptUtil.signHmacSha1Base64(result, "75b7cb58f2f9fc7cf477172364c4ff39"));
+        result.put("sign", CryptoUtil.signHmacSha1Base64(result, "75b7cb58f2f9fc7cf477172364c4ff39"));
         return result;
     }
 
@@ -334,7 +334,7 @@ public class ThirdPartyAlipayHandler extends OrderHandler {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "notify sign key is empty");
         }
         signKey = "75b7cb58f2f9fc7cf477172364c4ff39";
-        String expected = EncryptUtil.signHmacSha1Base64(body, signKey);
+        String expected = CryptoUtil.signHmacSha1Base64(body, signKey);
         if (expected == null || !expected.equals(String.valueOf(notifySign))) {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "notify sign invalid");
         }

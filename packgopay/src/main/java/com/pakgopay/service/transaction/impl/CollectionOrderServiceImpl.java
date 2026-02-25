@@ -10,6 +10,8 @@ import com.pakgopay.data.entity.transaction.CollectionQueryEntity;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
+import com.pakgopay.data.reqeust.transaction.QueryBalanceApiRequest;
+import com.pakgopay.data.reqeust.transaction.QueryOrderApiRequest;
 import com.pakgopay.data.response.CollectionOrderPageResponse;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.CollectionOrderMapper;
@@ -54,7 +56,8 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
     private TransactionUtil transactionUtil;
 
     @Override
-    public CommonResponse createCollectionOrder(CollectionOrderRequest colOrderRequest) throws PakGoPayException {
+    public CommonResponse createCollectionOrder(
+            CollectionOrderRequest colOrderRequest, String authorization) throws PakGoPayException {
         log.info("createCollectionOrder start, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
                 colOrderRequest.getMerchantId(),
                 colOrderRequest.getMerchantOrderNo(),
@@ -62,14 +65,10 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 colOrderRequest.getAmount(),
                 colOrderRequest.getPaymentNo());
         TransactionInfo transactionInfo = new TransactionInfo();
-        // 1. get merchant info
-        MerchantInfoDto merchantInfoDto = merchantService.fetchMerchantInfo(colOrderRequest.getMerchantId());
+        // 1. validate apiKey and load merchant info
+        MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(colOrderRequest.getMerchantId(), authorization);
+        validateCollectionSign(colOrderRequest, merchantInfoDto);
         transactionInfo.setMerchantInfo(merchantInfoDto);
-        // merchant is not exists
-        if (merchantInfoDto == null) {
-            log.error("merchant info is not exist, userId {}", colOrderRequest.getMerchantId());
-            throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
-        }
         log.info("merchant info loaded, userId={}, agentId={}, channelIds={}",
                 merchantInfoDto.getUserId(),
                 merchantInfoDto.getParentId(),
@@ -139,27 +138,32 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
     }
 
     @Override
-    public CommonResponse queryOrderInfo(String userId, String transactionNo) throws PakGoPayException {
+    public CommonResponse queryOrderInfo(
+            QueryOrderApiRequest queryRequest, String authorization) throws PakGoPayException {
+        String userId = queryRequest.getMerchantId();
+        String merchantOrderNo = queryRequest.getMerchantOrderNo();
         log.info("queryOrderInfo start");
+        MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(userId, authorization);
+        validateQueryOrderSign(queryRequest, merchantInfoDto);
         // query collection order info  from db
         CollectionOrderDto collectionOrderDto;
         try {
             collectionOrderDto =
-                    collectionOrderMapper.findByTransactionNo(transactionNo)
+                    collectionOrderMapper.findByMerchantOrderNo(merchantOrderNo)
                             .orElseThrow(() -> new PakGoPayException(
-                                    ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS
-                                    , "record is not exists, transactionNo:" + transactionNo));
+                                    ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS,
+                                    "record is not exists, merchantOrderNo:" + merchantOrderNo));
         } catch (PakGoPayException e) {
-            log.error("record is not exists, transactionNo {}", transactionNo);
+            log.error("record is not exists, merchantOrderNo {}", merchantOrderNo);
             throw e;
         } catch (Exception e) {
-            log.error("collection order findByTransactionNo failed, message {}", e.getMessage());
+            log.error("collection order findByMerchantOrderNo failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
 
 
         // check if the requester and the order owner are the same.
-        if(!collectionOrderDto.getMerchantUserId().equals(userId)){
+        if (!collectionOrderDto.getMerchantUserId().equals(userId)) {
             log.info("the order does not belong to user");
             throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "the order does not belong to user");
         }
@@ -186,12 +190,48 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 result.put("successCallBackTime", successCallBackTime.toString());
             } else {
                 result.put("successCallBackTime", null);
-                log.warn("The transaction status is successful, but the payment time is empty. transaction number: {}", collectionOrderDto.getMerchantOrderNo());
+                log.warn(
+                        "The transaction status is successful, but the payment time is empty. transaction number: {}",
+                        collectionOrderDto.getMerchantOrderNo());
             }
         }
 
         log.info("queryOrderInfo end");
         return CommonResponse.success(result);
+    }
+
+    @Override
+    public CommonResponse queryBalance(
+            QueryBalanceApiRequest queryRequest, String authorization) throws PakGoPayException {
+        log.info("queryBalance start, merhcantId={}", queryRequest.getMerhcantId());
+        MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(queryRequest.getMerhcantId(), authorization);
+        validateQueryBalanceSign(queryRequest, merchantInfoDto);
+        CommonResponse response = balanceService.fetchMerchantAvailableBalance(
+                queryRequest.getMerhcantId(),
+                authorization);
+        log.info("queryBalance end, merhcantId={}", queryRequest.getMerhcantId());
+        return response;
+    }
+
+    @Override
+    public CommonResponse queryCollectionOrders(OrderQueryRequest request) throws PakGoPayException {
+        log.info("queryCollectionOrders start, merchantUserId={}, transactionNo={}, merchantOrderNo={}",
+                request.getMerchantUserId(), request.getTransactionNo(), request.getMerchantOrderNo());
+        OrderQueryEntity entity = buildOrderQueryEntity(request);
+
+        CollectionOrderPageResponse response = new CollectionOrderPageResponse();
+        try {
+            Integer totalNumber = collectionOrderMapper.countByQuery(entity);
+            response.setTotalNumber(totalNumber);
+            response.setCollectionOrderDtoList(collectionOrderMapper.pageByQuery(entity));
+        } catch (Exception e) {
+            log.error("queryCollectionOrders failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+        response.setPageNo(entity.getPageNo());
+        response.setPageSize(entity.getPageSize());
+        log.info("queryCollectionOrders end, totalNumber={}", response.getTotalNumber());
+        return CommonResponse.success(response);
     }
 
     @Override
@@ -252,7 +292,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             updateNotifyCallbackMeta(collectionOrderDto, notifyResult);
         }
 
-        refreshReportData(collectionOrderDto.getCreateTime(),collectionOrderDto.getCurrencyType());
+        refreshReportData(collectionOrderDto.getCreateTime(), collectionOrderDto.getCurrencyType());
 
         return handler.getNotifySuccessResponse();
     }
@@ -276,25 +316,36 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         }
     }
 
-    @Override
-    public CommonResponse queryCollectionOrders(OrderQueryRequest request) throws PakGoPayException {
-        log.info("queryCollectionOrders start, merchantUserId={}, transactionNo={}, merchantOrderNo={}",
-                request.getMerchantUserId(), request.getTransactionNo(), request.getMerchantOrderNo());
-        OrderQueryEntity entity = buildOrderQueryEntity(request);
+    /**
+     * Validate sign for collection create API request.
+     */
+    private void validateCollectionSign(CollectionOrderRequest request, MerchantInfoDto merchantInfoDto) {
+        Map<String, Object> payload = buildSignPayload(request,
+                "merchantId", "merchantOrderNo", "paymentNo", "amount",
+                "currency", "notificationUrl", "channelParams", "remark");
+        log.info("validateCollectionSign, merchantId={}, merchantOrderNo={}",
+                request.getMerchantId(), request.getMerchantOrderNo());
+        validateRequestSign(payload, request.getSign(), merchantInfoDto, "collection");
+    }
 
-        CollectionOrderPageResponse response = new CollectionOrderPageResponse();
-        try {
-            Integer totalNumber = collectionOrderMapper.countByQuery(entity);
-            response.setTotalNumber(totalNumber);
-            response.setCollectionOrderDtoList(collectionOrderMapper.pageByQuery(entity));
-        } catch (Exception e) {
-            log.error("queryCollectionOrders failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
-        response.setPageNo(entity.getPageNo());
-        response.setPageSize(entity.getPageSize());
-        log.info("queryCollectionOrders end, totalNumber={}", response.getTotalNumber());
-        return CommonResponse.success(response);
+    /**
+     * Validate sign for query order API request.
+     */
+    private void validateQueryOrderSign(QueryOrderApiRequest request, MerchantInfoDto merchantInfoDto) {
+        Map<String, Object> payload = buildSignPayload(request,
+                "merchantId", "merchantOrderNo", "orderType");
+        log.info("validateQueryOrderSign, merchantId={}, merchantOrderNo={}",
+                request.getMerchantId(), request.getMerchantOrderNo());
+        validateRequestSign(payload, request.getSign(), merchantInfoDto, "queryOrder");
+    }
+
+    /**
+     * Validate sign for query balance API request.
+     */
+    private void validateQueryBalanceSign(QueryBalanceApiRequest request, MerchantInfoDto merchantInfoDto) {
+        Map<String, Object> payload = buildSignPayload(request, "merhcantId");
+        log.info("validateQueryBalanceSign, merhcantId={}", request.getMerhcantId());
+        validateRequestSign(payload, request.getSign(), merchantInfoDto, "queryBalance");
     }
 
     private CollectionOrderDto validateNotifyOrder(Map<String, Object> notifyData) throws PakGoPayException {

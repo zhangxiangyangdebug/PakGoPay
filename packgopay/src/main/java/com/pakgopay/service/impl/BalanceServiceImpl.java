@@ -29,7 +29,7 @@ public class BalanceServiceImpl implements BalanceService {
     private BalanceMapper balanceMapper;
 
     @Override
-    public CommonResponse fetchMerchantAvailableBalance(String userId) throws PakGoPayException {
+    public CommonResponse fetchMerchantAvailableBalance(String userId, String authorization) throws PakGoPayException {
         List<BalanceDto> balanceDtoList;
         try {
             balanceDtoList = balanceMapper.findByUserId(userId);
