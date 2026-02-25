@@ -14,7 +14,7 @@ public interface CollectionOrderService {
 
     CommonResponse queryOrderInfo(String userId, String transactionNo) throws PakGoPayException;
 
-    String handleNotify(Map<String, Object> notifyData) throws PakGoPayException;
+    Object handleNotify(Map<String, Object> notifyData) throws PakGoPayException;
 
     CommonResponse queryCollectionOrders(OrderQueryRequest request) throws PakGoPayException;
 }
