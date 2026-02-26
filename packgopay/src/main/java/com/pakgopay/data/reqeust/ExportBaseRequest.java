@@ -1,6 +1,7 @@
 package com.pakgopay.data.reqeust;
 
 import lombok.Data;
+import jakarta.validation.constraints.Max;
 
 import java.util.List;
 
@@ -14,6 +15,7 @@ public class ExportBaseRequest extends BaseRequest{
     /**
      * Page size
      */
+    @Max(value = 200, message = "pageSize cannot exceed 200")
     private Integer pageSize;
 
     /**
