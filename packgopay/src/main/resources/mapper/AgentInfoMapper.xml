@@ -39,8 +39,7 @@
 
         <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
 
-        <!-- Note: DB column name is upeate_by -->
-        <result column="upeate_by" property="updateBy" javaType="java.lang.String"/>
+        <result column="update_by" property="updateBy" javaType="java.lang.String"/>
 
         <result column="version" property="version" javaType="java.lang.Integer"/>
         <result column="remark" property="remark" javaType="java.lang.String"/>
@@ -69,7 +68,7 @@
         create_time,
         create_by,
         update_time,
-        upeate_by,
+        update_by,
         version,
         remark
     </sql>
@@ -94,7 +93,7 @@
         create_time,
         create_by,
         update_time,
-        upeate_by,
+        update_by,
         version,
         remark
     </sql>
@@ -123,7 +122,7 @@
         ai.create_time,
         ai.create_by,
         ai.update_time,
-        ai.upeate_by,
+        ai.update_by,
         ai.version,
         ai.remark
     </sql>
@@ -160,7 +159,7 @@
             <if test="payMaxFee != null">pay_max_fee = #{payMaxFee},</if>
             <if test="payMinFee != null">pay_min_fee = #{payMinFee},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
-            <if test="updateBy != null">upeate_by = #{updateBy},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="version != null">version = #{version},</if>
             <if test="remark != null">remark = #{remark},</if>
         </set>

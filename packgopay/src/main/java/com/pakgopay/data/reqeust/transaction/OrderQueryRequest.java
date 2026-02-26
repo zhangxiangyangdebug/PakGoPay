@@ -1,8 +1,10 @@
 package com.pakgopay.data.reqeust.transaction;
 
 import com.pakgopay.data.reqeust.ExportBaseRequest;
-import java.math.BigDecimal;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+
+import java.math.BigDecimal;
 
 @Data
 public class OrderQueryRequest extends ExportBaseRequest {
@@ -32,8 +34,10 @@ public class OrderQueryRequest extends ExportBaseRequest {
     private Long channelId;
 
     /** create_time >= startTime (unix seconds) */
+    @NotNull(message = "startTime is null")
     private Long startTime;
 
     /** create_time < endTime (unix seconds) */
+    @NotNull(message = "endTime is null")
     private Long endTime;
 }

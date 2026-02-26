@@ -19,7 +19,7 @@ public class CryptoUtil {
 
     private static final String AES_ALGO = "AES";
     private static final String AES_GCM_NO_PADDING = "AES/GCM/NoPadding";
-    private static final String HMAC_SHA1 = "HmacSHA1";
+    private static final String HMAC_SHA256 = "HmacSHA256";
     private static final String KV_SEPARATOR = "=";
     private static final String PARAM_SEPARATOR = "&";
     private static final int GCM_TAG_LENGTH_BITS = 128;
@@ -128,13 +128,13 @@ public class CryptoUtil {
     }
 
     /**
-     * Build HMAC-SHA1 signature with ASCII key sorting and Base64 output.
+     * Build HMAC-SHA256 signature with ASCII key sorting and Base64 output.
      *
      * @param params parameters to sign
      * @param signKey merchant sign key
      * @return Base64 signature
      */
-    public static String signHmacSha1Base64(Map<String, ?> params, String signKey) {
+    public static String signHmacSha256Base64(Map<String, ?> params, String signKey) {
         if (params == null || signKey == null) {
             return null;
         }
@@ -151,8 +151,8 @@ public class CryptoUtil {
                 .map(entry -> entry.getKey() + KV_SEPARATOR + entry.getValue())
                 .collect(Collectors.joining(PARAM_SEPARATOR));
         try {
-            Mac mac = Mac.getInstance(HMAC_SHA1);
-            SecretKeySpec keySpec = new SecretKeySpec(signKey.getBytes(StandardCharsets.UTF_8), HMAC_SHA1);
+            Mac mac = Mac.getInstance(HMAC_SHA256);
+            SecretKeySpec keySpec = new SecretKeySpec(signKey.getBytes(StandardCharsets.UTF_8), HMAC_SHA256);
             mac.init(keySpec);
             byte[] digest = mac.doFinal(stringA.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(digest);

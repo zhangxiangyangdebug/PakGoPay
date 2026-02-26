@@ -13,9 +13,11 @@ import com.pakgopay.mapper.MerchantInfoMapper;
 import com.pakgopay.mapper.PaymentMapper;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.thirdUtil.RedisUtil;
 import com.pakgopay.timer.ReportTask;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.CryptoUtil;
+import com.pakgopay.util.SnowflakeIdGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -23,6 +25,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +33,7 @@ import java.util.Map;
 @Slf4j
 public abstract class BaseOrderService {
     private static final String API_KEY_PREFIX = "api-key ";
+    private static final int CREATE_ORDER_IDEMPOTENCY_TTL_SECONDS = 120;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() { };
 
@@ -41,6 +45,9 @@ public abstract class BaseOrderService {
 
     @Autowired
     protected MerchantInfoMapper merchantInfoMapper;
+
+    @Autowired
+    protected RedisUtil redisUtil;
 
     // ----------------------------- status / notify parse -----------------------------
 
@@ -192,7 +199,7 @@ public abstract class BaseOrderService {
         String signKey = resolveMerchantSignKey(
                 merchantInfoDto.getSignKey(),
                 merchantInfoDto.getUserId());
-        String expected = CryptoUtil.signHmacSha1Base64(payload, signKey);
+        String expected = CryptoUtil.signHmacSha256Base64(payload, signKey);
         if (expected == null || !expected.equals(sign)) {
             log.warn("validateRequestSign failed: sign mismatch, scene={}, merchantId={}",
                     scene, merchantInfoDto.getUserId());
@@ -251,6 +258,87 @@ public abstract class BaseOrderService {
         return header;
     }
 
+    // ----------------------------- create idempotency -----------------------------
+
+    /**
+     * Build redis key for create-order idempotency.
+     */
+    protected String buildCreateOrderLockKey(
+            String orderType, String merchantId, String merchantOrderNo) {
+        return String.format(
+                "idempotent:create:%s:%s:%s",
+                orderType,
+                merchantId,
+                merchantOrderNo);
+    }
+
+    /**
+     * Acquire create-order idempotency lock with fixed TTL.
+     */
+    protected void acquireCreateOrderLock(
+            String orderType, String merchantId, String merchantOrderNo) {
+        String lockKey = buildCreateOrderLockKey(orderType, merchantId, merchantOrderNo);
+        boolean acquired = redisUtil.setIfAbsentWithSecondExpire(
+                lockKey,
+                String.valueOf(System.currentTimeMillis()),
+                CREATE_ORDER_IDEMPOTENCY_TTL_SECONDS);
+        if (!acquired) {
+            log.warn("acquireCreateOrderLock failed, orderType={}, merchantId={}, merchantOrderNo={}",
+                    orderType, merchantId, merchantOrderNo);
+            throw new PakGoPayException(ResultCode.MERCHANT_CODE_IS_EXISTS, "duplicate create request");
+        }
+        log.info("acquireCreateOrderLock success, orderType={}, merchantId={}, merchantOrderNo={}, ttl={}",
+                orderType, merchantId, merchantOrderNo, CREATE_ORDER_IDEMPOTENCY_TTL_SECONDS);
+    }
+
+    /**
+     * Release create-order idempotency lock when order creation fails.
+     */
+    protected void releaseCreateOrderLock(
+            String orderType, String merchantId, String merchantOrderNo) {
+        String lockKey = buildCreateOrderLockKey(orderType, merchantId, merchantOrderNo);
+        try {
+            redisUtil.remove(lockKey);
+            log.info("releaseCreateOrderLock success, orderType={}, merchantId={}, merchantOrderNo={}",
+                    orderType, merchantId, merchantOrderNo);
+        } catch (Exception e) {
+            log.error("releaseCreateOrderLock failed, orderType={}, merchantId={}, merchantOrderNo={}, message={}",
+                    orderType, merchantId, merchantOrderNo, e.getMessage());
+        }
+    }
+
+    /**
+     * Resolve monthly [start,end) epoch-second range from prefixed snowflake transactionNo.
+     * Fallback to a wide range when parsing fails to avoid breaking existing flows.
+     */
+    protected long[] resolveTransactionNoTimeRange(String transactionNo) {
+        long[] range = SnowflakeIdGenerator.extractMonthEpochSecondRange(transactionNo);
+        if (range == null) {
+            log.warn("resolveTransactionNoTimeRange fallback wide range, transactionNo={}", transactionNo);
+            return new long[]{0L, Long.MAX_VALUE};
+        }
+        return range;
+    }
+
+    protected long[] resolveCurrentMonthTimeRange() {
+        LocalDate monthStart = LocalDate.now(ZoneOffset.UTC).withDayOfMonth(1);
+        LocalDate nextMonthStart = monthStart.plusMonths(1);
+        long start = monthStart.atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+        long end = nextMonthStart.atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+        return new long[]{start, end};
+    }
+
+    protected long resolveCreateTimeFromTransactionNo(String transactionNo) {
+        Long epochSecond = SnowflakeIdGenerator.extractEpochSecondFromPrefixedId(transactionNo);
+        if (epochSecond == null) {
+            long fallback = System.currentTimeMillis() / 1000;
+            log.warn("resolveCreateTimeFromTransactionNo fallback now, transactionNo={}, now={}",
+                    transactionNo, fallback);
+            return fallback;
+        }
+        return epochSecond;
+    }
+
     // ----------------------------- notify body / balance / report -----------------------------
 
     protected Map<String, Object> buildCollectionNotifyBody(
@@ -267,7 +355,7 @@ public abstract class BaseOrderService {
         body.put("status", targetStatus.getMessage());
         body.put("origAmount", formatNotifyAmount(orderDto.getAmount()));
         body.put("payerName", null);
-        body.put("sign", CryptoUtil.signHmacSha1Base64(body, key));
+        body.put("sign", CryptoUtil.signHmacSha256Base64(body, key));
         return body;
     }
 
@@ -285,7 +373,7 @@ public abstract class BaseOrderService {
         body.put("status", targetStatus.getMessage());
         body.put("origAmount", formatNotifyAmount(orderDto.getAmount()));
         body.put("fromCardNo", null);
-        body.put("sign", CryptoUtil.signHmacSha1Base64(body, key));
+        body.put("sign", CryptoUtil.signHmacSha256Base64(body, key));
         return body;
     }
 

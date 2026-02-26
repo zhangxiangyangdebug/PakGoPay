@@ -17,8 +17,7 @@
         <result column="callback_url" property="callbackUrl" javaType="java.lang.String"/>
         <result column="callback_times" property="callbackTimes" javaType="java.lang.Integer"/>
 
-        <!-- Note: DB column name is last_callbak_time -->
-        <result column="last_callbak_time" property="lastCallbackTime" javaType="java.lang.Long"/>
+        <result column="last_callback_time" property="lastCallbackTime" javaType="java.lang.Long"/>
         <result column="success_callback_time" property="successCallbackTime" javaType="java.lang.Long"/>
         <result column="callback_status" property="callbackStatus" javaType="java.lang.Integer"/>
 
@@ -32,14 +31,13 @@
         <result column="agent1_rate" property="agent1Rate" javaType="java.math.BigDecimal"/>
         <result column="agent1_fee" property="agent1Fee" javaType="java.math.BigDecimal"/>
 
-        <!-- Note: DB columns are agnet2_* / agnet3_* -->
-        <result column="agnet2_fixed_fee" property="agent2FixedFee" javaType="java.math.BigDecimal"/>
-        <result column="agnet2_rate" property="agent2Rate" javaType="java.math.BigDecimal"/>
-        <result column="agnet2_fee" property="agent2Fee" javaType="java.math.BigDecimal"/>
+        <result column="agent2_fixed_fee" property="agent2FixedFee" javaType="java.math.BigDecimal"/>
+        <result column="agent2_rate" property="agent2Rate" javaType="java.math.BigDecimal"/>
+        <result column="agent2_fee" property="agent2Fee" javaType="java.math.BigDecimal"/>
 
-        <result column="agnet3_fixed_fee" property="agent3FixedFee" javaType="java.math.BigDecimal"/>
-        <result column="agnet3_rate" property="agent3Rate" javaType="java.math.BigDecimal"/>
-        <result column="agnet3_fee" property="agent3Fee" javaType="java.math.BigDecimal"/>
+        <result column="agent3_fixed_fee" property="agent3FixedFee" javaType="java.math.BigDecimal"/>
+        <result column="agent3_rate" property="agent3Rate" javaType="java.math.BigDecimal"/>
+        <result column="agent3_fee" property="agent3Fee" javaType="java.math.BigDecimal"/>
 
         <result column="request_ip" property="requestIp" javaType="java.lang.String"/>
 
@@ -103,8 +101,8 @@
 
     <!-- Base columns -->
     <sql id="BaseColumns">
-        transaction_no,merchant_order_no,amount,actual_amount,callback_token,callback_url,callback_times,last_callbak_time,success_callback_time,callback_status,merchant_user_id,
-        merchant_fixed_fee,merchant_rate,merchant_fee,agent1_fixed_fee,agent1_rate,agent1_fee,agnet2_fixed_fee,agnet2_rate,agnet2_fee,agnet3_fixed_fee,agnet3_rate,agnet3_fee,
+        transaction_no,merchant_order_no,amount,actual_amount,callback_token,callback_url,callback_times,last_callback_time,success_callback_time,callback_status,merchant_user_id,
+        merchant_fixed_fee,merchant_rate,merchant_fee,agent1_fixed_fee,agent1_rate,agent1_fee,agent2_fixed_fee,agent2_rate,agent2_fee,agent3_fixed_fee,agent3_rate,agent3_fee,
         request_ip,create_time,update_time,request_time,order_type,payment_mode,payment_id,payment_no,channel_id,order_status,
         remark,currency_type,operate_type
     </sql>
@@ -127,6 +125,8 @@
         <include refid="BaseColumns"/>
         FROM pay_order
         WHERE transaction_no = #{transactionNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
         LIMIT 1
     </select>
 
@@ -134,7 +134,10 @@
         SELECT
         <include refid="BaseColumns"/>
         FROM pay_order
-        WHERE merchant_order_no = #{merchantOrderNo}
+        WHERE merchant_user_id = #{merchantUserId}
+          AND merchant_order_no = #{merchantOrderNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
         LIMIT 1
     </select>
 
@@ -142,7 +145,10 @@
     <select id="isExitMerchantOrderNo" resultType="java.lang.Integer">
         SELECT COUNT(1)
         FROM pay_order
-        WHERE merchant_order_no = #{merchantOrderNo}
+        WHERE merchant_user_id = #{merchantUserId}
+          AND merchant_order_no = #{merchantOrderNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
     </select>
 
     <!-- Update by transaction_no (update non-null fields only) -->
@@ -152,6 +158,8 @@
             <include refid="PayOrderUpdateSetDto"/>
         </set>
         WHERE transaction_no = #{dto.transactionNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
     </update>
 
     <update id="updateByTransactionNoWhenProcessing">
@@ -160,6 +168,8 @@
             <include refid="PayOrderUpdateSetDto"/>
         </set>
         WHERE transaction_no = #{dto.transactionNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
           AND order_status = #{currentStatus}
     </update>
 
@@ -171,7 +181,7 @@
         <if test="dto.callbackToken != null">callback_token = #{dto.callbackToken},</if>
         <if test="dto.callbackUrl != null">callback_url = #{dto.callbackUrl},</if>
         <if test="dto.callbackTimes != null">callback_times = #{dto.callbackTimes},</if>
-        <if test="dto.lastCallbackTime != null">last_callbak_time = #{dto.lastCallbackTime},</if>
+        <if test="dto.lastCallbackTime != null">last_callback_time = #{dto.lastCallbackTime},</if>
         <if test="dto.successCallbackTime != null">success_callback_time = #{dto.successCallbackTime},</if>
         <if test="dto.callbackStatus != null">callback_status = #{dto.callbackStatus},</if>
 
@@ -183,13 +193,13 @@
         <if test="dto.agent1Rate != null">agent1_rate = #{dto.agent1Rate},</if>
         <if test="dto.agent1Fee != null">agent1_fee = #{dto.agent1Fee},</if>
 
-        <if test="dto.agent2FixedFee != null">agnet2_fixed_fee = #{dto.agent2FixedFee},</if>
-        <if test="dto.agent2Rate != null">agnet2_rate = #{dto.agent2Rate},</if>
-        <if test="dto.agent2Fee != null">agnet2_fee = #{dto.agent2Fee},</if>
+        <if test="dto.agent2FixedFee != null">agent2_fixed_fee = #{dto.agent2FixedFee},</if>
+        <if test="dto.agent2Rate != null">agent2_rate = #{dto.agent2Rate},</if>
+        <if test="dto.agent2Fee != null">agent2_fee = #{dto.agent2Fee},</if>
 
-        <if test="dto.agent3FixedFee != null">agnet3_fixed_fee = #{dto.agent3FixedFee},</if>
-        <if test="dto.agent3Rate != null">agnet3_rate = #{dto.agent3Rate},</if>
-        <if test="dto.agent3Fee != null">agnet3_fee = #{dto.agent3Fee},</if>
+        <if test="dto.agent3FixedFee != null">agent3_fixed_fee = #{dto.agent3FixedFee},</if>
+        <if test="dto.agent3Rate != null">agent3_rate = #{dto.agent3Rate},</if>
+        <if test="dto.agent3Fee != null">agent3_fee = #{dto.agent3Fee},</if>
 
         <if test="dto.requestIp != null">request_ip = #{dto.requestIp},</if>
 
@@ -210,13 +220,15 @@
         UPDATE pay_order
         SET
             callback_times = COALESCE(callback_times, 0) + #{increment},
-            last_callbak_time = #{lastCallbackTime},
+            last_callback_time = #{lastCallbackTime},
             success_callback_time = CASE
                 WHEN #{successCallbackTime} IS NOT NULL THEN #{successCallbackTime}
                 ELSE success_callback_time
             END,
             update_time = #{lastCallbackTime}
         WHERE transaction_no = #{transactionNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
     </update>
 
     <!-- Query by payment IDs and time range -->
@@ -248,8 +260,8 @@
         COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN 1 ELSE 0 END), 0) success_quantity,
         COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN merchant_fee ELSE 0 END), 0) merchant_fee,
         COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agent1_fee ELSE 0 END), 0) agent1_fee,
-        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agnet2_fee ELSE 0 END), 0) agent2_fee,
-        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agnet3_fee ELSE 0 END), 0) agent3_fee
+        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agent2_fee ELSE 0 END), 0) agent2_fee,
+        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agent3_fee ELSE 0 END), 0) agent3_fee
     </sql>
 
     <sql id="CommonReportAggColumnsWithBalance">
@@ -259,8 +271,8 @@
         COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN merchant_fee ELSE 0 END), 0) merchant_fee,
         COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN merchant_fee ELSE 0 END), 0)
           - COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agent1_fee ELSE 0 END), 0)
-          - COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agnet2_fee ELSE 0 END), 0)
-          - COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agnet3_fee ELSE 0 END), 0) order_profit
+          - COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agent2_fee ELSE 0 END), 0)
+          - COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agent3_fee ELSE 0 END), 0) order_profit
     </sql>
 
     <select id="listMerchantReportStatsBatch" resultMap="MerchantReportResultMap">

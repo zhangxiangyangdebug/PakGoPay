@@ -16,27 +16,41 @@ import java.util.Optional;
 @Mapper
 public interface PayOrderMapper {
 
-    Integer isExitMerchantOrderNo(@Param(value = "merchantOrderNo") String merchantOrderNo);
+    Integer isExitMerchantOrderNo(@Param("merchantUserId") String merchantUserId,
+                                  @Param("merchantOrderNo") String merchantOrderNo,
+                                  @Param("startTime") Long startTime,
+                                  @Param("endTime") Long endTime);
 
     /** Query order by order ID */
-    Optional<PayOrderDto> findByTransactionNo(@Param("transactionNo") String transactionNo);
-    Optional<PayOrderDto> findByMerchantOrderNo(@Param("merchantOrderNo") String merchantOrderNo);
+    Optional<PayOrderDto> findByTransactionNo(@Param("transactionNo") String transactionNo,
+                                              @Param("startTime") Long startTime,
+                                              @Param("endTime") Long endTime);
+    Optional<PayOrderDto> findByMerchantOrderNo(@Param("merchantUserId") String merchantUserId,
+                                                @Param("merchantOrderNo") String merchantOrderNo,
+                                                @Param("startTime") Long startTime,
+                                                @Param("endTime") Long endTime);
 
     /** Insert order */
     int insert(PayOrderDto dto);
 
     /** Update order by order ID (update non-null fields) */
-    int updateByTransactionNo(@Param("dto") PayOrderDto dto);
+    int updateByTransactionNo(@Param("dto") PayOrderDto dto,
+                              @Param("startTime") Long startTime,
+                              @Param("endTime") Long endTime);
 
     /** Update order by transactionNo when status is processing */
     int updateByTransactionNoWhenProcessing(@Param("dto") PayOrderDto dto,
-                                            @Param("currentStatus") String currentStatus);
+                                            @Param("currentStatus") String currentStatus,
+                                            @Param("startTime") Long startTime,
+                                            @Param("endTime") Long endTime);
 
     /** Increase callback retry times (atomic) */
     int increaseCallbackTimes(@Param("transactionNo") String transactionNo,
                               @Param("lastCallbackTime") Long lastCallbackTime,
                               @Param("increment") Integer increment,
-                              @Param("successCallbackTime") Long successCallbackTime);
+                              @Param("successCallbackTime") Long successCallbackTime,
+                              @Param("startTime") Long startTime,
+                              @Param("endTime") Long endTime);
 
     /** Query by payment IDs and time range */
     List<PayOrderDto> getPayOrderInfosByPaymentIds(@Param("paymentIds") List<Long> paymentIds,

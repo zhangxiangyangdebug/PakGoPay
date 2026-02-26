@@ -15,7 +15,7 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.AccountStatementService;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.PatchBuilderUtil;
-import com.pakgopay.util.SnowflakeIdGenerator;
+import com.pakgopay.util.SnowflakeIdService;
 import com.pakgopay.util.TransactionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +42,9 @@ public class AccountStatementServiceImpl implements AccountStatementService {
 
     @Autowired
     private TransactionUtil transactionUtil;
+
+    @Autowired
+    private SnowflakeIdService snowflakeIdService;
 
     @Override
     public CommonResponse queryAccountStatement(AccountStatementQueryRequest accountStatementQueryRequest) {
@@ -134,7 +137,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
     private AccountStatementsDto generateAccountStatementForAdd(AccountStatementAddRequest req) {
         AccountStatementsDto dto = new AccountStatementsDto();
         long now = System.currentTimeMillis() / 1000;
-        String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.STATEMENT_PREFIX);
+        String systemTransactionNo = snowflakeIdService.nextId(CommonConstant.STATEMENT_PREFIX);
         dto.setId(systemTransactionNo);
 
         PatchBuilderUtil<AccountStatementAddRequest, AccountStatementsDto> b = PatchBuilderUtil.from(req).to(dto)

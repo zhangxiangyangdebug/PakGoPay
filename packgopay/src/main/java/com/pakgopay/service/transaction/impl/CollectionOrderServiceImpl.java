@@ -55,6 +55,9 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
     @Autowired
     private TransactionUtil transactionUtil;
 
+    @Autowired
+    private SnowflakeIdService snowflakeIdService;
+
     @Override
     public CommonResponse createCollectionOrder(
             CollectionOrderRequest colOrderRequest, String authorization) throws PakGoPayException {
@@ -65,6 +68,8 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 colOrderRequest.getAmount(),
                 colOrderRequest.getPaymentNo());
         TransactionInfo transactionInfo = new TransactionInfo();
+        boolean lockAcquired = false;
+        boolean createdSuccess = false;
         // 1. validate apiKey and load merchant info
         MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(colOrderRequest.getMerchantId(), authorization);
         validateCollectionSign(colOrderRequest, merchantInfoDto);
@@ -74,67 +79,87 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 merchantInfoDto.getParentId(),
                 merchantInfoDto.getChannelIds());
 
-        // 2. check request validate
-        validateCollectionRequest(colOrderRequest, merchantInfoDto);
-        log.info("collection request validated, merchantId={}", colOrderRequest.getMerchantId());
-
-        // 3. get available payment id
-        transactionInfo.setCurrency(colOrderRequest.getCurrency());
-        transactionInfo.setAmount(colOrderRequest.getAmount());
-        transactionInfo.setPaymentNo(colOrderRequest.getPaymentNo());
-
-        channelPaymentService.selectPaymentId(CommonConstant.SUPPORT_TYPE_COLLECTION, transactionInfo);
-        log.info("payment resolved, paymentId={}, channelId={}",
-                transactionInfo.getPaymentId(),
-                transactionInfo.getChannelId());
-
-        // 4. prepare amount and fee snapshot
-        BigDecimal actualAmount = colOrderRequest.getAmount();
-        if (merchantInfoDto.getIsFloat() == 1) {
-            BigDecimal floatingAmount = generateFloatAmount(merchantInfoDto.getFloatRange());
-            actualAmount = CalcUtil.safeSubtract(colOrderRequest.getAmount(), floatingAmount);
-        }
-        transactionInfo.setActualAmount(actualAmount);
-        channelPaymentService.calculateTransactionFees(transactionInfo, OrderType.COLLECTION_ORDER);
-        log.info("fee calculated, merchantFee={}, agent1Fee={}, agent2Fee={}, agent3Fee={}",
-                transactionInfo.getMerchantFee(),
-                transactionInfo.getAgent1Fee(),
-                transactionInfo.getAgent2Fee(),
-                transactionInfo.getAgent3Fee());
-
-        // 5. create system transaction no
-        String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.COLLECTION_PREFIX);
-        log.info("generator system transactionNo :{}", systemTransactionNo);
-        transactionInfo.setTransactionNo(systemTransactionNo);
-
-        CollectionOrderDto collectionOrderDto = buildCollectionOrderDto(colOrderRequest, transactionInfo);
-        log.info("collectionOrderDto built, transactionNo={}, paymentId={}, channelId={}, collectionMode={}",
-                collectionOrderDto.getTransactionNo(),
-                collectionOrderDto.getPaymentId(),
-                collectionOrderDto.getChannelId(),
-                collectionOrderDto.getCollectionMode());
-        Object handlerResponse = dispatchCollectionOrder(
-                collectionOrderDto,
-                transactionInfo.getPaymentInfo(),
-                colOrderRequest.getChannelParams());
-        log.info("collection handler dispatched, transactionNo={}, responseType={}",
-                collectionOrderDto.getTransactionNo(),
-                handlerResponse == null ? null : handlerResponse.getClass().getSimpleName());
+        // 2. create-order idempotency lock
+        acquireCreateOrderLock(
+                "collection",
+                colOrderRequest.getMerchantId(),
+                colOrderRequest.getMerchantOrderNo());
+        lockAcquired = true;
 
         try {
-            int ret = collectionOrderMapper.insert(collectionOrderDto);
-            if (ret <= 0) {
-                return CommonResponse.fail(ResultCode.DATA_BASE_ERROR, "collection order insert failed");
-            }
-            log.info("collection order inserted, transactionNo={}", collectionOrderDto.getTransactionNo());
-        } catch (Exception e) {
-            log.error("collection order insert failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
+            // 3. check request validate
+            validateCollectionRequest(colOrderRequest, merchantInfoDto);
+            log.info("collection request validated, merchantId={}", colOrderRequest.getMerchantId());
 
-        Map<String, Object> responseBody = buildCollectionResponse(collectionOrderDto, handlerResponse);
-        log.info("createCollectionOrder success, transactionNo={}", collectionOrderDto.getTransactionNo());
-        return CommonResponse.success(responseBody);
+            // 4. get available payment id
+            transactionInfo.setCurrency(colOrderRequest.getCurrency());
+            transactionInfo.setAmount(colOrderRequest.getAmount());
+            transactionInfo.setPaymentNo(colOrderRequest.getPaymentNo());
+
+            channelPaymentService.selectPaymentId(CommonConstant.SUPPORT_TYPE_COLLECTION, transactionInfo);
+            log.info("payment resolved, paymentId={}, channelId={}",
+                    transactionInfo.getPaymentId(),
+                    transactionInfo.getChannelId());
+
+            // 5. prepare amount and fee snapshot
+            BigDecimal actualAmount = colOrderRequest.getAmount();
+            if (merchantInfoDto.getIsFloat() == 1) {
+                BigDecimal floatingAmount = generateFloatAmount(merchantInfoDto.getFloatRange());
+                actualAmount = CalcUtil.safeSubtract(colOrderRequest.getAmount(), floatingAmount);
+            }
+            transactionInfo.setActualAmount(actualAmount);
+            channelPaymentService.calculateTransactionFees(transactionInfo, OrderType.COLLECTION_ORDER);
+            log.info("fee calculated, merchantFee={}, agent1Fee={}, agent2Fee={}, agent3Fee={}",
+                    transactionInfo.getMerchantFee(),
+                    transactionInfo.getAgent1Fee(),
+                    transactionInfo.getAgent2Fee(),
+                    transactionInfo.getAgent3Fee());
+
+            // 6. create system transaction no
+            String systemTransactionNo = snowflakeIdService.nextId(CommonConstant.COLLECTION_PREFIX);
+            log.info("generator system transactionNo :{}", systemTransactionNo);
+            transactionInfo.setTransactionNo(systemTransactionNo);
+
+            CollectionOrderDto collectionOrderDto = buildCollectionOrderDto(colOrderRequest, transactionInfo);
+            log.info("collectionOrderDto built, transactionNo={}, paymentId={}, channelId={}, collectionMode={}",
+                    collectionOrderDto.getTransactionNo(),
+                    collectionOrderDto.getPaymentId(),
+                    collectionOrderDto.getChannelId(),
+                    collectionOrderDto.getCollectionMode());
+
+            // Persist processing order first, then call the upstream channel.
+            // This avoids "channel success but local record missing" on DB failure.
+            try {
+                int ret = collectionOrderMapper.insert(collectionOrderDto);
+                if (ret <= 0) {
+                    return CommonResponse.fail(ResultCode.DATA_BASE_ERROR, "collection order insert failed");
+                }
+                log.info("collection order inserted, transactionNo={}", collectionOrderDto.getTransactionNo());
+            } catch (Exception e) {
+                log.error("collection order insert failed, message {}", e.getMessage());
+                throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+            }
+
+            Object handlerResponse = dispatchCollectionOrder(
+                    collectionOrderDto,
+                    transactionInfo.getPaymentInfo(),
+                    colOrderRequest.getChannelParams());
+            log.info("collection handler dispatched, transactionNo={}, responseType={}",
+                    collectionOrderDto.getTransactionNo(),
+                    handlerResponse == null ? null : handlerResponse.getClass().getSimpleName());
+
+            Map<String, Object> responseBody = buildCollectionResponse(collectionOrderDto, handlerResponse);
+            log.info("createCollectionOrder success, transactionNo={}", collectionOrderDto.getTransactionNo());
+            createdSuccess = true;
+            return CommonResponse.success(responseBody);
+        } finally {
+            if (!createdSuccess && lockAcquired) {
+                releaseCreateOrderLock(
+                        "collection",
+                        colOrderRequest.getMerchantId(),
+                        colOrderRequest.getMerchantOrderNo());
+            }
+        }
     }
 
     @Override
@@ -148,8 +173,9 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         // query collection order info  from db
         CollectionOrderDto collectionOrderDto;
         try {
+            long[] range = resolveCurrentMonthTimeRange();
             collectionOrderDto =
-                    collectionOrderMapper.findByMerchantOrderNo(merchantOrderNo)
+                    collectionOrderMapper.findByMerchantOrderNo(userId, merchantOrderNo, range[0], range[1])
                             .orElseThrow(() -> new PakGoPayException(
                                     ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS,
                                     "record is not exists, merchantOrderNo:" + merchantOrderNo));
@@ -303,11 +329,14 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         int failedAttempts = notifyResult == null ? 1 : Math.max(notifyResult.getFailedAttempts(), 0);
         int totalAttempts = failedAttempts + (success ? 1 : 0);
         try {
+            long[] range = resolveTransactionNoTimeRange(orderDto.getTransactionNo());
             collectionOrderMapper.increaseCallbackTimes(
                     orderDto.getTransactionNo(),
                     now,
                     totalAttempts,
-                    success ? now : null);
+                    success ? now : null,
+                    range[0],
+                    range[1]);
             log.info("merchant notify callback meta updated, transactionNo={}, totalAttempts={}, success={}",
                     orderDto.getTransactionNo(), totalAttempts, success);
         } catch (Exception e) {
@@ -350,7 +379,11 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
 
     private CollectionOrderDto validateNotifyOrder(Map<String, Object> notifyData) throws PakGoPayException {
         String transactionNo = extractTransactionNo(notifyData);
-        CollectionOrderDto collectionOrderDto = collectionOrderMapper.findByTransactionNo(transactionNo)
+        long[] range = resolveTransactionNoTimeRange(transactionNo);
+        CollectionOrderDto collectionOrderDto = collectionOrderMapper.findByTransactionNo(
+                        transactionNo,
+                        range[0],
+                        range[1])
                 .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS,
                         "record is not exists, transactionNo:" + transactionNo));
         if (TransactionStatus.SUCCESS.getCode().toString().equals(collectionOrderDto.getOrderStatus())
@@ -376,11 +409,13 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             update.setSuccessCallbackTime(System.currentTimeMillis() / 1000);
         }
         update.setUpdateTime(System.currentTimeMillis() / 1000);
+        long[] range = resolveTransactionNoTimeRange(collectionOrderDto.getTransactionNo());
 
         transactionUtil.runInTransaction(() -> {
             try {
                 int updated = collectionOrderMapper.updateByTransactionNoWhenProcessing(
-                        update, TransactionStatus.PROCESSING.getCode().toString());
+                        update, TransactionStatus.PROCESSING.getCode().toString(),
+                        range[0], range[1]);
                 if (updated <= 0) {
                     log.info("collection notify skipped, order not processing, transactionNo={}, status={}",
                             collectionOrderDto.getTransactionNo(), targetStatus.getCode());
@@ -446,7 +481,9 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         }
 
         // check Merchant order code is uniqueness
-        if(merchantCheckService.existsColMerchantOrderNo(collectionOrderRequest.getMerchantOrderNo())){
+        if (merchantCheckService.existsColMerchantOrderNo(
+                collectionOrderRequest.getMerchantId(),
+                collectionOrderRequest.getMerchantOrderNo())) {
             log.error("existsColMerchantOrderNo failed, merchantOrderNo: {}", collectionOrderRequest.getMerchantOrderNo());
             throw new PakGoPayException(ResultCode.MERCHANT_CODE_IS_EXISTS);
         }
@@ -475,7 +512,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
     private CollectionOrderDto buildCollectionOrderDto(
             CollectionOrderRequest request,
             TransactionInfo transactionInfo) {
-        long now = System.currentTimeMillis() / 1000;
+        long now = resolveCreateTimeFromTransactionNo(transactionInfo.getTransactionNo());
         MerchantInfoDto merchantInfo = transactionInfo.getMerchantInfo();
 
         // -----------------------------

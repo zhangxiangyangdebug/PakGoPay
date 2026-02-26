@@ -31,7 +31,7 @@ public class PayOrderDto implements Serializable {
     /** Callback retry times */
     private Integer callbackTimes;
 
-    /** Last callback time (DB column: last_callbak_time) */
+    /** Last callback time (DB column: last_callback_time) */
     private Long lastCallbackTime;
 
     /** Callback success time */
@@ -61,22 +61,22 @@ public class PayOrderDto implements Serializable {
     /** Level 1 agent fee */
     private BigDecimal agent1Fee;
 
-    /** Level 2 agent fixed fee (DB column: agnet2_fixed_fee) */
+    /** Level 2 agent fixed fee (DB column: agent2_fixed_fee) */
     private BigDecimal agent2FixedFee;
 
-    /** Level 2 agent rate (DB column: agnet2_rate) */
+    /** Level 2 agent rate (DB column: agent2_rate) */
     private BigDecimal agent2Rate;
 
-    /** Level 2 agent fee (DB column: agnet2_fee) */
+    /** Level 2 agent fee (DB column: agent2_fee) */
     private BigDecimal agent2Fee;
 
-    /** Level 3 agent fixed fee (DB column: agnet3_fixed_fee) */
+    /** Level 3 agent fixed fee (DB column: agent3_fixed_fee) */
     private BigDecimal agent3FixedFee;
 
-    /** Level 3 agent rate (DB column: agnet3_rate) */
+    /** Level 3 agent rate (DB column: agent3_rate) */
     private BigDecimal agent3Rate;
 
-    /** Level 3 agent fee (DB column: agnet3_fee) */
+    /** Level 3 agent fee (DB column: agent3_fee) */
     private BigDecimal agent3Fee;
 
     /** Request IP */

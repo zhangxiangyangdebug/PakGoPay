@@ -1,7 +1,9 @@
 package com.pakgopay.util;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ThreadLocalRandom;
@@ -84,6 +86,53 @@ public class SnowflakeIdGenerator {
         ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
         String formattedDate = zonedDateTime.format(formatter);
         return formattedDate;
+    }
+
+    public static long extractEpochMilli(long id) {
+        long delta = id >>> TIMESTAMP_SHIFT;
+        return delta + EPOCH;
+    }
+
+    public static long[] extractMonthEpochSecondRange(String prefixedId) {
+        Long snowflakeId = extractSnowflakeId(prefixedId);
+        if (snowflakeId == null) {
+            return null;
+        }
+        long epochMilli = extractEpochMilli(snowflakeId);
+        LocalDate date = Instant.ofEpochMilli(epochMilli).atZone(ZoneOffset.UTC).toLocalDate();
+        LocalDate monthStart = date.withDayOfMonth(1);
+        LocalDate nextMonthStart = monthStart.plusMonths(1);
+        long start = monthStart.atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+        long end = nextMonthStart.atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+        return new long[]{start, end};
+    }
+
+    public static Long extractEpochSecondFromPrefixedId(String prefixedId) {
+        Long snowflakeId = extractSnowflakeId(prefixedId);
+        if (snowflakeId == null) {
+            return null;
+        }
+        return extractEpochMilli(snowflakeId) / 1000;
+    }
+
+    private static Long extractSnowflakeId(String prefixedId) {
+        if (prefixedId == null || prefixedId.isEmpty()) {
+            return null;
+        }
+        int end = prefixedId.length() - 1;
+        int start = end;
+        while (start >= 0 && Character.isDigit(prefixedId.charAt(start))) {
+            start--;
+        }
+        start++;
+        if (start > end) {
+            return null;
+        }
+        try {
+            return Long.parseLong(prefixedId.substring(start));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private long waitNextMillis(long lastTs) {

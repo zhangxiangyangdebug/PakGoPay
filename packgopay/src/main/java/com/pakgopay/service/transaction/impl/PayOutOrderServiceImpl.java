@@ -52,6 +52,9 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
     @Autowired
     private TransactionUtil transactionUtil;
 
+    @Autowired
+    private SnowflakeIdService snowflakeIdService;
+
     @Override
     public CommonResponse createPayOutOrder(
             PayOutOrderRequest payOrderRequest, String authorization) throws PakGoPayException {
@@ -63,6 +66,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 payOrderRequest.getPaymentNo());
         BigDecimal frozenAmount = BigDecimal.ZERO;
         boolean frozen = false;
+        boolean lockAcquired = false;
+        boolean createdSuccess = false;
         TransactionInfo transactionInfo = new TransactionInfo();
         try {
             // 1. validate apiKey and load merchant info
@@ -74,12 +79,19 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     merchantInfoDto.getParentId(),
                     merchantInfoDto.getChannelIds());
 
-            // 2. check request validate
+            // 2. create-order idempotency lock
+            acquireCreateOrderLock(
+                    "payout",
+                    payOrderRequest.getMerchantId(),
+                    payOrderRequest.getMerchantOrderNo());
+            lockAcquired = true;
+
+            // 3. check request validate
             validatePayOutRequest(payOrderRequest, merchantInfoDto);
             transactionInfo.setRequestIp(payOrderRequest.getClientIp());
             log.info("payout request validated, merchantId={}", payOrderRequest.getMerchantId());
 
-            // 3. get available payment id
+            // 4. get available payment id
             transactionInfo.setCurrency(payOrderRequest.getCurrency());
             transactionInfo.setAmount(payOrderRequest.getAmount());
             transactionInfo.setPaymentNo(payOrderRequest.getPaymentNo());
@@ -89,12 +101,12 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     transactionInfo.getPaymentId(),
                     transactionInfo.getChannelId());
 
-            // 4. create system transaction no
-            String systemTransactionNo = SnowflakeIdGenerator.getSnowFlakeId(CommonConstant.PAYOUT_PREFIX);
+            // 5. create system transaction no
+            String systemTransactionNo = snowflakeIdService.nextId(CommonConstant.PAYOUT_PREFIX);
             log.info("generator system transactionNo :{}", systemTransactionNo);
             transactionInfo.setTransactionNo(systemTransactionNo);
 
-            // 5. calculate transaction fee
+            // 6. calculate transaction fee
             transactionInfo.setActualAmount(payOrderRequest.getAmount());
             channelPaymentService.calculateTransactionFees(transactionInfo, OrderType.PAY_OUT_ORDER);
             log.info("fee calculated, merchantFee={}, agent1Fee={}, agent2Fee={}, agent3Fee={}",
@@ -140,6 +152,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
             Map<String, Object> responseBody = buildPayOutResponse(payOrderDto, handlerResponse);
             log.info("createPayOutOrder success, transactionNo={}", payOrderDto.getTransactionNo());
+            createdSuccess = true;
             return CommonResponse.success(responseBody);
         } catch (Exception e) {
             if (frozen) {
@@ -154,6 +167,12 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 } catch (Exception ex) {
                     log.error("releaseFrozenBalance failed, message {}", ex.getMessage());
                 }
+            }
+            if (lockAcquired && !createdSuccess) {
+                releaseCreateOrderLock(
+                        "payout",
+                        payOrderRequest.getMerchantId(),
+                        payOrderRequest.getMerchantOrderNo());
             }
             log.error("createPayOutOrder failed, message {}", e.getMessage());
             if (e instanceof PakGoPayException pe) {
@@ -174,7 +193,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         // query payout order info  from db
         PayOrderDto payOrderDto;
         try {
-            payOrderDto = payOrderMapper.findByMerchantOrderNo(merchantOrderNo)
+            long[] range = resolveCurrentMonthTimeRange();
+            payOrderDto = payOrderMapper.findByMerchantOrderNo(userId, merchantOrderNo, range[0], range[1])
                             .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS));
         } catch (PakGoPayException e) {
             log.error("record is not exists, merchantOrderNo {}", merchantOrderNo);
@@ -307,11 +327,14 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         int failedAttempts = notifyResult == null ? 1 : Math.max(notifyResult.getFailedAttempts(), 0);
         int totalAttempts = failedAttempts + (success ? 1 : 0);
         try {
+            long[] range = resolveTransactionNoTimeRange(orderDto.getTransactionNo());
             payOrderMapper.increaseCallbackTimes(
                     orderDto.getTransactionNo(),
                     now,
                     totalAttempts,
-                    success ? now : null);
+                    success ? now : null,
+                    range[0],
+                    range[1]);
             log.info("merchant notify callback meta updated, transactionNo={}, totalAttempts={}, success={}",
                     orderDto.getTransactionNo(), totalAttempts, success);
         } catch (Exception e) {
@@ -361,7 +384,9 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         }
 
         // check Merchant order code is uniqueness
-        if (!merchantCheckService.existsPayMerchantOrderNo(payOutOrderRequest.getMerchantOrderNo())) {
+        if (!merchantCheckService.existsPayMerchantOrderNo(
+                payOutOrderRequest.getMerchantId(),
+                payOutOrderRequest.getMerchantOrderNo())) {
             log.error("existsColMerchantOrderNo failed, merchantOrderNo: {}", payOutOrderRequest.getMerchantOrderNo());
             throw new PakGoPayException(ResultCode.MERCHANT_CODE_IS_EXISTS);
         }
@@ -383,7 +408,11 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
     private PayOrderDto validateNotifyOrder(Map<String, Object> notifyData) throws PakGoPayException {
         String transactionNo = extractTransactionNo(notifyData);
         log.info("validateNotifyOrder start, transactionNo={}", transactionNo);
-        PayOrderDto payOrderDto = payOrderMapper.findByTransactionNo(transactionNo)
+        long[] range = resolveTransactionNoTimeRange(transactionNo);
+        PayOrderDto payOrderDto = payOrderMapper.findByTransactionNo(
+                        transactionNo,
+                        range[0],
+                        range[1])
                 .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS,
                         "record is not exists, transactionNo:" + transactionNo));
         if (TransactionStatus.SUCCESS.getCode().toString().equals(payOrderDto.getOrderStatus())
@@ -411,11 +440,13 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             update.setSuccessCallbackTime(System.currentTimeMillis() / 1000);
         }
         update.setUpdateTime(System.currentTimeMillis() / 1000);
+        long[] range = resolveTransactionNoTimeRange(payOrderDto.getTransactionNo());
 
         transactionUtil.runInTransaction(() -> {
             try {
                 int updated = payOrderMapper.updateByTransactionNoWhenProcessing(
-                        update, TransactionStatus.PROCESSING.getCode().toString());
+                        update, TransactionStatus.PROCESSING.getCode().toString(),
+                        range[0], range[1]);
                 if (updated <= 0) {
                     log.info("payout notify skipped, order not processing, transactionNo={}, status={}",
                             payOrderDto.getTransactionNo(), targetStatus.getCode());
@@ -537,7 +568,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
     private PayOrderDto buildPayOrderDto(
             PayOutOrderRequest request,
             TransactionInfo transactionInfo) {
-        long now = System.currentTimeMillis() / 1000;
+        long now = resolveCreateTimeFromTransactionNo(transactionInfo.getTransactionNo());
         MerchantInfoDto merchantInfo = transactionInfo.getMerchantInfo();
 
         // -----------------------------

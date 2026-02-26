@@ -40,14 +40,14 @@ public class KeySignManager {
     }
 
     /**
-     * Sign parameters with HMAC-SHA1 and Base64 output.
+     * Sign parameters with HMAC-SHA256 and Base64 output.
      *
      * @param params parameters
      * @param signKey sign key
      * @return signature
      */
     public static String sign(Map<String, ?> params, String signKey) {
-        return CryptoUtil.signHmacSha1Base64(params, signKey);
+        return CryptoUtil.signHmacSha256Base64(params, signKey);
     }
 
     private static String generateBase64UrlKey(int lengthBytes) {

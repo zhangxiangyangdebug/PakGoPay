@@ -8,7 +8,7 @@ import com.pakgopay.mapper.BalanceMapper;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.util.CommonUtil;
-import com.pakgopay.util.SnowflakeIdGenerator;
+import com.pakgopay.util.SnowflakeIdService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,6 +21,9 @@ public class UserService {
 
     @Autowired
     private BalanceMapper balanceMapper;
+
+    @Autowired
+    private SnowflakeIdService snowflakeIdService;
 
     /*public List<UserDTO> listUsers() {
         return userMapper.selectAllUser();
@@ -61,8 +64,7 @@ public class UserService {
 //            throw new PakGoPayException(ResultCode.FAIL, "check operator google code failed!");
 //        }
         // build userId
-        SnowflakeIdGenerator snow = new SnowflakeIdGenerator();
-        long userId = snow.nextId();
+        long userId = snowflakeIdService.nextId();
         UserDTO newUser = new UserDTO();
         newUser.setUserId(String.valueOf(userId));
         newUser.setPassword(user.getPassword());

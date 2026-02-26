@@ -50,6 +50,11 @@ public class RedisUtil {
         redisTemplate.opsForValue().set(key, value, expireTime, TimeUnit.SECONDS);
     }
 
+    public boolean setIfAbsentWithSecondExpire(String key, String value, int expireTime) {
+        Boolean success = redisTemplate.opsForValue().setIfAbsent(key, value, expireTime, TimeUnit.SECONDS);
+        return Boolean.TRUE.equals(success);
+    }
+
     public String getValue(String key) {
         if (redisTemplate.hasKey(key)) return redisTemplate.opsForValue().get(key);
         return null;

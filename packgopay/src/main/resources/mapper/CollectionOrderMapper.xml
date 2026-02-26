@@ -148,6 +148,8 @@
         <include refid="BaseColumns"/>
         FROM collection_order
         WHERE transaction_no = #{transactionNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
         LIMIT 1
     </select>
 
@@ -155,7 +157,10 @@
         SELECT
         <include refid="BaseColumns"/>
         FROM collection_order
-        WHERE merchant_order_no = #{merchantOrderNo}
+        WHERE merchant_user_id = #{merchantUserId}
+          AND merchant_order_no = #{merchantOrderNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
         LIMIT 1
     </select>
 
@@ -165,6 +170,8 @@
             <include refid="CollectionOrderUpdateSetDto"/>
         </set>
         WHERE transaction_no = #{dto.transactionNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
     </update>
 
     <update id="updateByTransactionNoWhenProcessing">
@@ -173,6 +180,8 @@
             <include refid="CollectionOrderUpdateSetDto"/>
         </set>
         WHERE transaction_no = #{dto.transactionNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
           AND order_status = #{currentStatus}
     </update>
 
@@ -232,13 +241,18 @@
             END,
             update_time = #{lastCallbackTime}
         WHERE transaction_no = #{transactionNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
     </update>
 
     <select id="isExitMerchantOrderNo" resultType="java.lang.Integer">
         select
             count(1)
         from collection_order
-        where merchant_order_no = #{merchantOrderNo}
+        where merchant_user_id = #{merchantUserId}
+          and merchant_order_no = #{merchantOrderNo}
+          and create_time &gt;= #{startTime}
+          and create_time &lt; #{endTime}
     </select>
 
     <select id="getCollectionOrderInfosByPaymentIds"

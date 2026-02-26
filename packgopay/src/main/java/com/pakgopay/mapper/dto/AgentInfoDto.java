@@ -81,7 +81,7 @@ public class AgentInfoDto implements Serializable {
     /** Update time */
     private Long updateTime;
 
-    /** Updated by (DB column: upeate_by) */
+    /** Updated by (DB column: update_by) */
     private String updateBy;
 
     /** Version */

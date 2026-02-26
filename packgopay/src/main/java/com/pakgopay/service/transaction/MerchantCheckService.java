@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Set;
 
 @Slf4j
@@ -26,17 +28,33 @@ public class MerchantCheckService {
     @Autowired
     private PayOrderMapper payOrderMapper;
 
-    public boolean existsColMerchantOrderNo(String merchantOrderNo) {
+    /**
+     * Check whether collection order number already exists under the same merchant.
+     */
+    public boolean existsColMerchantOrderNo(String merchantUserId, String merchantOrderNo) {
         log.info("existsColMerchantOrderNo start");
-        // TODO xiaoyou 从redis中获取判断，不存在则存入，数据写入数据库后，删除该数据
-        Integer count = collectionOrderMapper.isExitMerchantOrderNo(merchantOrderNo);
+        long[] range = resolveCurrentMonthTimeRange();
+        Integer count = collectionOrderMapper.isExitMerchantOrderNo(
+                merchantUserId, merchantOrderNo, range[0], range[1]);
         return !CommonConstant.ZERO.equals(count);
     }
 
-    public boolean existsPayMerchantOrderNo(String merchantOrderNo) {
-        // TODO xiaoyou 从redis中获取判断，不存在则存入，数据写入数据库后，删除该数据
-        Integer count = payOrderMapper.isExitMerchantOrderNo(merchantOrderNo);
+    /**
+     * Check whether payout order number is still available under the same merchant.
+     */
+    public boolean existsPayMerchantOrderNo(String merchantUserId, String merchantOrderNo) {
+        long[] range = resolveCurrentMonthTimeRange();
+        Integer count = payOrderMapper.isExitMerchantOrderNo(
+                merchantUserId, merchantOrderNo, range[0], range[1]);
         return CommonConstant.ZERO.equals(count);
+    }
+
+    private long[] resolveCurrentMonthTimeRange() {
+        LocalDate monthStart = LocalDate.now(ZoneOffset.UTC).withDayOfMonth(1);
+        LocalDate nextMonthStart = monthStart.plusMonths(1);
+        long start = monthStart.atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+        long end = nextMonthStart.atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+        return new long[]{start, end};
     }
 
     /**
