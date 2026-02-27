@@ -61,6 +61,21 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
     @Override
     public CommonResponse createCollectionOrder(
             CollectionOrderRequest colOrderRequest, String authorization) throws PakGoPayException {
+        MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(colOrderRequest.getMerchantId(), authorization);
+        validateCollectionSign(colOrderRequest, merchantInfoDto);
+        return createCollectionOrderInternal(colOrderRequest, merchantInfoDto);
+    }
+
+    @Override
+    public CommonResponse manualCreateCollectionOrder(
+            CollectionOrderRequest colOrderRequest) throws PakGoPayException {
+        MerchantInfoDto merchantInfoDto = merchantService.fetchMerchantInfo(colOrderRequest.getMerchantId());
+        return createCollectionOrderInternal(colOrderRequest, merchantInfoDto);
+    }
+
+    private CommonResponse createCollectionOrderInternal(
+            CollectionOrderRequest colOrderRequest,
+            MerchantInfoDto merchantInfoDto) throws PakGoPayException {
         log.info("createCollectionOrder start, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
                 colOrderRequest.getMerchantId(),
                 colOrderRequest.getMerchantOrderNo(),
@@ -70,9 +85,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         TransactionInfo transactionInfo = new TransactionInfo();
         boolean lockAcquired = false;
         boolean createdSuccess = false;
-        // 1. validate apiKey and load merchant info
-        MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(colOrderRequest.getMerchantId(), authorization);
-        validateCollectionSign(colOrderRequest, merchantInfoDto);
+        // 1. load merchant info
         transactionInfo.setMerchantInfo(merchantInfoDto);
         log.info("merchant info loaded, userId={}, agentId={}, channelIds={}",
                 merchantInfoDto.getUserId(),
@@ -291,36 +304,113 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             OrderHandler.validateNotifyResponse(response);
             log.info("notify response validated, transactionNo={}", response.getTransactionNo());
 
-            TransactionStatus notifyStatus = resolveNotifyStatus(response.getStatus());
-            if (TransactionStatus.FAILED.equals(notifyStatus)) {
-                log.warn("notify status is FAILED, transactionNo={}", collectionOrderDto.getTransactionNo());
-                targetStatus = TransactionStatus.FAILED;
-            } else {
-                // Query order status from channel and use it as the target status.
-                targetStatus = queryOrderTargetStatus(collectionOrderDto, paymentDto, handler);
-            }
+            targetStatus = resolveTargetStatus(
+                    collectionOrderDto,
+                    response.getStatus(),
+                    paymentDto,
+                    handler,
+                    "notify");
         } catch (Exception e) {
             log.warn("handleNotify pre-check failed, transactionNo={}, message={}",
                     collectionOrderDto.getTransactionNo(), e.getMessage());
             targetStatus = TransactionStatus.FAILED;
         }
 
-        // Calculate fees, update order record, and apply balance changes.
-        applyNotifyUpdate(collectionOrderDto, targetStatus);
-        log.info("notify applied, transactionNo={}, targetStatus={}",
-                collectionOrderDto.getTransactionNo(), targetStatus);
+        processNotifyResult(collectionOrderDto, targetStatus, handler, "notify");
 
-        // Send final notify payload to merchant.
+        return handler.getNotifySuccessResponse();
+    }
+
+    /**
+     * Manual notify entry: reuse notify processing flow without third-party sign/map parsing.
+     */
+    @Override
+    public CommonResponse manualHandleNotify(NotifyRequest notifyRequest) throws PakGoPayException {
+        log.info("manualHandleNotify start, notifyRequest={}", notifyRequest);
+        // Validate normalized notify payload and ensure order is still mutable.
+        OrderHandler.validateNotifyResponse(notifyRequest);
+        CollectionOrderDto collectionOrderDto = validateNotifyOrder(notifyRequest.getTransactionNo());
+        log.info("manual notify order validated, transactionNo={}, orderStatus={}",
+                collectionOrderDto.getTransactionNo(),
+                collectionOrderDto.getOrderStatus());
+
+        OrderScope scope = Integer.valueOf(1).equals(collectionOrderDto.getCollectionMode())
+                ? OrderScope.THIRD_PARTY
+                : OrderScope.SYSTEM;
+        OrderHandler handler = OrderHandlerFactory.get(
+                scope, collectionOrderDto.getCurrencyType(), collectionOrderDto.getPaymentNo());
+        PaymentDto paymentDto = fetchPaymentById(collectionOrderDto.getPaymentId());
+
+        TransactionStatus targetStatus;
+        try {
+            // Decide final status from notify status + channel query fallback.
+            targetStatus = resolveTargetStatus(
+                    collectionOrderDto,
+                    notifyRequest.getStatus(),
+                    paymentDto,
+                    handler,
+                    "manual notify");
+        } catch (Exception e) {
+            log.warn("manualHandleNotify pre-check failed, transactionNo={}, message={}",
+                    collectionOrderDto.getTransactionNo(), e.getMessage());
+            targetStatus = TransactionStatus.FAILED;
+        }
+
+        // Execute shared post-notify pipeline.
+        processNotifyResult(collectionOrderDto, targetStatus, handler, "manual notify");
+        log.info("manualHandleNotify end, transactionNo={}, targetStatus={}",
+                collectionOrderDto.getTransactionNo(), targetStatus);
+        return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    /**
+     * Resolve final target status from notify status and active channel query.
+     */
+    private TransactionStatus resolveTargetStatus(
+            CollectionOrderDto collectionOrderDto,
+            String notifyStatusText,
+            PaymentDto paymentDto,
+            OrderHandler handler,
+            String scene) {
+        // Convert upstream notify status text to internal enum first.
+        TransactionStatus notifyStatus = resolveNotifyStatus(notifyStatusText);
+        if (TransactionStatus.FAILED.equals(notifyStatus)) {
+            log.warn("{} status is FAILED, transactionNo={}", scene, collectionOrderDto.getTransactionNo());
+            return TransactionStatus.FAILED;
+        }
+        log.info("{} status is not FAILED, transactionNo={}, notifyStatus={}",
+                scene, collectionOrderDto.getTransactionNo(), notifyStatusText);
+        // For non-failed notify, query channel to get authoritative final status.
+        return queryOrderTargetStatus(collectionOrderDto, paymentDto, handler);
+    }
+
+    /**
+     * Execute shared post-notify pipeline: update order, callback merchant, refresh report.
+     */
+    private void processNotifyResult(
+            CollectionOrderDto collectionOrderDto,
+            TransactionStatus targetStatus,
+            OrderHandler handler,
+            String scene) throws PakGoPayException {
+        // Persist order status transition and related balance changes.
+        applyNotifyUpdate(collectionOrderDto, targetStatus);
+        log.info("{} applied, transactionNo={}, targetStatus={}",
+                scene, collectionOrderDto.getTransactionNo(), targetStatus);
+
+        // Callback merchant and update callback retry metadata.
         if (collectionOrderDto.getCallbackUrl() != null && !collectionOrderDto.getCallbackUrl().isBlank()) {
             OrderHandler.NotifyResult notifyResult = handler.sendNotifyToMerchant(
                     buildCollectionNotifyBody(collectionOrderDto, targetStatus, collectionOrderDto.getCallbackToken()),
                     collectionOrderDto.getCallbackUrl());
             updateNotifyCallbackMeta(collectionOrderDto, notifyResult);
+        } else {
+            log.info("{} skip merchant callback, callbackUrl empty, transactionNo={}",
+                    scene, collectionOrderDto.getTransactionNo());
         }
-
+        // Refresh report dimensions after state transition.
         refreshReportData(collectionOrderDto.getCreateTime(), collectionOrderDto.getCurrencyType());
-
-        return handler.getNotifySuccessResponse();
+        log.info("{} report refreshed, transactionNo={}, currency={}",
+                scene, collectionOrderDto.getTransactionNo(), collectionOrderDto.getCurrencyType());
     }
 
     private void updateNotifyCallbackMeta(CollectionOrderDto orderDto, OrderHandler.NotifyResult notifyResult) {
@@ -379,6 +469,10 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
 
     private CollectionOrderDto validateNotifyOrder(Map<String, Object> notifyData) throws PakGoPayException {
         String transactionNo = extractTransactionNo(notifyData);
+        return validateNotifyOrder(transactionNo);
+    }
+
+    private CollectionOrderDto validateNotifyOrder(String transactionNo) throws PakGoPayException {
         long[] range = resolveTransactionNoTimeRange(transactionNo);
         CollectionOrderDto collectionOrderDto = collectionOrderMapper.findByTransactionNo(
                         transactionNo,
