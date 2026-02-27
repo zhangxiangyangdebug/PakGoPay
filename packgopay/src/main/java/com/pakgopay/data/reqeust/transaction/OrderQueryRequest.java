@@ -76,4 +76,10 @@ public class OrderQueryRequest extends ExportBaseRequest {
         }
         return valid;
     }
+
+    @AssertTrue(message = "pageSize cannot exceed 200")
+    public boolean isPageSizeValid() {
+        Integer size = getPageSize();
+        return size == null || size <= 200;
+    }
 }
