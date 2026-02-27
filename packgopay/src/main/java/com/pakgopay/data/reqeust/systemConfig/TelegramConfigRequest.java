@@ -9,4 +9,5 @@ public class TelegramConfigRequest {
     private String webhookSecret;
     private String allowedUserIds;
     private Integer enabled;
+    private Integer googleCode;
 }

@@ -1,6 +1,7 @@
 package com.pakgopay.common.config;
 
 import com.pakgopay.filter.GoogleCodeFilter;
+import com.pakgopay.filter.IpRateLimitFilter;
 import com.pakgopay.filter.JwtRequestFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
@@ -20,7 +21,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
-            HttpSecurity http, JwtRequestFilter jwtRequestFilter, GoogleCodeFilter googleCodeFilter) throws Exception {
+            HttpSecurity http,
+            JwtRequestFilter jwtRequestFilter,
+            GoogleCodeFilter googleCodeFilter,
+            IpRateLimitFilter ipRateLimitFilter) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(
                         auth ->
@@ -36,6 +40,7 @@ public class SecurityConfig {
                                         .authenticated())
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(ipRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(googleCodeFilter, JwtRequestFilter.class)
                 .exceptionHandling(

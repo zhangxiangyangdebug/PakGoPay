@@ -7,9 +7,11 @@ import com.pakgopay.data.reqeust.roleManagement.AddRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.DeleteRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.ModifyRoleRequest;
 import com.pakgopay.data.reqeust.systemConfig.LoginUserRequest;
+import com.pakgopay.data.reqeust.systemConfig.RateLimitConfigRequest;
 import com.pakgopay.data.reqeust.systemConfig.TelegramConfigRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.common.TelegramService;
+import com.pakgopay.service.common.RateLimitConfigService;
 import com.pakgopay.service.SystemConfigService;
 import com.pakgopay.service.impl.UserService;
 import com.pakgopay.thirdUtil.GoogleUtil;
@@ -32,6 +34,8 @@ public class SystemConfigController {
     private RedisUtil redisUtil;
     @Autowired
     private TelegramService telegramService;
+    @Autowired
+    private RateLimitConfigService rateLimitConfigService;
 
     @PostMapping("/createUser")
     public CommonResponse createLoginUser(@RequestBody CreateUserRequest createUserRequest){
@@ -122,6 +126,29 @@ public class SystemConfigController {
             request.getWebhookSecret(),
             request.getAllowedUserIds(),
             request.getEnabled()
+        );
+        return CommonResponse.success("ok");
+    }
+
+    @GetMapping("/rateLimitConfig")
+    public CommonResponse getRateLimitConfig() {
+        return CommonResponse.success(rateLimitConfigService.getConfigAsMap());
+    }
+
+    @PostMapping("/rateLimitConfig")
+    public CommonResponse updateRateLimitConfig(@RequestBody RateLimitConfigRequest request) {
+        if (Boolean.TRUE.equals(request.getEnabled())) {
+            Long windowSeconds = request.getWindowSeconds();
+            Long maxRequests = request.getMaxRequests();
+            if (windowSeconds == null || windowSeconds <= 0 || maxRequests == null || maxRequests <= 0) {
+                return CommonResponse.fail(ResultCode.INVALID_PARAMS, "windowSeconds/maxRequests must be greater than 0");
+            }
+        }
+        rateLimitConfigService.updateConfig(
+            request.getEnabled(),
+            request.getWindowSeconds(),
+            request.getMaxRequests(),
+            request.getFixedIpQps()
         );
         return CommonResponse.success("ok");
     }
