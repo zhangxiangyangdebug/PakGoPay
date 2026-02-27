@@ -51,7 +51,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
         log.info("queryAccountStatement start");
         AccountStatementsResponse response = queryMerchantRechargeData(
                 accountStatementQueryRequest);
-        log.info("queryAccountStatement end");
+        log.info("query AccountStatement end");
         return CommonResponse.success(response);
     }
 

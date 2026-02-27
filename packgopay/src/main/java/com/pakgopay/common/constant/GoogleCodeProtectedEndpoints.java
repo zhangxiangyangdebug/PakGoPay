@@ -18,6 +18,8 @@ public final class GoogleCodeProtectedEndpoints {
         map.put("POST /pakGoPay/server/SystemConfig/modifyRoleInfo", "modify role");
         map.put("POST /pakGoPay/server/SystemConfig/deleteRole", "delete role");
         map.put("GET /pakGoPay/server/SystemConfig/resetGoogleKey", "reset google key");
+        map.put("POST /pakGoPay/server/SystemConfig/telegramConfig", "update telegram config");
+        map.put("POST /pakGoPay/server/SystemConfig/rateLimitConfig", "update rate limit config");
 
         // Channel & payment management
         map.put("POST /pakGoPay/server/addChannel", "add channel");
