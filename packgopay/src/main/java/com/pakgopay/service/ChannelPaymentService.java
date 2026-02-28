@@ -22,6 +22,8 @@ public interface ChannelPaymentService {
 
     CommonResponse queryPayments(PaymentQueryRequest paymentQueryRequest) throws PakGoPayException;
 
+    CommonResponse queryMerchantAvailableChannels(String merchantId) throws PakGoPayException;
+
     void exportChannels(ChannelQueryRequest channelQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException;
 
     void exportPayments(PaymentQueryRequest paymentQueryRequest, HttpServletResponse response) throws PakGoPayException, IOException;

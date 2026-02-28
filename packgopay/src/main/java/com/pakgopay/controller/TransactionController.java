@@ -2,10 +2,12 @@ package com.pakgopay.controller;
 
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
+import com.pakgopay.data.reqeust.transaction.MerchantAvailableChannelRequest;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.PayOutOrderService;
 import jakarta.validation.Valid;
@@ -26,6 +28,9 @@ public class TransactionController {
 
     @Autowired
     private PayOutOrderService payOutOrderService;
+
+    @Autowired
+    private ChannelPaymentService channelPaymentService;
 
     @PostMapping(value = "/queryCollectionOrders")
     public CommonResponse queryCollectionOrders(@RequestBody @Valid OrderQueryRequest request) {
@@ -122,6 +127,19 @@ public class TransactionController {
         } catch (PakGoPayException e) {
             log.error("manualNotifyPayOutOrder failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "manualNotifyPayOutOrder failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "/queryMerchantAvailableChannels")
+    public CommonResponse queryMerchantAvailableChannels(
+            @RequestBody @Valid MerchantAvailableChannelRequest request) {
+        // Query merchant-available payment channels by merchantId.
+        log.info("queryMerchantAvailableChannels request, merchantId={}", request.getMerchantId());
+        try {
+            return channelPaymentService.queryMerchantAvailableChannels(request.getMerchantId());
+        } catch (PakGoPayException e) {
+            log.error("queryMerchantAvailableChannels failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryMerchantAvailableChannels failed: " + e.getMessage());
         }
     }
 }
