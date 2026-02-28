@@ -3,6 +3,7 @@ package com.pakgopay.service.impl;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.entity.Message;
 import com.pakgopay.data.entity.account.AccountStatementEntity;
 import com.pakgopay.data.reqeust.account.AccountStatementAddRequest;
 import com.pakgopay.data.reqeust.account.AccountStatementEditRequest;
@@ -10,9 +11,12 @@ import com.pakgopay.data.reqeust.account.AccountStatementQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.account.AccountStatementsResponse;
 import com.pakgopay.mapper.AccountStatementsMapper;
+import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.AccountStatementsDto;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.AccountStatementService;
+import com.pakgopay.service.common.SendDmqMessage;
+import com.pakgopay.thirdUtil.RedisUtil;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.PatchBuilderUtil;
 import com.pakgopay.util.SnowflakeIdService;
@@ -25,6 +29,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import com.pakgopay.util.CalcUtil;
 
 @Slf4j
@@ -45,6 +50,15 @@ public class AccountStatementServiceImpl implements AccountStatementService {
 
     @Autowired
     private SnowflakeIdService snowflakeIdService;
+
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private RedisUtil redisUtil;
+
+    @Autowired
+    private SendDmqMessage sendDmqMessage;
 
     @Override
     public CommonResponse queryAccountStatement(AccountStatementQueryRequest accountStatementQueryRequest) {
@@ -128,6 +142,30 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                 });
             }
         });
+
+        // only withdraw order need to resolve
+        if (accountStatementsDto.getOrderType() == 2) {
+            log.info("notify admin to resolve order");
+            List<String> adminUserIds = userMapper.listUserIdsByRoleId(CommonConstant.ROLE_ADMIN);
+            if (adminUserIds == null || adminUserIds.isEmpty()) {
+                log.warn("no admin user found, skip notification for statementId={}", accountStatementsDto.getId());
+            } else {
+                for (String adminUserId : adminUserIds) {
+                    Message message = new Message();
+                    message.setId(accountStatementsDto.getId());
+                    message.setUserId(adminUserId);
+                    message.setTimestamp(System.currentTimeMillis());
+                    message.setRead(false);
+                    message.setPath("WithdrawlOrder");
+                    message.setContent(String.format(
+                            "you have a new withdrawl order need to be resolved,orderNo is %s",
+                            accountStatementsDto.getId()
+                    ));
+                    redisUtil.saveMessage(message);
+                    sendDmqMessage.sendFanout("user-notify", message);
+                }
+            }
+        }
 
         log.info("createAccountStatement end");
         return CommonResponse.success(ResultCode.SUCCESS);

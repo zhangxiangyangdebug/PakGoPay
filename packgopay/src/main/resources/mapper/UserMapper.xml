@@ -163,6 +163,12 @@
         SELECT role_id FROM user_info WHERE user_id = #{userId}
     </select>
 
+    <select id="listUserIdsByRoleId" resultType="java.lang.String">
+        SELECT user_id
+        FROM user_info
+        WHERE role_id = #{roleId}
+    </select>
+
     <update id="resetSecretkey">
         UPDATE USER_INFO
         SET  login_secret = #{secretKey}
