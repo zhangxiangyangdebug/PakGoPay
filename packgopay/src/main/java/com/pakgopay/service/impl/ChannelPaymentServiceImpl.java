@@ -17,6 +17,7 @@ import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.common.ExportReportDataColumns;
+import com.pakgopay.util.CalcUtil;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.PatchBuilderUtil;
@@ -35,7 +36,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
-import com.pakgopay.util.CalcUtil;
 
 @Slf4j
 @Service
@@ -55,6 +55,9 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
     @Autowired
     private AgentInfoMapper agentInfoMapper;
+
+    @Autowired
+    private MerchantInfoMapper merchantInfoMapper;
 
     // =====================
     // Payment selection
@@ -818,6 +821,58 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     public CommonResponse queryPayments(PaymentQueryRequest paymentQueryRequest) throws PakGoPayException {
         PaymentResponse response = fetchPaymentPage(paymentQueryRequest);
         return CommonResponse.success(response);
+    }
+
+    @Override
+    /**
+     * Query enabled payments available to merchant by merchant channel/agent channel.
+     */
+    public CommonResponse queryMerchantAvailableChannels(String merchantId) throws PakGoPayException {
+        log.info("queryMerchantAvailableChannels start, merchantId={}", merchantId);
+        MerchantInfoDto merchantInfo = merchantInfoMapper.findByUserId(merchantId);
+        if (merchantInfo == null) {
+            log.warn("queryMerchantAvailableChannels merchant not found, merchantId={}", merchantId);
+            throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST, "merchant is not exists");
+        }
+
+        String channelIds = merchantInfo.getChannelIds();
+        log.info("queryMerchantAvailableChannels merchant channelIds, merchantId={}, channelIds={}",
+                merchantId, channelIds);
+        if (!StringUtils.hasText(channelIds) && StringUtils.hasText(merchantInfo.getParentId())) {
+            AgentInfoDto parentAgent = agentInfoMapper.findByUserId(merchantInfo.getParentId());
+            if (parentAgent != null) {
+                channelIds = parentAgent.getChannelIds();
+                log.info("queryMerchantAvailableChannels fallback to parent agent channels, merchantId={}, parentId={}, channelIds={}",
+                        merchantId, merchantInfo.getParentId(), channelIds);
+            }
+        }
+        if (!StringUtils.hasText(channelIds)) {
+            log.warn("queryMerchantAvailableChannels no available channels, merchantId={}", merchantId);
+            throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has no available channel");
+        }
+
+        List<Long> channelIdList = CommonUtil.parseIds(channelIds);
+        if (channelIdList == null || channelIdList.isEmpty()) {
+            log.warn("queryMerchantAvailableChannels parsed channelIds empty, merchantId={}, rawChannelIds={}",
+                    merchantId, channelIds);
+            throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has no available channel");
+        }
+        log.info("queryMerchantAvailableChannels parsed channelIds, merchantId={}, channelCount={}",
+                merchantId, channelIdList.size());
+
+        Map<Long, ChannelDto> paymentChannelMap = new HashMap<>();
+        Set<Long> paymentIds = collectPaymentIdsByChannelIds(channelIdList, paymentChannelMap);
+        log.info("queryMerchantAvailableChannels paymentIds resolved, merchantId={}, paymentCount={}",
+                merchantId, paymentIds.size());
+        List<PaymentDto> paymentDtoList = paymentMapper.findEnabledByPaymentIds(new ArrayList<>(paymentIds));
+        paymentDtoList = filterPaymentsByEnableTime(paymentDtoList);
+        log.info("queryMerchantAvailableChannels enabled payments filtered, merchantId={}, availablePaymentCount={}",
+                merchantId, paymentDtoList.size());
+
+        List<String> paymentSummary = buildPaymentSummary(paymentDtoList);
+        log.info("queryMerchantAvailableChannels success, merchantId={}, paymentSummarySize={}",
+                merchantId, paymentSummary.size());
+        return CommonResponse.success(paymentSummary);
     }
 
     private PaymentResponse fetchPaymentPage(PaymentQueryRequest paymentQueryRequest) throws PakGoPayException {

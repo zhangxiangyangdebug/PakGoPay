@@ -341,4 +341,24 @@
         </where>
     </select>
 
+    <select id="findEnabledByPaymentIds"
+            parameterType="java.util.List"
+            resultMap="PaymentResultMap">
+        SELECT
+            <include refid="BaseColumns"/>
+        FROM payment
+        <where>
+            status = 1
+            <if test="paymentIdList != null and paymentIdList.size() > 0">
+                AND payment_id IN
+                <foreach collection="paymentIdList" item="pid" open="(" close=")" separator=",">
+                    #{pid}
+                </foreach>
+            </if>
+            <if test="paymentIdList == null or paymentIdList.size() == 0">
+                AND 1 = 0
+            </if>
+        </where>
+    </select>
+
 </mapper>
