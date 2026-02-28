@@ -1,6 +1,7 @@
 package com.pakgopay.service.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.constant.NotificationComponentType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.Message;
@@ -29,7 +30,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+
 import com.pakgopay.util.CalcUtil;
 
 @Slf4j
@@ -156,11 +157,9 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                     message.setUserId(adminUserId);
                     message.setTimestamp(System.currentTimeMillis());
                     message.setRead(false);
-                    message.setPath("WithdrawlOrder");
-                    message.setContent(String.format(
-                            "you have a new withdrawl order need to be resolved,orderNo is %s",
-                            accountStatementsDto.getId()
-                    ));
+                    message.setPath(NotificationComponentType.Withdraw_Component);
+                    message.setTitle(NotificationComponentType.Withdraw_Title);
+                    message.setContent(accountStatementsDto.getId());
                     redisUtil.saveMessage(message);
                     sendDmqMessage.sendFanout("user-notify", message);
                 }
