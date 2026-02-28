@@ -13,6 +13,7 @@ public class Message implements Serializable {
     private long timestamp;
     private boolean read;
     private String path;
+    private String title;
     // getters/setters/constructors
 }
 
