@@ -231,6 +231,17 @@
           AND create_time &lt; #{endTime}
     </update>
 
+    <update id="markTimeoutOrders">
+        UPDATE pay_order
+        SET
+            order_status = #{timeoutStatus},
+            update_time = #{updateTime},
+            remark = #{remark}
+        WHERE order_status = #{processingStatus}
+          AND create_time &gt;= #{minTime}
+          AND create_time &lt;= #{deadlineTime}
+    </update>
+
     <!-- Query by payment IDs and time range -->
     <select id="getPayOrderInfosByPaymentIds" resultMap="PayOrderResultMap">
         SELECT

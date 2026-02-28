@@ -48,4 +48,16 @@ public class RabbitmqUtil {
             message
         );
     }
+
+    public void sendToDelayQueue(String routingKey, String message, long delayMillis) {
+        rabbitTemplate.convertAndSend(
+                RabbitConfig.DELAY_EXCHANGE,
+                routingKey,
+                message,
+                msg -> {
+                    msg.getMessageProperties().setHeader("x-delay", delayMillis);
+                    return msg;
+                }
+        );
+    }
 }

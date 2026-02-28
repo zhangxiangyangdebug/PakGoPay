@@ -38,4 +38,8 @@ public class SendDmqMessage {
     public void sendToDelayQueue(String routingKey, String message) {
         rabbitmqUtil.sendToDelayQueue(routingKey, message);
     }
+
+    public void sendToDelayQueue(String routingKey, String message, long delayMillis) {
+        rabbitmqUtil.sendToDelayQueue(routingKey, message, delayMillis);
+    }
 }

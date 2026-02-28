@@ -1,5 +1,6 @@
 package com.pakgopay.service.transaction.impl;
 
+import com.pakgopay.common.config.RabbitConfig;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.*;
 import com.pakgopay.common.exception.PakGoPayException;
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Service
@@ -155,6 +157,11 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             log.info("balance frozen, userId={}, currency={}, frozenAmount={}",
                     payOrderRequest.getMerchantId(), payOrderRequest.getCurrency(), frozenAmount);
             log.info("pay order inserted, transactionNo={}", payOrderDto.getTransactionNo());
+            publishOrderTimeoutMessage(
+                    RabbitConfig.ORDER_TIMEOUT_PAYING_QUEUE,
+                    "payout",
+                    payOrderDto.getTransactionNo(),
+                    payOrderDto.getCreateTime());
 
             Object handlerResponse = dispatchPayOutOrder(
                     payOrderDto,
@@ -391,9 +398,20 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             OrderHandler handler,
             String scene) throws PakGoPayException {
         // Persist order status transition and related balance changes.
-        applyNotifyUpdate(payOrderDto, targetStatus);
-        log.info("{} applied, transactionNo={}, targetStatus={}",
-                scene, payOrderDto.getTransactionNo(), targetStatus);
+        boolean updated = applyNotifyUpdate(payOrderDto, targetStatus);
+        boolean continuePostProcess = updated
+                || (TransactionStatus.SUCCESS.equals(targetStatus)
+                && TransactionStatus.SUCCESS.getCode().toString().equals(payOrderDto.getOrderStatus()));
+        log.info("{} status transition handled, transactionNo={}, currentStatus={}, targetStatus={}, updated={}, continuePostProcess={}",
+                scene,
+                payOrderDto.getTransactionNo(),
+                payOrderDto.getOrderStatus(),
+                targetStatus,
+                updated,
+                continuePostProcess);
+        if (!continuePostProcess) {
+            return;
+        }
 
         // Callback merchant and update callback retry metadata.
         if (payOrderDto.getCallbackUrl() != null && !payOrderDto.getCallbackUrl().isBlank()) {
@@ -405,10 +423,15 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             log.info("{} skip merchant callback, callbackUrl empty, transactionNo={}",
                     scene, payOrderDto.getTransactionNo());
         }
-        // Refresh report dimensions after state transition.
-        refreshReportData(payOrderDto.getCreateTime(), payOrderDto.getCurrencyType());
-        log.info("{} report refreshed, transactionNo={}, currency={}",
-                scene, payOrderDto.getTransactionNo(), payOrderDto.getCurrencyType());
+        // Refresh report only when DB status actually changed.
+        if (updated) {
+            refreshReportData(payOrderDto.getCreateTime(), payOrderDto.getCurrencyType());
+            log.info("{} report refreshed, transactionNo={}, currency={}",
+                    scene, payOrderDto.getTransactionNo(), payOrderDto.getCurrencyType());
+        } else {
+            log.info("{} skip report refresh, transactionNo={}, updated={}",
+                    scene, payOrderDto.getTransactionNo(), updated);
+        }
     }
 
     private void updateNotifyCallbackMeta(PayOrderDto orderDto, OrderHandler.NotifyResult notifyResult) {
@@ -509,19 +532,20 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                         range[1])
                 .orElseThrow(() -> new PakGoPayException(ResultCode.MERCHANT_ORDER_NO_NOT_EXISTS,
                         "record is not exists, transactionNo:" + transactionNo));
-        if (TransactionStatus.SUCCESS.getCode().toString().equals(payOrderDto.getOrderStatus())
-                || TransactionStatus.FAILED.getCode().toString().equals(payOrderDto.getOrderStatus())) {
-            throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "order status can not be changed");
-        }
         log.info("validateNotifyOrder success, transactionNo={}, orderStatus={}",
                 payOrderDto.getTransactionNo(), payOrderDto.getOrderStatus());
         return payOrderDto;
     }
 
-    private void applyNotifyUpdate(
+    private boolean applyNotifyUpdate(
             PayOrderDto payOrderDto,
             TransactionStatus targetStatus) throws PakGoPayException {
         log.info("applyNotifyUpdate start, transactionNo={}", payOrderDto.getTransactionNo());
+        String currentStatus = payOrderDto.getOrderStatus();
+        if (TransactionStatus.SUCCESS.getCode().toString().equals(currentStatus)
+                || TransactionStatus.FAILED.getCode().toString().equals(currentStatus)) {
+            return false;
+        }
         MerchantInfoDto merchantInfo = merchantService.fetchMerchantInfo(payOrderDto.getMerchantUserId());
         if (merchantInfo == null) {
             throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST);
@@ -533,19 +557,24 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
             update.setSuccessCallbackTime(System.currentTimeMillis() / 1000);
         }
+        if (TransactionStatus.FAILED.equals(targetStatus)) {
+            update.setRemark("notify_failed");
+        }
         update.setUpdateTime(System.currentTimeMillis() / 1000);
         long[] range = resolveTransactionNoTimeRange(payOrderDto.getTransactionNo());
 
+        AtomicBoolean stateUpdated = new AtomicBoolean(false);
         transactionUtil.runInTransaction(() -> {
             try {
                 int updated = payOrderMapper.updateByTransactionNoWhenProcessing(
-                        update, TransactionStatus.PROCESSING.getCode().toString(),
+                        update, currentStatus,
                         range[0], range[1]);
                 if (updated <= 0) {
                     log.info("payout notify skipped, order not processing, transactionNo={}, status={}",
                             payOrderDto.getTransactionNo(), targetStatus.getCode());
                     return;
                 }
+                stateUpdated.set(true);
                 log.info("pay order updated, transactionNo={}, status={}",
                         payOrderDto.getTransactionNo(), targetStatus.getCode());
             } catch (Exception e) {
@@ -582,6 +611,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                         payOrderDto.getTransactionNo(), frozenAmount);
             }
         });
+        return stateUpdated.get();
     }
 
     private TransactionStatus queryOrderTargetStatus(
@@ -733,4 +763,5 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 dto.getTransactionNo(), dto.getMerchantUserId(), dto.getPaymentId(), dto.getChannelId());
         return builder.build();
     }
+
 }

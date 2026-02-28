@@ -53,7 +53,6 @@ public class OrderBaseRequest extends BaseRequest implements Serializable {
     /**
      * Request signature
      */
-    @NotBlank(message = "sign is empty")
     private String sign;
 
     /**

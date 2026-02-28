@@ -245,6 +245,17 @@
           AND create_time &lt; #{endTime}
     </update>
 
+    <update id="markTimeoutOrders">
+        UPDATE collection_order
+        SET
+            order_status = #{timeoutStatus},
+            update_time = #{updateTime},
+            remark = #{remark}
+        WHERE order_status = #{processingStatus}
+          AND create_time &gt;= #{minTime}
+          AND create_time &lt;= #{deadlineTime}
+    </update>
+
     <select id="isExitMerchantOrderNo" resultType="java.lang.Integer">
         select
             count(1)

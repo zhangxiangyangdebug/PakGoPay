@@ -52,6 +52,14 @@ public interface CollectionOrderMapper {
                               @Param("startTime") Long startTime,
                               @Param("endTime") Long endTime);
 
+    /** Mark processing orders as timeout when notify not received within deadline */
+    int markTimeoutOrders(@Param("processingStatus") String processingStatus,
+                          @Param("timeoutStatus") String timeoutStatus,
+                          @Param("minTime") Long minTime,
+                          @Param("deadlineTime") Long deadlineTime,
+                          @Param("updateTime") Long updateTime,
+                          @Param("remark") String remark);
+
     /** Query orders by payment IDs and time range */
     List<CollectionOrderDto> getCollectionOrderInfosByPaymentIds(
             @Param("paymentIds") List<Long> paymentIds,

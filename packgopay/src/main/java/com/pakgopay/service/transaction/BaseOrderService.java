@@ -1,5 +1,6 @@
 package com.pakgopay.service.transaction;
 
+import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pakgopay.common.constant.CommonConstant;
@@ -7,11 +8,13 @@ import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.OrderQueryEntity;
+import com.pakgopay.data.entity.transaction.OrderTimeoutMessage;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.mapper.MerchantInfoMapper;
 import com.pakgopay.mapper.PaymentMapper;
 import com.pakgopay.mapper.dto.*;
+import com.pakgopay.service.common.SendDmqMessage;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.thirdUtil.RedisUtil;
 import com.pakgopay.timer.ReportTask;
@@ -34,6 +37,7 @@ import java.util.Map;
 public abstract class BaseOrderService {
     private static final String API_KEY_PREFIX = "api-key ";
     private static final int CREATE_ORDER_IDEMPOTENCY_TTL_SECONDS = 120;
+    private static final long ORDER_TIMEOUT_DELAY_MILLIS = 10 * 60 * 1000L;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() { };
 
@@ -48,6 +52,9 @@ public abstract class BaseOrderService {
 
     @Autowired
     protected RedisUtil redisUtil;
+
+    @Autowired
+    private SendDmqMessage sendDmqMessage;
 
     // ----------------------------- status / notify parse -----------------------------
 
@@ -337,6 +344,31 @@ public abstract class BaseOrderService {
             return fallback;
         }
         return epochSecond;
+    }
+
+    /**
+     * Publish delayed timeout-check message for order expiration.
+     */
+    protected void publishOrderTimeoutMessage(
+            String routingKey,
+            String orderType,
+            String transactionNo,
+            Long createTime) {
+        try {
+            OrderTimeoutMessage message = new OrderTimeoutMessage();
+            message.setTransactionNo(transactionNo);
+            message.setCreateTime(createTime);
+            message.setSendTime(System.currentTimeMillis() / 1000);
+            sendDmqMessage.sendToDelayQueue(
+                    routingKey,
+                    JSON.toJSONString(message),
+                    ORDER_TIMEOUT_DELAY_MILLIS);
+            log.info("order timeout message sent, type={}, transactionNo={}, delayMillis={}",
+                    orderType, transactionNo, ORDER_TIMEOUT_DELAY_MILLIS);
+        } catch (Exception e) {
+            log.error("order timeout message send failed, type={}, transactionNo={}, message={}",
+                    orderType, transactionNo, e.getMessage());
+        }
     }
 
     // ----------------------------- notify body / balance / report -----------------------------
