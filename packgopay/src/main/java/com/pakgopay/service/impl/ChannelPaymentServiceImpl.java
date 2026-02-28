@@ -869,10 +869,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         log.info("queryMerchantAvailableChannels enabled payments filtered, merchantId={}, availablePaymentCount={}",
                 merchantId, paymentDtoList.size());
 
-        List<String> paymentSummary = buildPaymentSummary(paymentDtoList);
-        log.info("queryMerchantAvailableChannels success, merchantId={}, paymentSummarySize={}",
-                merchantId, paymentSummary.size());
-        return CommonResponse.success(paymentSummary);
+        return CommonResponse.success(paymentDtoList);
     }
 
     private PaymentResponse fetchPaymentPage(PaymentQueryRequest paymentQueryRequest) throws PakGoPayException {
