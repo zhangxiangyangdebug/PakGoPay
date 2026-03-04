@@ -47,7 +47,7 @@ public class KeySignManager {
      * @return signature
      */
     public static String sign(Map<String, ?> params, String signKey) {
-        return CryptoUtil.signHmacSha256Base64(params, signKey);
+        return CryptoUtil.signSystemHmacSha256Base64(params, signKey);
     }
 
     private static String generateBase64UrlKey(int lengthBytes) {

@@ -23,18 +23,42 @@ import com.pakgopay.util.CryptoUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.concurrent.CompletableFuture;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @Slf4j
 public abstract class BaseOrderService {
+    protected enum NotifyFlow {
+        AUTO("notify", true),
+        MANUAL("manual notify", false);
+
+        private final String scene;
+        private final boolean allowFailedToSuccess;
+
+        NotifyFlow(String scene, boolean allowFailedToSuccess) {
+            this.scene = scene;
+            this.allowFailedToSuccess = allowFailedToSuccess;
+        }
+
+        public String getScene() {
+            return scene;
+        }
+
+        public boolean isAllowFailedToSuccess() {
+            return allowFailedToSuccess;
+        }
+    }
+
     private static final String API_KEY_PREFIX = "api-key ";
     private static final int CREATE_ORDER_IDEMPOTENCY_TTL_SECONDS = 120;
     private static final long ORDER_TIMEOUT_DELAY_MILLIS = 10 * 60 * 1000L;
@@ -55,6 +79,10 @@ public abstract class BaseOrderService {
 
     @Autowired
     private SendDmqMessage sendDmqMessage;
+
+    @Autowired
+    @Qualifier("pakGoPayExecutor")
+    private ThreadPoolTaskExecutor pakGoPayExecutor;
 
     // ----------------------------- status / notify parse -----------------------------
 
@@ -106,10 +134,43 @@ public abstract class BaseOrderService {
         return null;
     }
 
+    /**
+     * Read business response code from create-order handler.
+     * Note: service layer does not perform HTTP-code translation.
+     * Provider-specific mapping (e.g. 200 -> 0) must be done inside handler.
+     */
+    protected Integer extractCreateHandlerCode(PaymentHttpResponse handlerResponse) {
+        if (handlerResponse == null || handlerResponse.getCode() == null) {
+            return null;
+        }
+        return handlerResponse.getCode();
+    }
+
     protected void mergeIfPresent(Map<String, Object> target, Map<String, Object> source, String key) {
         if (source.containsKey(key) && source.get(key) != null) {
             target.put(key, source.get(key));
         }
+    }
+
+    protected Map<String, Object> parseInterfaceParams(String interfaceParam, String scene) {
+        if (interfaceParam == null || interfaceParam.isBlank()) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.readValue(interfaceParam, MAP_TYPE);
+        } catch (Exception e) {
+            log.warn("parseInterfaceParams failed, scene={}, message={}", scene, e.getMessage());
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, scene + " interface params invalid");
+        }
+    }
+
+    protected String resolveInterfaceParamValue(String interfaceParam, String key, String scene) {
+        Map<String, Object> parsed = parseInterfaceParams(interfaceParam, scene);
+        if (parsed == null || key == null || key.isBlank()) {
+            return null;
+        }
+        Object value = parsed.get(key);
+        return value == null ? null : String.valueOf(value);
     }
 
     protected String extractTransactionNo(Map<String, Object> notifyData) {
@@ -206,7 +267,7 @@ public abstract class BaseOrderService {
         String signKey = resolveMerchantSignKey(
                 merchantInfoDto.getSignKey(),
                 merchantInfoDto.getUserId());
-        String expected = CryptoUtil.signHmacSha256Base64(payload, signKey);
+        String expected = CryptoUtil.signSystemHmacSha256Base64(payload, signKey);
         if (expected == null || !expected.equals(sign)) {
             log.warn("validateRequestSign failed: sign mismatch, scene={}, merchantId={}",
                     scene, merchantInfoDto.getUserId());
@@ -375,6 +436,7 @@ public abstract class BaseOrderService {
 
     protected Map<String, Object> buildCollectionNotifyBody(
             CollectionOrderDto orderDto, TransactionStatus targetStatus, String key) {
+        String signKey = resolveMerchantSignKey(key, orderDto.getMerchantUserId());
         Map<String, Object> body = buildSignPayload(orderDto,
                 "merchantUserId", "transactionNo", "merchantOrderNo", "createTime");
         body.put("amount", formatNotifyAmount(orderDto.getAmount()));
@@ -387,12 +449,13 @@ public abstract class BaseOrderService {
         body.put("status", targetStatus.getMessage());
         body.put("origAmount", formatNotifyAmount(orderDto.getAmount()));
         body.put("payerName", null);
-        body.put("sign", CryptoUtil.signHmacSha256Base64(body, key));
+        body.put("sign", CryptoUtil.signSystemHmacSha256Base64(body, signKey));
         return body;
     }
 
     protected Map<String, Object> buildPayNotifyBody(
             PayOrderDto orderDto, TransactionStatus targetStatus, String key) {
+        String signKey = resolveMerchantSignKey(key, orderDto.getMerchantUserId());
         Map<String, Object> body = buildSignPayload(orderDto,
                 "merchantUserId", "transactionNo", "merchantOrderNo", "createTime");
         body.put("amount", formatNotifyAmount(orderDto.getAmount()));
@@ -405,7 +468,7 @@ public abstract class BaseOrderService {
         body.put("status", targetStatus.getMessage());
         body.put("origAmount", formatNotifyAmount(orderDto.getAmount()));
         body.put("fromCardNo", null);
-        body.put("sign", CryptoUtil.signHmacSha256Base64(body, key));
+        body.put("sign", CryptoUtil.signSystemHmacSha256Base64(body, signKey));
         return body;
     }
 
@@ -467,5 +530,19 @@ public abstract class BaseOrderService {
         } catch (Exception e) {
             log.error("refreshReportData failed, error message: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Execute callback-related side effects asynchronously to avoid blocking HTTP response.
+     */
+    protected void runCallbackAsync(String scene, String transactionNo, Runnable task) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                task.run();
+            } catch (Exception e) {
+                log.error("{} callback async task failed, transactionNo={}, message={}",
+                        scene, transactionNo, e.getMessage());
+            }
+        }, pakGoPayExecutor);
     }
 }

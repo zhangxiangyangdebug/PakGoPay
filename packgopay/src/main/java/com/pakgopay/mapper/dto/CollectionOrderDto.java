@@ -106,8 +106,8 @@ public class CollectionOrderDto implements Serializable {
     /** Order type: 1-system order, 2-manual order */
     private Integer orderType;
 
-    /** Callback status: 1-success, 2-failed, 3-pending */
-    private String callbackStatus;
+    /** Callback status: 0-pending, 1-failed, 2-success */
+    private Integer callbackStatus;
 
     /** Order status: 1-processing, 2-failed */
     private String orderStatus;

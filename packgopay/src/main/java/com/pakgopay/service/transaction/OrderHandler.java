@@ -1,5 +1,7 @@
 package com.pakgopay.service.transaction;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
@@ -8,20 +10,23 @@ import com.pakgopay.data.entity.transaction.CollectionQueryEntity;
 import com.pakgopay.data.entity.transaction.PayCreateEntity;
 import com.pakgopay.data.entity.transaction.PayQueryEntity;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
+import com.pakgopay.data.response.http.PaymentHttpResponse;
 
 import java.util.Collections;
 import java.util.Map;
 
 public abstract class OrderHandler {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() { };
     /**
      * Handle collection create request.
      */
-    public abstract Object handleCol(CollectionCreateEntity request);
+    public abstract PaymentHttpResponse handleCol(CollectionCreateEntity request);
 
     /**
      * Handle payout create request.
      */
-    public abstract Object handlePay(PayCreateEntity request);
+    public abstract PaymentHttpResponse handlePay(PayCreateEntity request);
 
     /**
      * Handle collection query request.
@@ -36,7 +41,7 @@ public abstract class OrderHandler {
     /**
      * Handle async notification callbacks.
      */
-    public abstract NotifyRequest handleNotify(Map<String, Object> body, String sign);
+    public abstract NotifyRequest handleNotify(Map<String, Object> body, String interfaceParam);
 
     /**
      * Return provider-specific success response body for notify callback acknowledgment.
@@ -199,11 +204,33 @@ public abstract class OrderHandler {
         } else if (payload instanceof PayCreateEntity entity) {
             channelParams = entity.getChannelParams();
         } else if (payload instanceof CollectionQueryEntity entity) {
-            channelParams = entity.getChannelParams();
+            channelParams = parseCollectionQueryInterfaceParams(entity.getCollectionInterfaceParam());
         } else if (payload instanceof PayQueryEntity entity) {
-            channelParams = entity.getChannelParams();
+            channelParams = parsePayQueryInterfaceParams(entity.getPayInterfaceParam());
         }
         return channelParams == null ? Collections.emptyMap() : channelParams;
+    }
+
+    private Map<String, Object> parseCollectionQueryInterfaceParams(String interfaceParam) {
+        if (interfaceParam == null || interfaceParam.isBlank()) {
+            return Collections.emptyMap();
+        }
+        try {
+            return OBJECT_MAPPER.readValue(interfaceParam, MAP_TYPE);
+        } catch (Exception e) {
+            return Collections.emptyMap();
+        }
+    }
+
+    private Map<String, Object> parsePayQueryInterfaceParams(String interfaceParam) {
+        if (interfaceParam == null || interfaceParam.isBlank()) {
+            return Collections.emptyMap();
+        }
+        try {
+            return OBJECT_MAPPER.readValue(interfaceParam, MAP_TYPE);
+        } catch (Exception e) {
+            return Collections.emptyMap();
+        }
     }
 
     /**

@@ -623,6 +623,7 @@ public class ReportTask {
                     .obj(() -> CommonUtil.defaultLong(dto.getOrderQuantity(), 0L), dto::setOrderQuantity)
                     .obj(() -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L), dto::setSuccessQuantity)
                     .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getSuccessOrderBalance()), dto::setSuccessOrderBalance)
                     .obj(() -> CalcUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
                     .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
             return dto;
@@ -658,6 +659,7 @@ public class ReportTask {
                     .obj(() -> CommonUtil.defaultLong(dto.getOrderQuantity(), 0L), dto::setOrderQuantity)
                     .obj(() -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L), dto::setSuccessQuantity)
                     .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getSuccessOrderBalance()), dto::setSuccessOrderBalance)
                     .obj(() -> CalcUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
                     .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
             return dto;
@@ -689,6 +691,7 @@ public class ReportTask {
                     .obj(() -> CommonUtil.defaultLong(dto.getOrderQuantity(), 0L), dto::setOrderQuantity)
                     .obj(() -> CommonUtil.defaultLong(dto.getSuccessQuantity(), 0L), dto::setSuccessQuantity)
                     .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderBalance()), dto::setOrderBalance)
+                    .obj(() -> CalcUtil.defaultBigDecimal(dto.getSuccessOrderBalance()), dto::setSuccessOrderBalance)
                     .obj(() -> CalcUtil.defaultBigDecimal(dto.getMerchantFee()), dto::setMerchantFee)
                     .obj(() -> CalcUtil.defaultBigDecimal(dto.getOrderProfit()), dto::setOrderProfit);
             return dto;

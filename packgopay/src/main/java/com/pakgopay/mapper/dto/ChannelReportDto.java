@@ -34,6 +34,9 @@ public class ChannelReportDto implements Serializable {
     /** Order amount (sum) */
     private BigDecimal orderBalance;
 
+    /** Successful order amount (sum) */
+    private BigDecimal successOrderBalance;
+
     /** Merchant fee */
     private BigDecimal merchantFee;
 

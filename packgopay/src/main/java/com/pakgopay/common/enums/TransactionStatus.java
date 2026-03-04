@@ -18,4 +18,16 @@ public enum TransactionStatus {
         this.code = code;
         this.message = message;
     }
+
+    public static TransactionStatus fromCode(String code) {
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("transaction status code is empty");
+        }
+        for (TransactionStatus status : values()) {
+            if (String.valueOf(status.getCode()).equals(code)) {
+                return status;
+            }
+        }
+        throw new IllegalArgumentException("unsupported transaction status code: " + code);
+    }
 }

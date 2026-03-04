@@ -16,6 +16,8 @@
         <result column="contact_name" property="contactName" javaType="java.lang.String"/>
         <result column="contact_email" property="contactEmail" javaType="java.lang.String"/>
         <result column="contact_phone" property="contactPhone" javaType="java.lang.String"/>
+        <result column="login_ips" property="loginIps" javaType="java.lang.String"/>
+        <result column="withdrawal_ips" property="withdrawalIps" javaType="java.lang.String"/>
 
         <result column="parent_id" property="parentId" javaType="java.lang.String"/>
         <result column="top_agent_id" property="topAgentId" javaType="java.lang.String"/>
@@ -106,6 +108,8 @@
         ui.contact_name,
         ui.contact_email,
         ui.contact_phone,
+        ui.login_ips,
+        ui.withdrawal_ips,
         ai.parent_id,
         ai.top_agent_id,
         ai.channel_ids,

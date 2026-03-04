@@ -31,7 +31,7 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
     private RestTemplateUtil restTemplateUtil;
 
     @Override
-    public Object handleCol(CollectionCreateEntity request) {
+    public PaymentHttpResponse handleCol(CollectionCreateEntity request) {
         String path = resolvePath(resolveChannelCode(request));
         Map<String, Object> payload = toPayload(request);
         validateRequiredFields(path, payload);
@@ -40,7 +40,7 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
         log.info("ColThirdPartyBankTransferHandler handle, channelCode={}, url={}, request={}", resolveChannelCode(request), url, request);
 //        PaymentHttpResponse response = restTemplateUtil.request(entity, HttpMethod.POST, url);
         PaymentHttpResponse response = new PaymentHttpResponse();
-        response.setCode(200);
+        response.setCode(0);
         response.setMessage("success");
         Map<String, Object> data = new HashMap<>();
         data.put("payUrl",
@@ -55,7 +55,7 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
     }
 
     @Override
-    public Object handlePay(PayCreateEntity request) {
+    public PaymentHttpResponse handlePay(PayCreateEntity request) {
         String path = resolvePath(resolveChannelCode(request));
         Map<String, Object> payload = toPayload(request);
         validateRequiredFields(path, payload);
@@ -63,7 +63,12 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, jsonHeaders());
         log.info("PayThirdPartyBankTransferHandler handle, channelCode={}, url={}, request={}",
                 resolveChannelCode(request), url, request);
-        PaymentHttpResponse response = restTemplateUtil.request(entity, HttpMethod.POST, url);
+        PaymentHttpResponse rawResponse = restTemplateUtil.request(entity, HttpMethod.POST, url);
+        PaymentHttpResponse response = new PaymentHttpResponse();
+        boolean success = rawResponse != null && Integer.valueOf(200).equals(rawResponse.getCode());
+        response.setCode(success ? 0 : -1);
+        response.setMessage(success ? "success" : (rawResponse == null ? "request failed" : rawResponse.getMessage()));
+        response.setData(rawResponse == null ? null : rawResponse.getData());
         log.info("third-party payout response, channelCode={}, code={}",
                 resolveChannelCode(request), response == null ? null : response.getCode());
         return response;
@@ -80,7 +85,7 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
     }
 
     @Override
-    public NotifyRequest handleNotify(Map<String, Object> body, String sign) {
+    public NotifyRequest handleNotify(Map<String, Object> body, String interfaceParam) {
         log.info("third-party collection notify, channelCode={}, payload={}", resolveChannelCode(body), body);
         return buildNotifyResponse(body);
     }

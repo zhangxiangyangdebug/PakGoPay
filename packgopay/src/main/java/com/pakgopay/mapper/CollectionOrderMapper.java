@@ -48,6 +48,7 @@ public interface CollectionOrderMapper {
     int increaseCallbackTimes(@Param("transactionNo") String transactionNo,
                               @Param("lastCallbackTime") Long lastCallbackTime,
                               @Param("increment") Integer increment,
+                              @Param("callbackStatus") Integer callbackStatus,
                               @Param("successCallbackTime") Long successCallbackTime,
                               @Param("startTime") Long startTime,
                               @Param("endTime") Long endTime);

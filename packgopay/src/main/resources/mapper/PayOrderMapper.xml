@@ -76,6 +76,7 @@
         <result column="order_quantity" property="orderQuantity"/>
         <result column="success_quantity" property="successQuantity"/>
         <result column="order_balance" property="orderBalance"/>
+        <result column="success_order_balance" property="successOrderBalance"/>
         <result column="merchant_fee" property="merchantFee"/>
         <result column="order_profit" property="orderProfit"/>
     </resultMap>
@@ -86,6 +87,7 @@
         <result column="order_quantity" property="orderQuantity"/>
         <result column="success_quantity" property="successQuantity"/>
         <result column="order_balance" property="orderBalance"/>
+        <result column="success_order_balance" property="successOrderBalance"/>
         <result column="merchant_fee" property="merchantFee"/>
         <result column="order_profit" property="orderProfit"/>
     </resultMap>
@@ -95,6 +97,7 @@
         <result column="order_quantity" property="orderQuantity"/>
         <result column="success_quantity" property="successQuantity"/>
         <result column="order_balance" property="orderBalance"/>
+        <result column="success_order_balance" property="successOrderBalance"/>
         <result column="merchant_fee" property="merchantFee"/>
         <result column="order_profit" property="orderProfit"/>
     </resultMap>
@@ -120,7 +123,7 @@
     </insert>
 
     <!-- Query by order ID -->
-    <select id="findByTransactionNo" parameterType="string" resultMap="PayOrderResultMap">
+    <select id="findByTransactionNo" parameterType="map" resultMap="PayOrderResultMap">
         SELECT
         <include refid="BaseColumns"/>
         FROM pay_order
@@ -130,7 +133,7 @@
         LIMIT 1
     </select>
 
-    <select id="findByMerchantOrderNo" parameterType="string" resultMap="PayOrderResultMap">
+    <select id="findByMerchantOrderNo" parameterType="map" resultMap="PayOrderResultMap">
         SELECT
         <include refid="BaseColumns"/>
         FROM pay_order
@@ -220,11 +223,9 @@
         UPDATE pay_order
         SET
             callback_times = COALESCE(callback_times, 0) + #{increment},
+            callback_status = #{callbackStatus},
             last_callback_time = #{lastCallbackTime},
-            success_callback_time = CASE
-                WHEN #{successCallbackTime} IS NOT NULL THEN #{successCallbackTime}
-                ELSE success_callback_time
-            END,
+            success_callback_time = COALESCE(#{successCallbackTime, jdbcType=BIGINT}, success_callback_time),
             update_time = #{lastCallbackTime}
         WHERE transaction_no = #{transactionNo}
           AND create_time &gt;= #{startTime}
@@ -279,6 +280,8 @@
         COUNT(1) order_quantity,
         COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN 1 ELSE 0 END), 0) success_quantity,
         COALESCE(SUM(COALESCE(actual_amount, amount)), 0) order_balance,
+        COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN COALESCE(actual_amount, amount) ELSE 0 END), 0)
+          success_order_balance,
         COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN merchant_fee ELSE 0 END), 0) merchant_fee,
         COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN merchant_fee ELSE 0 END), 0)
           - COALESCE(SUM(CASE WHEN order_status = #{successStatus} THEN agent1_fee ELSE 0 END), 0)

@@ -33,6 +33,12 @@ public class AgentInfoDto implements Serializable {
     /** Contact phone */
     private String contactPhone;
 
+    /** Login IP whitelist (comma-separated) */
+    private String loginIps;
+
+    /** Withdrawal IP whitelist (comma-separated) */
+    private String withdrawalIps;
+
     /** Parent agent ID */
     private String parentId;
 

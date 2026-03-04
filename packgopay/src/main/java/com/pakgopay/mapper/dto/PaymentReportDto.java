@@ -34,6 +34,9 @@ public class PaymentReportDto implements Serializable {
     /** Order amount (sum) */
     private BigDecimal orderBalance;
 
+    /** Successful order amount (sum) */
+    private BigDecimal successOrderBalance;
+
     /** Platform profit */
     private BigDecimal orderProfit;
 

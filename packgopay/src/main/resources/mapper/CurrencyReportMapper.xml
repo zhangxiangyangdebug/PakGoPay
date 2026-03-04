@@ -13,6 +13,7 @@
         <id column="record_date" property="recordDate" javaType="java.lang.Long"/>
 
         <result column="order_balance" property="orderBalance" javaType="java.math.BigDecimal"/>
+        <result column="success_order_balance" property="successOrderBalance" javaType="java.math.BigDecimal"/>
         <result column="merchant_fee" property="merchantFee" javaType="java.math.BigDecimal"/>
         <result column="order_profit" property="orderProfit" javaType="java.math.BigDecimal"/>
 
@@ -26,6 +27,12 @@
 
     </resultMap>
 
+    <resultMap id="ReportCardSummaryResultMap" type="com.pakgopay.mapper.dto.ReportCardSummaryDto">
+        <result column="total_number" property="totalNumber" javaType="java.lang.Long"/>
+        <result column="total" property="total" javaType="java.math.BigDecimal"/>
+        <result column="success_order_balance" property="successOrderBalance" javaType="java.math.BigDecimal"/>
+    </resultMap>
+
     <!-- Insert -->
     <insert id="insert" parameterType="com.pakgopay.mapper.dto.CurrencyReportDto">
         INSERT INTO currency_report (
@@ -34,6 +41,7 @@
         #{currency},
         #{orderType},
         #{orderBalance},
+        #{successOrderBalance},
         #{merchantFee},
         #{orderProfit},
         #{orderQuantity},
@@ -50,6 +58,7 @@
         currency,
         order_type,
         order_balance,
+        success_order_balance,
         merchant_fee,
         order_profit,
         order_quantity,
@@ -65,6 +74,7 @@
         UPDATE currency_report
         <set>
             <if test="orderBalance != null">order_balance = #{orderBalance},</if>
+            <if test="successOrderBalance != null">success_order_balance = #{successOrderBalance},</if>
             <if test="merchantFee != null">merchant_fee = #{merchantFee},</if>
             <if test="orderProfit != null">order_profit = #{orderProfit},</if>
             <if test="orderQuantity != null">order_quantity = #{orderQuantity},</if>
@@ -87,6 +97,7 @@
             #{item.currency},
             #{item.orderType},
             #{item.orderBalance},
+            #{item.successOrderBalance},
             #{item.merchantFee},
             #{item.orderProfit},
             #{item.orderQuantity},
@@ -99,6 +110,7 @@
         </foreach>
         ON CONFLICT (currency, record_date, order_type) DO UPDATE SET
         order_balance = EXCLUDED.order_balance,
+        success_order_balance = EXCLUDED.success_order_balance,
         merchant_fee = EXCLUDED.merchant_fee,
         order_profit = EXCLUDED.order_profit,
         order_quantity = EXCLUDED.order_quantity,
@@ -128,12 +140,14 @@
         </where>
     </sql>
 
-    <!-- 1) Return order_balance list -->
-    <select id="balanceInfosByQuery"
+    <!-- 1) Return card summary (count + total + success total) -->
+    <select id="cardSummaryByQuery"
             parameterType="com.pakgopay.data.entity.report.BaseReportEntity"
-            resultType="java.math.BigDecimal">
+            resultMap="ReportCardSummaryResultMap">
         SELECT
-        order_balance
+        COALESCE(COUNT(1), 0) AS total_number,
+        COALESCE(SUM(order_balance), 0) AS total,
+        COALESCE(SUM(success_order_balance), 0) AS success_order_balance
         FROM currency_report
         <include refid="CurrencyReportWhere"/>
     </select>

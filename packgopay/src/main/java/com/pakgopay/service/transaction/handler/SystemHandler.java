@@ -7,6 +7,7 @@ import com.pakgopay.data.entity.transaction.CollectionCreateEntity;
 import com.pakgopay.data.entity.transaction.PayQueryEntity;
 import com.pakgopay.data.entity.transaction.PayCreateEntity;
 import com.pakgopay.service.transaction.OrderHandler;
+import com.pakgopay.data.response.http.PaymentHttpResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -17,17 +18,23 @@ import java.util.Map;
 public class SystemHandler extends OrderHandler {
 
     @Override
-    public Object handleCol(CollectionCreateEntity request) {
+    public PaymentHttpResponse handleCol(CollectionCreateEntity request) {
         // Handle in-house collection logic.
         log.info("ColSystemHandler handle, request={}", request);
-        return "PK SYSTEM OK";
+        PaymentHttpResponse response = new PaymentHttpResponse();
+        response.setCode(0);
+        response.setMessage("success");
+        return response;
     }
 
     @Override
-    public Object handlePay(PayCreateEntity request) {
+    public PaymentHttpResponse handlePay(PayCreateEntity request) {
         // Handle in-house payout logic.
         log.info("PaySystemHandler handle, request={}", request);
-        return "PK SYSTEM OK";
+        PaymentHttpResponse response = new PaymentHttpResponse();
+        response.setCode(0);
+        response.setMessage("success");
+        return response;
     }
 
     @Override
@@ -41,7 +48,7 @@ public class SystemHandler extends OrderHandler {
     }
 
     @Override
-    public NotifyRequest handleNotify(Map<String, Object> body, String sign) {
+    public NotifyRequest handleNotify(Map<String, Object> body, String interfaceParam) {
         // Handle in-house collection notify.
         return buildNotifyResponse(body);
     }

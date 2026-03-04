@@ -12,10 +12,12 @@ import com.pakgopay.data.reqeust.account.AccountQueryRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
+import com.pakgopay.data.reqeust.merchant.MerchantSecretKeyQueryRequest;
 import com.pakgopay.data.response.BalanceUserInfo;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.account.WithdrawalAccountResponse;
 import com.pakgopay.data.response.merchant.MerchantResponse;
+import com.pakgopay.data.response.merchant.MerchantSecretKeyResponse;
 import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.BalanceService;
@@ -98,6 +100,49 @@ public class MerchantServiceImpl implements MerchantService {
         return CommonResponse.success(response);
     }
 
+    @Override
+    public CommonResponse queryMerchantSecretKey(MerchantSecretKeyQueryRequest request, String operatorUserId) {
+        if (operatorUserId == null || operatorUserId.isBlank()) {
+            log.warn("queryMerchantSecretKey failed: operator userId is empty");
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "operator userId is empty");
+        }
+        Integer roleId = userMapper.queryRoleIdByUserId(operatorUserId);
+        if (roleId == null) {
+            log.warn("queryMerchantSecretKey failed: role not found, operatorUserId={}", operatorUserId);
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "user has not role");
+        }
+
+        String targetMerchantUserId;
+        if (CommonConstant.ROLE_ADMIN == roleId) {
+            targetMerchantUserId = request.getMerchantUserId();
+            if (targetMerchantUserId == null || targetMerchantUserId.isBlank()) {
+                log.warn("queryMerchantSecretKey failed: merchantUserId is empty for admin, operatorUserId={}",
+                        operatorUserId);
+                throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchantUserId is empty");
+            }
+        } else if (CommonConstant.ROLE_MERCHANT == roleId) {
+            targetMerchantUserId = operatorUserId;
+        } else {
+            log.warn("queryMerchantSecretKey failed: role forbidden, operatorUserId={}, roleId={}",
+                    operatorUserId, roleId);
+            throw new PakGoPayException(ResultCode.USER_HAS_NO_ROLE_PERMISSION, "no permission");
+        }
+
+        MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(targetMerchantUserId);
+        if (merchantInfoDto == null) {
+            log.warn("queryMerchantSecretKey failed: merchant not found, merchantUserId={}", targetMerchantUserId);
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchant not found");
+        }
+
+        MerchantSecretKeyResponse response = new MerchantSecretKeyResponse();
+        response.setMerchantUserId(targetMerchantUserId);
+        response.setApiKey(merchantInfoDto.getApiKey());
+        response.setSignKey(resolvePlainMerchantSignKey(merchantInfoDto.getSignKey(), targetMerchantUserId));
+        log.info("queryMerchantSecretKey success, operatorUserId={}, roleId={}, merchantUserId={}",
+                operatorUserId, roleId, targetMerchantUserId);
+        return CommonResponse.success(response);
+    }
+
     private MerchantResponse fetchMerchantPage(MerchantQueryRequest merchantQueryRequest) throws PakGoPayException {
         MerchantEntity entity = new MerchantEntity();
         entity.setMerchantName(merchantQueryRequest.getMerchantName());
@@ -113,6 +158,7 @@ public class MerchantServiceImpl implements MerchantService {
             Integer totalNumber = merchantInfoMapper.countByQuery(entity);
             List<MerchantInfoDto> merchantInfoDtoList = merchantInfoMapper.pageByQuery(entity);
             getMerchantDetailInfo(merchantInfoDtoList);
+            maskMerchantSensitiveFields(merchantInfoDtoList);
 
             if (merchantQueryRequest.getIsNeedCardData()) {
                 List<String> userIds = merchantInfoMapper.userIdsByQueryMerchant(entity);
@@ -137,6 +183,62 @@ public class MerchantServiceImpl implements MerchantService {
         response.setPageNo(entity.getPageNo());
         response.setPageSize(entity.getPageSize());
         return response;
+    }
+
+    private void maskMerchantSensitiveFields(List<MerchantInfoDto> merchantInfoDtoList) {
+        if (merchantInfoDtoList == null || merchantInfoDtoList.isEmpty()) {
+            return;
+        }
+        for (MerchantInfoDto merchantInfoDto : merchantInfoDtoList) {
+            if (merchantInfoDto == null) {
+                continue;
+            }
+            merchantInfoDto.setApiKey(maskKeepHeadTail2(merchantInfoDto.getApiKey()));
+            merchantInfoDto.setSignKey(maskKeepHeadTail2(decryptSignKeyForMasking(merchantInfoDto.getSignKey())));
+        }
+    }
+
+    private String decryptSignKeyForMasking(String signKey) {
+        if (signKey == null || signKey.isBlank()) {
+            return signKey;
+        }
+        if (!signKey.startsWith("gcm:v1:")) {
+            return signKey;
+        }
+        try {
+            return CryptoUtil.decryptSignKey(signKey);
+        } catch (Exception e) {
+            log.warn("decrypt signKey for masking failed, message={}", e.getMessage());
+            return signKey;
+        }
+    }
+
+    private String maskKeepHeadTail2(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        String v = value.trim();
+        int len = v.length();
+        if (len <= 4) {
+            return "*".repeat(len);
+        }
+        return v.substring(0, 2) + "*".repeat(len - 4) + v.substring(len - 2);
+    }
+
+    private String resolvePlainMerchantSignKey(String signKey, String merchantUserId) {
+        if (signKey == null || signKey.isBlank()) {
+            return signKey;
+        }
+        if (!signKey.startsWith("gcm:v1:")) {
+            return signKey;
+        }
+        try {
+            return CryptoUtil.decryptSignKey(signKey);
+        } catch (Exception e) {
+            log.warn("resolvePlainMerchantSignKey failed: merchantUserId={}, message={}",
+                    merchantUserId, e.getMessage());
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchant signKey is invalid");
+        }
     }
 
     private void getMerchantDetailInfo(List<MerchantInfoDto> merchantInfoDtoList) {

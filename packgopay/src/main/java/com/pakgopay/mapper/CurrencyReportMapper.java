@@ -2,9 +2,9 @@ package com.pakgopay.mapper;
 
 import com.pakgopay.data.entity.report.BaseReportEntity;
 import com.pakgopay.mapper.dto.CurrencyReportDto;
+import com.pakgopay.mapper.dto.ReportCardSummaryDto;
 import org.apache.ibatis.annotations.Mapper;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Mapper
@@ -19,8 +19,8 @@ public interface CurrencyReportMapper {
     /** Batch upsert reports */
     int batchUpsert(List<CurrencyReportDto> list);
 
-    /** order_balance list by query */
-    List<BigDecimal> balanceInfosByQuery(BaseReportEntity query);
+    /** card summary: total rows + total amount + success amount */
+    ReportCardSummaryDto cardSummaryByQuery(BaseReportEntity query);
 
     /** Page query */
     List<CurrencyReportDto> pageByQuery(BaseReportEntity query);

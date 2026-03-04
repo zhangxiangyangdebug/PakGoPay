@@ -1,15 +1,13 @@
 package com.pakgopay.controller;
 
-import com.google.gson.Gson;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.account.*;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
-import com.pakgopay.data.reqeust.merchant.MerchantStatementRequest;
+import com.pakgopay.data.reqeust.merchant.MerchantSecretKeyQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
-import com.pakgopay.data.response.merchant.MerchantStatementResponse;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.common.AccountStatementService;
 import com.pakgopay.util.ExportFileUtils;
@@ -24,8 +22,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 @Slf4j
 @RestController
@@ -38,41 +34,6 @@ public class MerchantStatementController {
     @Autowired
     private AccountStatementService accountStatementService;
 
-    @RequestMapping("/merchantStatement")
-    public CommonResponse merchantStatementInfo(@RequestBody MerchantStatementRequest request) {
-        System.out.println(request.toString());
-        MerchantStatementResponse merchantStatementResponse = new MerchantStatementResponse();
-        merchantStatementResponse.setOrderNO("DF0000000001");
-        merchantStatementResponse.setMerchantName("代理商1");
-        merchantStatementResponse.setTransactionType("现金交易");
-        merchantStatementResponse.setTransactionStatus("交易成功");
-        merchantStatementResponse.setTransactionCurrencyType("美金");
-        merchantStatementResponse.setTransactionCommission("20");
-        merchantStatementResponse.setBeforeTransactionAccountBalance("1000");
-        merchantStatementResponse.setAfterTransactionAccountBalance("800");
-        merchantStatementResponse.setTransactionCashAmount("200");
-        merchantStatementResponse.setTransactionTime("2025-12-06");
-        merchantStatementResponse.setTransactionReason("你管我");
-        merchantStatementResponse.setOperator("admin");
-        MerchantStatementResponse merchantStatementResponse2 = new MerchantStatementResponse();
-        merchantStatementResponse2.setOrderNO("DF0000000002");
-        merchantStatementResponse2.setMerchantName("代理商1");
-        merchantStatementResponse2.setTransactionType("现金交易");
-        merchantStatementResponse2.setTransactionStatus("交易成功");
-        merchantStatementResponse2.setTransactionCurrencyType("美金");
-        merchantStatementResponse2.setTransactionCommission("20");
-        merchantStatementResponse2.setBeforeTransactionAccountBalance("1000");
-        merchantStatementResponse2.setAfterTransactionAccountBalance("800");
-        merchantStatementResponse2.setTransactionCashAmount("200");
-        merchantStatementResponse2.setTransactionTime("2025-12-06");
-        merchantStatementResponse2.setTransactionReason("你管我");
-        merchantStatementResponse2.setOperator("admin");
-        List<MerchantStatementResponse> merchantStatementResponseList = new ArrayList<>();
-        merchantStatementResponseList.add(merchantStatementResponse);
-        merchantStatementResponseList.add(merchantStatementResponse2);
-        return CommonResponse.success(new Gson().toJson(merchantStatementResponseList));
-    }
-
     @PostMapping("/queryMerchant")
     public CommonResponse queryMerchant(@RequestBody @Valid MerchantQueryRequest merchantQueryRequest) {
         try {
@@ -80,6 +41,17 @@ public class MerchantStatementController {
         } catch (PakGoPayException e) {
             log.error("queryMerchant failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryMerchant failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/queryMerchantSecretKey")
+    public CommonResponse queryMerchantSecretKey(
+            @RequestBody MerchantSecretKeyQueryRequest request) {
+        try {
+            return merchantService.queryMerchantSecretKey(request, request.getUserId());
+        } catch (PakGoPayException e) {
+            log.error("queryMerchantSecretKey failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "queryMerchantSecretKey failed: " + e.getMessage());
         }
     }
 

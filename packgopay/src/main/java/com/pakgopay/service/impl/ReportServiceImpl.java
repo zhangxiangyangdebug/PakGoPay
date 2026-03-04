@@ -273,12 +273,9 @@ public class ReportServiceImpl implements ReportService {
         log.info("fetchChannelReportPage start");
         ChannelReportResponse response = new ChannelReportResponse();
         try {
-            List<BigDecimal> balanceInfos = channelReportMapper.balanceInfosByQuery(entity);
-            if (balanceInfos == null || balanceInfos.isEmpty()) {
-                response.setTotalNumber(0);
-            } else {
-                response.setTotalNumber(balanceInfos.size());
-            }
+            ReportCardSummaryDto summary = channelReportMapper.cardSummaryByQuery(entity);
+            response.setTotalNumber(summary == null || summary.getTotalNumber() == null
+                    ? 0 : summary.getTotalNumber().intValue());
 
             List<ChannelReportDto> channelReportDtoList = channelReportMapper.pageByQuery(entity);
             response.setChannelReportDtoList(channelReportDtoList);
@@ -290,7 +287,9 @@ public class ReportServiceImpl implements ReportService {
                 Map<String, BigDecimal> currencyMap =
                         cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
 
-                currencyMap.put("total", CalcUtil.sum(balanceInfos));
+                currencyMap.put("total", summary == null ? BigDecimal.ZERO : CalcUtil.defaultBigDecimal(summary.getTotal()));
+                currencyMap.put("successOrderBalance",
+                        summary == null ? BigDecimal.ZERO : CalcUtil.defaultBigDecimal(summary.getSuccessOrderBalance()));
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
@@ -340,12 +339,9 @@ public class ReportServiceImpl implements ReportService {
         log.info("fetchCurrencyReportPage start");
         CurrencyReportResponse response = new CurrencyReportResponse();
         try {
-            List<BigDecimal> balanceInfos = currencyReportMapper.balanceInfosByQuery(entity);
-            if (balanceInfos == null || balanceInfos.isEmpty()) {
-                response.setTotalNumber(0);
-            } else {
-                response.setTotalNumber(balanceInfos.size());
-            }
+            ReportCardSummaryDto summary = currencyReportMapper.cardSummaryByQuery(entity);
+            response.setTotalNumber(summary == null || summary.getTotalNumber() == null
+                    ? 0 : summary.getTotalNumber().intValue());
 
             List<CurrencyReportDto> agentReportDtoList = currencyReportMapper.pageByQuery(entity);
             response.setCurrencyReportDtoList(agentReportDtoList);
@@ -357,7 +353,9 @@ public class ReportServiceImpl implements ReportService {
                 Map<String, BigDecimal> currencyMap =
                         cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
 
-                currencyMap.put("total", CalcUtil.sum(balanceInfos));
+                currencyMap.put("total", summary == null ? BigDecimal.ZERO : CalcUtil.defaultBigDecimal(summary.getTotal()));
+                currencyMap.put("successOrderBalance",
+                        summary == null ? BigDecimal.ZERO : CalcUtil.defaultBigDecimal(summary.getSuccessOrderBalance()));
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {
@@ -373,12 +371,9 @@ public class ReportServiceImpl implements ReportService {
         log.info("fetchPaymentReportPage start");
         PaymentReportResponse response = new PaymentReportResponse();
         try {
-            List<BigDecimal> balanceInfos = paymentReportMapper.balanceInfosByQuery(entity);
-            if (balanceInfos == null || balanceInfos.isEmpty()) {
-                response.setTotalNumber(0);
-            } else {
-                response.setTotalNumber(balanceInfos.size());
-            }
+            ReportCardSummaryDto summary = paymentReportMapper.cardSummaryByQuery(entity);
+            response.setTotalNumber(summary == null || summary.getTotalNumber() == null
+                    ? 0 : summary.getTotalNumber().intValue());
 
             List<PaymentReportDto> channelReportDtoList = paymentReportMapper.pageByQuery(entity);
             response.setPaymentReportDtoList(channelReportDtoList);
@@ -390,7 +385,9 @@ public class ReportServiceImpl implements ReportService {
                 Map<String, BigDecimal> currencyMap =
                         cardInfo.computeIfAbsent(entity.getCurrency(), k -> new HashMap<>());
 
-                currencyMap.put("total", CalcUtil.sum(balanceInfos));
+                currencyMap.put("total", summary == null ? BigDecimal.ZERO : CalcUtil.defaultBigDecimal(summary.getTotal()));
+                currencyMap.put("successOrderBalance",
+                        summary == null ? BigDecimal.ZERO : CalcUtil.defaultBigDecimal(summary.getSuccessOrderBalance()));
                 response.setCardInfo(cardInfo);
             }
         } catch (Exception e) {

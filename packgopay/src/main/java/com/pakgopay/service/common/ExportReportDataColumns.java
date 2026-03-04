@@ -104,6 +104,7 @@ public final class ExportReportDataColumns {
 
         CHANNEL_REPORT_ALLOWED.put("merchantFee", new ColumnDef<>("merchantFee", r -> safeToString(r.getMerchantFee())));
         CHANNEL_REPORT_ALLOWED.put("orderProfit", new ColumnDef<>("orderProfit", r -> safeToString(r.getOrderProfit())));
+        CHANNEL_REPORT_ALLOWED.put("successOrderBalance", new ColumnDef<>("successOrderBalance", r -> safeToString(r.getSuccessOrderBalance())));
 
         CHANNEL_REPORT_ALLOWED.put("currency", new ColumnDef<>("currency", ChannelReportDto::getCurrency));
         CHANNEL_REPORT_ALLOWED.put("timeDate", new ColumnDef<>("timeDate", r -> safeToString(r.getRecordDate())));
@@ -136,6 +137,7 @@ public final class ExportReportDataColumns {
         CURRENCY_REPORT_ALLOWED.put("merchantFee", new ColumnDef<>("merchantFee", r -> safeToString(r.getMerchantFee())));
         CURRENCY_REPORT_ALLOWED.put("orderProfit", new ColumnDef<>("orderProfit", r -> safeToString(r.getOrderProfit())));
         CURRENCY_REPORT_ALLOWED.put("orderBalance", new ColumnDef<>("orderBalance", r -> safeToString(r.getOrderBalance())));
+        CURRENCY_REPORT_ALLOWED.put("successOrderBalance", new ColumnDef<>("successOrderBalance", r -> safeToString(r.getSuccessOrderBalance())));
 
         CURRENCY_REPORT_ALLOWED.put("timeDate", new ColumnDef<>("timeDate", r -> safeToString(r.getRecordDate())));
 
@@ -153,6 +155,7 @@ public final class ExportReportDataColumns {
         PAYMENT_REPORT_ALLOWED.put("merchantFee", new ColumnDef<>("merchantFee", r -> safeToString(r.getMerchantFee())));
         PAYMENT_REPORT_ALLOWED.put("orderProfit", new ColumnDef<>("orderProfit", r -> safeToString(r.getOrderProfit())));
         PAYMENT_REPORT_ALLOWED.put("orderBalance", new ColumnDef<>("orderBalance", r -> safeToString(r.getOrderBalance())));
+        PAYMENT_REPORT_ALLOWED.put("successOrderBalance", new ColumnDef<>("successOrderBalance", r -> safeToString(r.getSuccessOrderBalance())));
 
         PAYMENT_REPORT_ALLOWED.put("currency", new ColumnDef<>("currency", PaymentReportDto::getCurrency));
         PAYMENT_REPORT_ALLOWED.put("timeDate", new ColumnDef<>("timeDate", r -> safeToString(r.getRecordDate())));

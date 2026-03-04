@@ -37,7 +37,7 @@ public class PayOrderDto implements Serializable {
     /** Callback success time */
     private Long successCallbackTime;
 
-    /** Callback status: 1-success, 2-failed, 3-pending */
+    /** Callback status: 0-pending, 1-failed, 2-success */
     private Integer callbackStatus;
 
     /** Merchant's User ID (not system) */

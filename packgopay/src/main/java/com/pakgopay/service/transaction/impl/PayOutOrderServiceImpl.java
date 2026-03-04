@@ -14,6 +14,7 @@ import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.reqeust.transaction.QueryOrderApiRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.PayOutOrderPageResponse;
+import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
@@ -131,6 +132,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     transactionInfo.getAgent2Fee(),
                     transactionInfo.getAgent3Fee());
 
+            // 7. build payout order dto
             PayOrderDto payOrderDto = buildPayOrderDto(payOrderRequest, transactionInfo);
             log.info("payOrderDto built, transactionNo={}, paymentId={}, channelId={}, paymentMode={}",
                     payOrderDto.getTransactionNo(),
@@ -138,6 +140,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     payOrderDto.getChannelId(),
                     payOrderDto.getPaymentMode());
 
+            // 8. freeze balance, persist processing order and publish timeout message
             frozenAmount = CalcUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
             BigDecimal frozenAmountSnapshot = frozenAmount;
             transactionUtil.runInTransaction(() -> {
@@ -163,14 +166,23 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     payOrderDto.getTransactionNo(),
                     payOrderDto.getCreateTime());
 
-            Object handlerResponse = dispatchPayOutOrder(
+            // 9. dispatch payout request to handler
+            PaymentHttpResponse handlerResponse = dispatchPayOutOrder(
                     payOrderDto,
                     payOrderRequest,
                     transactionInfo.getPaymentInfo());
             log.info("payout handler dispatched, transactionNo={}, responseType={}",
                     payOrderDto.getTransactionNo(),
                     handlerResponse == null ? null : handlerResponse.getClass().getSimpleName());
+            Integer handlerCode = extractCreateHandlerCode(handlerResponse);
+            if (handlerCode != null && !Integer.valueOf(0).equals(handlerCode)) {
+                markPayOrderFailedByDispatch(payOrderDto.getTransactionNo(),
+                        "channel_request_failed_code_" + handlerCode);
+                throw new PakGoPayException(ResultCode.HTTP_REQUEST_ERROR,
+                        "payout channel request failed, code=" + handlerCode);
+            }
 
+            // 10. build and return create response
             Map<String, Object> responseBody = buildPayOutResponse(payOrderDto, handlerResponse);
             log.info("{} success, transactionNo={}", scene, payOrderDto.getTransactionNo());
             createdSuccess = true;
@@ -302,7 +314,9 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         TransactionStatus targetStatus = TransactionStatus.FAILED;
         try {
             // Parse notify payload into a structured response.
-            response = handler.handleNotify(notifyData, payOrderDto.getCallbackToken());
+            response = handler.handleNotify(
+                    notifyData,
+                    paymentDto == null ? null : paymentDto.getPayInterfaceParam());
             log.info("notify parsed, transactionNo={}, merchantNo={}, status={}",
                     response.getTransactionNo(), response.getMerchantNo(), response.getStatus());
 
@@ -322,7 +336,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             targetStatus = TransactionStatus.FAILED;
         }
 
-        processNotifyResult(payOrderDto, targetStatus, handler, "notify");
+        processNotifyResult(payOrderDto, targetStatus, handler, NotifyFlow.AUTO);
 
         return handler.getNotifySuccessResponse();
     }
@@ -344,25 +358,16 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 : OrderScope.SYSTEM;
         OrderHandler handler = OrderHandlerFactory.get(
                 scope, payOrderDto.getCurrencyType(), payOrderDto.getPaymentNo());
-        PaymentDto paymentDto = fetchPaymentById(payOrderDto.getPaymentId());
-
-        TransactionStatus targetStatus = TransactionStatus.FAILED;
+        // Manual notify uses request status code directly without upstream status query.
+        TransactionStatus targetStatus;
         try {
-            // Decide final status from notify status + channel query fallback.
-            targetStatus = resolveTargetStatus(
-                    payOrderDto,
-                    notifyRequest.getStatus(),
-                    paymentDto,
-                    handler,
-                    "manual notify");
-        } catch (Exception e) {
-            log.warn("manualHandleNotify pre-check failed, transactionNo={}, message={}",
-                    payOrderDto.getTransactionNo(), e.getMessage());
-            targetStatus = TransactionStatus.FAILED;
+            targetStatus = TransactionStatus.fromCode(notifyRequest.getStatus());
+        } catch (IllegalArgumentException e) {
+            throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, e.getMessage());
         }
 
         // Execute shared post-notify pipeline.
-        processNotifyResult(payOrderDto, targetStatus, handler, "manual notify");
+        processNotifyResult(payOrderDto, targetStatus, handler, NotifyFlow.MANUAL);
         log.info("manualHandleNotify end, transactionNo={}, targetStatus={}",
                 payOrderDto.getTransactionNo(), targetStatus);
         return CommonResponse.success(ResultCode.SUCCESS);
@@ -396,9 +401,10 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             PayOrderDto payOrderDto,
             TransactionStatus targetStatus,
             OrderHandler handler,
-            String scene) throws PakGoPayException {
+            NotifyFlow notifyFlow) throws PakGoPayException {
+        String scene = notifyFlow.getScene();
         // Persist order status transition and related balance changes.
-        boolean updated = applyNotifyUpdate(payOrderDto, targetStatus);
+        boolean updated = applyNotifyUpdate(payOrderDto, targetStatus, notifyFlow.isAllowFailedToSuccess());
         boolean continuePostProcess = updated
                 || (TransactionStatus.SUCCESS.equals(targetStatus)
                 && TransactionStatus.SUCCESS.getCode().toString().equals(payOrderDto.getOrderStatus()));
@@ -413,12 +419,20 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             return;
         }
 
-        // Callback merchant and update callback retry metadata.
+        // Callback result only affects callback metadata, not order final status.
+        // Execute callback side-effects asynchronously to avoid blocking API response.
         if (payOrderDto.getCallbackUrl() != null && !payOrderDto.getCallbackUrl().isBlank()) {
-            OrderHandler.NotifyResult notifyResult = handler.sendNotifyToMerchant(
-                    buildPayNotifyBody(payOrderDto, targetStatus, payOrderDto.getCallbackToken()),
-                    payOrderDto.getCallbackUrl());
-            updateNotifyCallbackMeta(payOrderDto, notifyResult);
+            runCallbackAsync(scene, payOrderDto.getTransactionNo(), () -> {
+                try {
+                    OrderHandler.NotifyResult notifyResult = handler.sendNotifyToMerchant(
+                            buildPayNotifyBody(payOrderDto, targetStatus, payOrderDto.getCallbackToken()),
+                            payOrderDto.getCallbackUrl());
+                    updateNotifyCallbackMeta(payOrderDto, notifyResult);
+                } catch (Exception e) {
+                    log.error("{} merchant callback execution failed, transactionNo={}, message={}",
+                            scene, payOrderDto.getTransactionNo(), e.getMessage());
+                }
+            });
         } else {
             log.info("{} skip merchant callback, callbackUrl empty, transactionNo={}",
                     scene, payOrderDto.getTransactionNo());
@@ -437,6 +451,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
     private void updateNotifyCallbackMeta(PayOrderDto orderDto, OrderHandler.NotifyResult notifyResult) {
         long now = System.currentTimeMillis() / 1000;
         boolean success = notifyResult != null && notifyResult.isSuccess();
+        int callbackStatus = success ? 2 : 1;
         int failedAttempts = notifyResult == null ? 1 : Math.max(notifyResult.getFailedAttempts(), 0);
         int totalAttempts = failedAttempts + (success ? 1 : 0);
         try {
@@ -445,11 +460,12 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     orderDto.getTransactionNo(),
                     now,
                     totalAttempts,
+                    callbackStatus,
                     success ? now : null,
                     range[0],
                     range[1]);
-            log.info("merchant notify callback meta updated, transactionNo={}, totalAttempts={}, success={}",
-                    orderDto.getTransactionNo(), totalAttempts, success);
+            log.info("merchant notify callback meta updated, transactionNo={}, totalAttempts={}, success={}, callbackStatus={}",
+                    orderDto.getTransactionNo(), totalAttempts, success, callbackStatus);
         } catch (Exception e) {
             log.error("update notify callback meta failed, transactionNo={}, message={}",
                     orderDto.getTransactionNo(), e.getMessage());
@@ -539,12 +555,26 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
     private boolean applyNotifyUpdate(
             PayOrderDto payOrderDto,
-            TransactionStatus targetStatus) throws PakGoPayException {
-        log.info("applyNotifyUpdate start, transactionNo={}", payOrderDto.getTransactionNo());
+            TransactionStatus targetStatus,
+            boolean allowFailedToSuccess) throws PakGoPayException {
         String currentStatus = payOrderDto.getOrderStatus();
-        if (TransactionStatus.SUCCESS.getCode().toString().equals(currentStatus)
-                || TransactionStatus.FAILED.getCode().toString().equals(currentStatus)) {
+        log.info("payout applyNotifyUpdate, transactionNo={}, currentStatus={}, targetStatus={}, allowFailedToSuccess={}",
+                payOrderDto.getTransactionNo(), currentStatus, targetStatus, allowFailedToSuccess);
+        if (TransactionStatus.SUCCESS.getCode().toString().equals(currentStatus)) {
+            log.info("payout applyNotifyUpdate skip: already SUCCESS, transactionNo={}",
+                    payOrderDto.getTransactionNo());
             return false;
+        }
+        if (TransactionStatus.FAILED.getCode().toString().equals(currentStatus)
+                && !(allowFailedToSuccess && TransactionStatus.SUCCESS.equals(targetStatus))) {
+            log.info("payout applyNotifyUpdate skip: current status is FAILED and migration not allowed, transactionNo={}",
+                    payOrderDto.getTransactionNo());
+            return false;
+        }
+        if (TransactionStatus.FAILED.getCode().toString().equals(currentStatus)
+                && allowFailedToSuccess && TransactionStatus.SUCCESS.equals(targetStatus)) {
+            log.info("payout applyNotifyUpdate allow migration: FAILED -> SUCCESS, transactionNo={}",
+                    payOrderDto.getTransactionNo());
         }
         MerchantInfoDto merchantInfo = merchantService.fetchMerchantInfo(payOrderDto.getMerchantUserId());
         if (merchantInfo == null) {
@@ -569,6 +599,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 int updated = payOrderMapper.updateByTransactionNoWhenProcessing(
                         update, currentStatus,
                         range[0], range[1]);
+                log.info("payout applyNotifyUpdate db update result, transactionNo={}, updatedRows={}, expectedCurrentStatus={}, targetStatus={}",
+                        payOrderDto.getTransactionNo(), updated, currentStatus, targetStatus.getCode());
                 if (updated <= 0) {
                     log.info("payout notify skipped, order not processing, transactionNo={}, status={}",
                             payOrderDto.getTransactionNo(), targetStatus.getCode());
@@ -611,6 +643,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                         payOrderDto.getTransactionNo(), frozenAmount);
             }
         });
+        log.info("payout applyNotifyUpdate end, transactionNo={}, stateUpdated={}",
+                payOrderDto.getTransactionNo(), stateUpdated.get());
         return stateUpdated.get();
     }
 
@@ -626,8 +660,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         try {
             PayQueryEntity query = new PayQueryEntity();
             query.setTransactionNo(payOrderDto.getTransactionNo());
-            query.setSign(payOrderDto.getCallbackToken());
             query.setPaymentCheckPayUrl(paymentDto.getPaymentCheckPayUrl());
+            query.setPayInterfaceParam(paymentDto.getPayInterfaceParam());
             TransactionStatus queryStatus = handler.handlePayQuery(query);
             log.info("queryOrderTargetStatus result, transactionNo={}, queryStatus={}",
                     payOrderDto.getTransactionNo(), queryStatus);
@@ -641,7 +675,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         }
     }
 
-    private Object dispatchPayOutOrder(PayOrderDto dto, PayOutOrderRequest request, PaymentDto paymentInfo) {
+    private PaymentHttpResponse dispatchPayOutOrder(
+            PayOrderDto dto, PayOutOrderRequest request, PaymentDto paymentInfo) {
         OrderScope scope = Integer.valueOf(1).equals(dto.getPaymentMode())
                 ? OrderScope.THIRD_PARTY
                 : OrderScope.SYSTEM;
@@ -670,7 +705,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         return handler.handlePay(payRequest);
     }
 
-    private Map<String, Object> buildPayOutResponse(PayOrderDto dto, Object handlerResponse) {
+    private Map<String, Object> buildPayOutResponse(PayOrderDto dto, PaymentHttpResponse handlerResponse) {
         Map<String, Object> result = new HashMap<>();
         result.put("amount", dto.getAmount());
         result.put("transactionNo", dto.getTransactionNo());
@@ -687,6 +722,28 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             mergeIfPresent(result, handlerData, "qrCode");
         }
         return result;
+    }
+
+    private void markPayOrderFailedByDispatch(String transactionNo, String remark) {
+        try {
+            long now = System.currentTimeMillis() / 1000;
+            long[] range = resolveTransactionNoTimeRange(transactionNo);
+            PayOrderDto update = new PayOrderDto();
+            update.setTransactionNo(transactionNo);
+            update.setOrderStatus(String.valueOf(TransactionStatus.FAILED.getCode()));
+            update.setUpdateTime(now);
+            update.setRemark(remark);
+            int updated = payOrderMapper.updateByTransactionNoWhenProcessing(
+                    update,
+                    String.valueOf(TransactionStatus.PROCESSING.getCode()),
+                    range[0],
+                    range[1]);
+            log.info("markPayOrderFailedByDispatch done, transactionNo={}, updated={}, remark={}",
+                    transactionNo, updated, remark);
+        } catch (Exception e) {
+            log.error("markPayOrderFailedByDispatch failed, transactionNo={}, message={}",
+                    transactionNo, e.getMessage());
+        }
     }
 
     private PayOrderDto buildPayOrderDto(
@@ -744,7 +801,9 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         // -----------------------------
         .obj(() -> 1, dto::setOrderType) // order type: 1-system, 2-manual
         .obj(() -> OrderStatus.PROCESSING.getCode().toString(), dto::setOrderStatus) // order status: 1-processing, 2-failed
+        .obj(() -> 0, dto::setCallbackStatus) // callback status: 0-pending, 1-failed, 2-success
         .obj(request::getNotificationUrl, dto::setCallbackUrl) // async callback url
+        .obj(() -> merchantInfo == null ? null : merchantInfo.getSignKey(), dto::setCallbackToken) // merchant encrypted sign key
         .obj(() -> CommonConstant.ZERO, dto::setCallbackTimes) // initial callback times
         .obj(request::getClientIp, dto::setRequestIp) // request ip
         .obj(request::getRemark, dto::setRemark) // remark
@@ -754,7 +813,6 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
         // Unassigned fields:
 
-        // callbackToken
         // lastCallbackTime
         // callbackStatus
         // successCallbackTime

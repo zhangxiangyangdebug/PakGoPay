@@ -19,6 +19,7 @@
         <result column="success_quantity" property="successQuantity" javaType="java.lang.Long"/>
 
         <result column="order_balance" property="orderBalance" javaType="java.math.BigDecimal"/>
+        <result column="success_order_balance" property="successOrderBalance" javaType="java.math.BigDecimal"/>
         <result column="merchant_fee" property="merchantFee" javaType="java.math.BigDecimal"/>
         <result column="order_profit" property="orderProfit" javaType="java.math.BigDecimal"/>
 
@@ -26,6 +27,12 @@
         <result column="create_time" property="createTime" javaType="java.lang.Long"/>
         <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
 
+    </resultMap>
+
+    <resultMap id="ReportCardSummaryResultMap" type="com.pakgopay.mapper.dto.ReportCardSummaryDto">
+        <result column="total_number" property="totalNumber" javaType="java.lang.Long"/>
+        <result column="total" property="total" javaType="java.math.BigDecimal"/>
+        <result column="success_order_balance" property="successOrderBalance" javaType="java.math.BigDecimal"/>
     </resultMap>
 
     <!-- Base columns -->
@@ -38,6 +45,7 @@
         order_quantity,
         success_quantity,
         order_balance,
+        success_order_balance,
         merchant_fee,
         order_profit,
         record_date,
@@ -59,6 +67,7 @@
         #{orderQuantity},
         #{successQuantity},
         #{orderBalance},
+        #{successOrderBalance},
         #{merchantFee},
         #{orderProfit},
         #{recordDate},
@@ -79,6 +88,7 @@
             <if test="successQuantity != null">success_quantity = #{successQuantity},</if>
 
             <if test="orderBalance != null">order_balance = #{orderBalance},</if>
+            <if test="successOrderBalance != null">success_order_balance = #{successOrderBalance},</if>
             <if test="merchantFee != null">merchant_fee = #{merchantFee},</if>
             <if test="orderProfit != null">order_profit = #{orderProfit},</if>
 
@@ -104,6 +114,7 @@
             #{item.orderQuantity},
             #{item.successQuantity},
             #{item.orderBalance},
+            #{item.successOrderBalance},
             #{item.merchantFee},
             #{item.orderProfit},
             #{item.recordDate},
@@ -117,6 +128,7 @@
         order_quantity = EXCLUDED.order_quantity,
         success_quantity = EXCLUDED.success_quantity,
         order_balance = EXCLUDED.order_balance,
+        success_order_balance = EXCLUDED.success_order_balance,
         merchant_fee = EXCLUDED.merchant_fee,
         order_profit = EXCLUDED.order_profit,
         update_time = EXCLUDED.update_time
@@ -147,12 +159,14 @@
         </where>
     </sql>
 
-    <!-- 1) Return order_balance list (BigDecimal) -->
-    <select id="balanceInfosByQuery"
+    <!-- 1) Return card summary (count + total + success total) -->
+    <select id="cardSummaryByQuery"
             parameterType="com.pakgopay.data.entity.report.ChannelReportEntity"
-            resultType="java.math.BigDecimal">
+            resultMap="ReportCardSummaryResultMap">
         SELECT
-        order_balance
+        COALESCE(COUNT(1), 0) AS total_number,
+        COALESCE(SUM(order_balance), 0) AS total,
+        COALESCE(SUM(success_order_balance), 0) AS success_order_balance
         FROM channel_report
         <include refid="ChannelReportWhere"/>
     </select>
