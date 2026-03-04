@@ -45,6 +45,10 @@ public final class GoogleCodeProtectedEndpoints {
         // Currency type management
         map.put("POST /pakGoPay/server/CurrencyTypeManagement/addCurrencyType", "add currency type");
 
+        // Manual order create
+        map.put("POST /pakGoPay/server/v1/manualCreateCollectionOrder", "manual create collection order");
+        map.put("POST /pakGoPay/server/v1/manualCreatePayOutOrder", "manual create payout order");
+
         ENDPOINTS = Collections.unmodifiableMap(map);
     }
 

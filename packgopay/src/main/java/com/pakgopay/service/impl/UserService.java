@@ -8,10 +8,14 @@ import com.pakgopay.mapper.BalanceMapper;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.util.CommonUtil;
+import com.pakgopay.util.CloudflareIpWhitelistUtil;
 import com.pakgopay.util.SnowflakeIdService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -24,6 +28,8 @@ public class UserService {
 
     @Autowired
     private SnowflakeIdService snowflakeIdService;
+    @Autowired
+    private CloudflareIpWhitelistUtil cloudflareIpWhitelistUtil;
 
     /*public List<UserDTO> listUsers() {
         return userMapper.selectAllUser();
@@ -89,7 +95,25 @@ public class UserService {
             throw new PakGoPayException(ResultCode.FAIL, "create user failed");
         }
 
+        syncUserWhitelistToCloudflare(newUser);
+
         return userId;
+    }
+
+    private void syncUserWhitelistToCloudflare(UserDTO user) {
+        try {
+            Set<String> ips = new LinkedHashSet<>();
+            ips.addAll(CommonUtil.parseIpWhitelist(user.getLoginIps()));
+            ips.addAll(CommonUtil.parseIpWhitelist(user.getWithdrawalIps()));
+            if (ips.isEmpty()) {
+                return;
+            }
+            cloudflareIpWhitelistUtil.addIps(ips, "user-create:" + user.getUserId());
+        } catch (Exception e) {
+            // DB write already succeeded; keep API successful and record sync failure.
+            log.warn("sync user whitelist to cloudflare failed, userId={}, message={}",
+                    user == null ? null : user.getUserId(), e.getMessage());
+        }
     }
 
     public void validateWithdrawalPermission(String merchantAgentId, String clientIp) {

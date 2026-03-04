@@ -24,6 +24,7 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.common.ExportReportDataColumns;
 import com.pakgopay.util.CommonUtil;
+import com.pakgopay.util.CloudflareIpWhitelistUtil;
 import com.pakgopay.util.CryptoUtil;
 import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.KeySignManager;
@@ -71,6 +72,8 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private CloudflareIpWhitelistUtil cloudflareIpWhitelistUtil;
 
     @Override
     public MerchantInfoDto fetchMerchantInfo(String userId) throws PakGoPayException {
@@ -383,6 +386,11 @@ public class MerchantServiceImpl implements MerchantService {
             if (ret <= 0) {
                 return CommonResponse.fail(ResultCode.FAIL, "merchant not found or no rows updated");
             }
+            syncMerchantWhitelistToCloudflare(
+                    merchantEditRequest.getMerchantUserId(),
+                    merchantEditRequest.getColWhiteIps(),
+                    merchantEditRequest.getPayWhiteIps(),
+                    "merchant-edit");
         } catch (Exception e) {
             log.error("editMerchant updateByChannelId failed, merchantUserId={}", merchantEditRequest.getMerchantUserId(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -434,18 +442,43 @@ public class MerchantServiceImpl implements MerchantService {
         validateMerchantFeeAboveAgent(merchantAddRequest.getParentId(), merchantAddRequest);
         MerchantInfoDto merchantInfoDto = generateMerchantInfoForAdd(merchantAddRequest);
 
+        final String[] createdUserIdRef = new String[1];
         transactionUtil.runInTransaction(() -> {
             if (merchantInfoMapper.findByMerchantName(merchantAddRequest.getMerchantName()).isPresent()) {
                 throw new PakGoPayException(ResultCode.FAIL, "merchant name already exists");
             }
 
             Long userId = userService.createUser(createUserRequest);
+            createdUserIdRef[0] = String.valueOf(userId);
 
             merchantInfoDto.setUserId(userId.toString());
             merchantInfoMapper.insert(merchantInfoDto);
         });
 
+        syncMerchantWhitelistToCloudflare(
+                createdUserIdRef[0],
+                merchantAddRequest.getColWhiteIps(),
+                merchantAddRequest.getPayWhiteIps(),
+                "merchant-add");
+
         return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private void syncMerchantWhitelistToCloudflare(
+            String merchantUserId, String colWhiteIps, String payWhiteIps, String scene) {
+        try {
+            Set<String> ips = new LinkedHashSet<>();
+            ips.addAll(CommonUtil.parseIpWhitelist(colWhiteIps));
+            ips.addAll(CommonUtil.parseIpWhitelist(payWhiteIps));
+            if (ips.isEmpty()) {
+                return;
+            }
+            cloudflareIpWhitelistUtil.addIps(ips, scene + ":" + merchantUserId);
+        } catch (Exception e) {
+            // DB write already succeeded; keep API successful and record sync failure.
+            log.warn("sync merchant whitelist to cloudflare failed, scene={}, merchantUserId={}, message={}",
+                    scene, merchantUserId, e.getMessage());
+        }
     }
 
     private void validateMerchantFeeAboveAgent(String parentId, Object request) throws PakGoPayException {
