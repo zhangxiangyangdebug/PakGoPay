@@ -35,7 +35,6 @@ public class FrontMessageNotify implements ChannelAwareMessageListener {
         Gson gson = new Gson();
         com.pakgopay.data.entity.Message localMessage = gson.fromJson(messageStr, com.pakgopay.data.entity.Message.class);
         log.info("get user-notify message:"+new String(body));
-        channel.basicAck(message.getMessageProperties().getDeliveryTag(),false);//确认消息消费成功
         notificationService.broadcastMessage(localMessage);
     }
 
@@ -46,7 +45,6 @@ public class FrontMessageNotify implements ChannelAwareMessageListener {
         Gson gson = new Gson();
         com.pakgopay.data.entity.Message localMessage = gson.fromJson(messageStr, com.pakgopay.data.entity.Message.class);
         log.info("接收到广播消息:"+new String(body));
-        channel.basicAck(message.getMessageProperties().getDeliveryTag(),false);//确认消息消费成功
         notificationService.broadcastMessage(localMessage);
         /*System.out.println(new Date() + "You get it" + messageStr);*/
     }

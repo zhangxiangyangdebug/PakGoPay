@@ -75,7 +75,12 @@ public class ReportServiceImpl implements ReportService {
             MerchantReportRequest merchantReportRequest) throws PakGoPayException {
 
         MerchantReportEntity entity = new MerchantReportEntity();
+        Integer roleId = commonService.getRoleIdByUserId(merchantReportRequest.getUserId());
         entity.setMerchantName(merchantReportRequest.getMerchantName());
+        // merchant can only query self data
+        if (roleId != null && roleId == CommonConstant.ROLE_MERCHANT) {
+            entity.setUserId(merchantReportRequest.getUserId());
+        }
         entity.setOrderType(merchantReportRequest.getOrderType());
         entity.setCurrency(merchantReportRequest.getCurrency());
         entity.setStartTime(Long.valueOf(merchantReportRequest.getStartTime()));
@@ -233,7 +238,9 @@ public class ReportServiceImpl implements ReportService {
         MerchantReportResponse response = new MerchantReportResponse();
         try {
             // administrator searches for specified user by merchant name
-            if (entity.getMerchantName() != null && !entity.getMerchantName().isEmpty()) {
+            if ((entity.getUserId() == null || entity.getUserId().isEmpty())
+                    && entity.getMerchantName() != null
+                    && !entity.getMerchantName().isEmpty()) {
                 MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByMerchantName(entity.getMerchantName())
                         .orElseThrow(() -> new PakGoPayException(
                                 ResultCode.USER_IS_NOT_EXIST

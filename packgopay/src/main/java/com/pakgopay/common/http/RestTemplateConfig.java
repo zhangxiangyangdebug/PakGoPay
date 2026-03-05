@@ -43,13 +43,9 @@ public class RestTemplateConfig {
 
         RestTemplate restTemplate = new RestTemplate(factory);
 
-        // ===== interceptor（log/auth）=====
-        restTemplate.getInterceptors().add(new PakGoPayHttpLoggerInterceptor());
-
         // ===== error handler =====
         restTemplate.setErrorHandler(new PaKGoPayCustomResponseErrorHandler());
 
         return restTemplate;
     }
 }
-

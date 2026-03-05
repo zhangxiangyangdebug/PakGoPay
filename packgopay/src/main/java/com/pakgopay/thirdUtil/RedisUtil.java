@@ -66,7 +66,7 @@ public class RedisUtil {
 
     public void saveMessage(Message msg) {
         String userKey = USER_ZSET_PREFIX + msg.getUserId();
-        String bodyKey = BODY_KEY_PREFIX + msg.getId();
+        String bodyKey = buildBodyKey(msg.getUserId(), msg.getId());
         try {
             String json = objectMapper.writeValueAsString(msg);
             redisTemplate.opsForZSet().add(userKey, bodyKey, msg.getTimestamp());
@@ -116,6 +116,10 @@ public class RedisUtil {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    public String buildBodyKey(String userId, String messageId) {
+        return BODY_KEY_PREFIX + userId + ":" + messageId;
     }
 
 }

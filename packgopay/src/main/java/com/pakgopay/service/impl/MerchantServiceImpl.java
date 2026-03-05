@@ -523,9 +523,15 @@ public class MerchantServiceImpl implements MerchantService {
             ips.addAll(CommonUtil.parseIpWhitelist(colWhiteIps));
             ips.addAll(CommonUtil.parseIpWhitelist(payWhiteIps));
             if (ips.isEmpty()) {
+                log.info("skip sync merchant whitelist to cloudflare, scene={}, merchantUserId={}, no ips configured",
+                        scene, merchantUserId);
                 return;
             }
+            log.info("start sync merchant whitelist to cloudflare, scene={}, merchantUserId={}, ipCount={}, ips={}",
+                    scene, merchantUserId, ips.size(), ips);
             cloudflareIpWhitelistUtil.addIps(ips, scene + ":" + merchantUserId);
+            log.info("finish sync merchant whitelist to cloudflare, scene={}, merchantUserId={}, ipCount={}",
+                    scene, merchantUserId, ips.size());
         } catch (Exception e) {
             // DB write already succeeded; keep API successful and record sync failure.
             log.warn("sync merchant whitelist to cloudflare failed, scene={}, merchantUserId={}, message={}",

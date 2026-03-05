@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-import static com.pakgopay.common.constant.CommonConstant.BODY_KEY_PREFIX;
 import static com.pakgopay.common.constant.CommonConstant.USER_ZSET_PREFIX;
 
 @Service
@@ -64,8 +63,10 @@ public class NotificationService {
     public CommonResponse markRead(HttpServletRequest request, String msgId) {
         String userId = getUserIdFromToken(request);
         String userKey = USER_ZSET_PREFIX + userId;
-        String bodyKey = BODY_KEY_PREFIX + msgId;
+        String bodyKey = redisUtil.buildBodyKey(userId, msgId);
         redisUtil.removeMessages(userKey, bodyKey);
+        // backward compatibility for historical keys: ws:body:{msgId}
+        redisUtil.removeMessages(userKey, CommonConstant.BODY_KEY_PREFIX + msgId);
         Long messageCount = countUnread(userId);
         List<Message> messages = redisUtil.getMessages(userId);
         WsMessage wsMessage = new WsMessage();

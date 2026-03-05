@@ -55,8 +55,10 @@ public class CloudflareIpWhitelistUtil {
             throw new IllegalArgumentException("pakgopay.cloudflare.zoneId is required");
         }
         if (ips == null || ips.isEmpty()) {
+            log.info("cloudflare whitelist skip, zoneId={}, no ips, comment={}", zoneId, comment);
             return null;
         }
+        log.info("cloudflare whitelist start, zoneId={}, ipCount={}, comment={}", zoneId, ips.size(), comment);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(apiToken.trim());
@@ -69,6 +71,7 @@ public class CloudflareIpWhitelistUtil {
                 if (!StringUtils.hasText(part)) continue;
                 String ipValue = part.trim();
                 if (ipValue.isEmpty()) continue;
+            log.info("cloudflare whitelist request, zoneId={}, ip={}, comment={}", zoneId, ipValue, comment);
             Map<String, Object> body = new HashMap<>();
             body.put("mode", "whitelist");
             Map<String, String> config = new HashMap<>();
@@ -83,6 +86,8 @@ public class CloudflareIpWhitelistUtil {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
             try {
                 lastResponse = restTemplate.postForEntity(url, entity, String.class);
+                log.info("cloudflare whitelist success, zoneId={}, ip={}, status={}",
+                        zoneId, ipValue, lastResponse == null ? null : lastResponse.getStatusCode().value());
             } catch (HttpStatusCodeException e) {
                 String errorBody = e.getResponseBodyAsString();
                 if (errorBody != null && errorBody.contains("\"code\":10009")) {
@@ -96,6 +101,7 @@ public class CloudflareIpWhitelistUtil {
             }
             }
         }
+        log.info("cloudflare whitelist finish, zoneId={}, ipCount={}, comment={}", zoneId, ips.size(), comment);
         return lastResponse;
     }
 

@@ -255,6 +255,22 @@ public class AccountStatementServiceImpl implements AccountStatementService {
             });
         });
 
+        AccountStatementsDto dto = accountStatementsMapper.selectById(accountStatementsDto.getId());
+        if (dto != null && dto.getOrderType() != null && dto.getOrderType() == 2) {
+            Message message = new Message();
+            message.setId(dto.getId());
+            message.setUserId(dto.getUserId());
+            message.setTimestamp(System.currentTimeMillis());
+            message.setRead(false);
+            message.setPath(NotificationComponentType.Withdraw_Component);
+            message.setTitle(NotificationComponentType.Withdraw_Result_Title);
+            message.setContent(dto.getId());
+            redisUtil.saveMessage(message);
+            sendDmqMessage.sendFanout("user-notify", message);
+            log.info("notify merchant withdraw review completed, statementId={}, merchantUserId={}",
+                    dto.getId(), dto.getUserId());
+        }
+
         log.info("editAccountStatement end, id={}", request.getId());
         return CommonResponse.success(ResultCode.SUCCESS);
     }

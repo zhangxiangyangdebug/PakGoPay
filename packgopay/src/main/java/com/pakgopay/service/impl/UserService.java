@@ -106,9 +106,15 @@ public class UserService {
             ips.addAll(CommonUtil.parseIpWhitelist(user.getLoginIps()));
             ips.addAll(CommonUtil.parseIpWhitelist(user.getWithdrawalIps()));
             if (ips.isEmpty()) {
+                log.info("skip sync user whitelist to cloudflare, userId={}, no ips configured",
+                        user == null ? null : user.getUserId());
                 return;
             }
+            log.info("start sync user whitelist to cloudflare, userId={}, ipCount={}, ips={}",
+                    user.getUserId(), ips.size(), ips);
             cloudflareIpWhitelistUtil.addIps(ips, "user-create:" + user.getUserId());
+            log.info("finish sync user whitelist to cloudflare, userId={}, ipCount={}",
+                    user.getUserId(), ips.size());
         } catch (Exception e) {
             // DB write already succeeded; keep API successful and record sync failure.
             log.warn("sync user whitelist to cloudflare failed, userId={}, message={}",
