@@ -45,6 +45,7 @@
 
         <result column="version" property="version" javaType="java.lang.Integer"/>
         <result column="remark" property="remark" javaType="java.lang.String"/>
+        <result column="has_children" property="hasChildren" javaType="java.lang.Boolean"/>
 
     </resultMap>
 
@@ -128,7 +129,12 @@
         ai.update_time,
         ai.update_by,
         ai.version,
-        ai.remark
+        ai.remark,
+        EXISTS (
+            SELECT 1
+            FROM agent_info child
+            WHERE child.parent_id = ai.user_id
+        ) AS has_children
     </sql>
 
 

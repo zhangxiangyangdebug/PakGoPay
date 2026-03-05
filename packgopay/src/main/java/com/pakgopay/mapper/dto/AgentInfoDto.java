@@ -114,4 +114,7 @@ public class AgentInfoDto implements Serializable {
 
     /** Agent's balance infos */
     private Map<String, Map<String, BigDecimal>> balanceInfo;
+
+    /** Whether the agent has direct children */
+    private Boolean hasChildren;
 }
