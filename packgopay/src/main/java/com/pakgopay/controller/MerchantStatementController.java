@@ -6,7 +6,7 @@ import com.pakgopay.data.reqeust.account.*;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
-import com.pakgopay.data.reqeust.merchant.MerchantSecretKeyQueryRequest;
+import com.pakgopay.data.reqeust.merchant.MerchantSecretKeyRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.common.AccountStatementService;
@@ -46,12 +46,23 @@ public class MerchantStatementController {
 
     @PostMapping("/queryMerchantSecretKey")
     public CommonResponse queryMerchantSecretKey(
-            @RequestBody MerchantSecretKeyQueryRequest request) {
+            @RequestBody MerchantSecretKeyRequest request) {
         try {
             return merchantService.queryMerchantSecretKey(request, request.getUserId());
         } catch (PakGoPayException e) {
             log.error("queryMerchantSecretKey failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryMerchantSecretKey failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/resetMerchantSignKey")
+    public CommonResponse resetMerchantSignKey(
+            @RequestBody MerchantSecretKeyRequest request) {
+        try {
+            return merchantService.resetMerchantSignKey(request, request.getUserId());
+        } catch (PakGoPayException e) {
+            log.error("resetMerchantSignKey failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "resetMerchantSignKey failed: " + e.getMessage());
         }
     }
 

@@ -47,7 +47,9 @@ public class OrderTimeoutMessageReceiver {
         this.sendDmqMessage = sendDmqMessage;
     }
 
-    @RabbitListener(queues = {
+    @RabbitListener(
+            containerFactory = "orderTimeoutRabbitListenerContainerFactory",
+            queues = {
             RabbitConfig.ORDER_TIMEOUT_COLLECTION_QUEUE,
             RabbitConfig.ORDER_TIMEOUT_PAYING_QUEUE
     })

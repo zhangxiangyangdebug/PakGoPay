@@ -4,7 +4,7 @@ import com.pakgopay.data.reqeust.account.*;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
-import com.pakgopay.data.reqeust.merchant.MerchantSecretKeyQueryRequest;
+import com.pakgopay.data.reqeust.merchant.MerchantSecretKeyRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
@@ -17,7 +17,9 @@ public interface MerchantService {
 
     CommonResponse queryMerchants(MerchantQueryRequest merchantQueryRequest);
 
-    CommonResponse queryMerchantSecretKey(MerchantSecretKeyQueryRequest request, String operatorUserId);
+    CommonResponse queryMerchantSecretKey(MerchantSecretKeyRequest request, String operatorUserId);
+
+    CommonResponse resetMerchantSignKey(MerchantSecretKeyRequest request, String operatorUserId);
 
     CommonResponse updateMerchant(MerchantEditRequest merchantEditRequest);
 

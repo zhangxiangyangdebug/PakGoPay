@@ -62,6 +62,19 @@ public class RabbitConfig {
         return factory;
     }
 
+    /**
+     * Dedicated listener factory for order-timeout queues.
+     * Use AUTO ack to prevent repeated delivery when handler returns normally.
+     */
+    @Bean(name = "orderTimeoutRabbitListenerContainerFactory")
+    public SimpleRabbitListenerContainerFactory orderTimeoutRabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setAcknowledgeMode(AcknowledgeMode.AUTO);
+        return factory;
+    }
+
     // delayed exchange/queue for retry with x-delay
     @Bean
     public CustomExchange delayedExchange() {

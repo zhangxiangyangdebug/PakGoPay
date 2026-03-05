@@ -219,16 +219,18 @@ public class AccountStatementServiceImpl implements AccountStatementService {
 
         if (2 == req.getOrderType()) {
             dto.setStatus(0);
+            dto.setAvailableBalanceAfter(CalcUtil.safeSubtract(availableBalanceBefore, req.getAmount()));
             dto.setFrozenBalanceAfter(CalcUtil.safeAdd(frozenBalanceBefore, req.getAmount()));
+            dto.setTotalBalanceAfter(totalBalanceBefore);
         } else {
             dto.setStatus(1);
+            dto.setAvailableBalanceAfter(CalcUtil.safeAdd(availableBalanceBefore, req.getAmount()));
             dto.setFrozenBalanceAfter(frozenBalanceBefore);
+            dto.setTotalBalanceAfter(CalcUtil.safeAdd(totalBalanceBefore, req.getAmount()));
         }
         dto.setFrozenBalanceBefore(frozenBalanceBefore);
         dto.setAvailableBalanceBefore(availableBalanceBefore);
-        dto.setAvailableBalanceAfter(CalcUtil.safeAdd(availableBalanceBefore, req.getAmount()));
         dto.setTotalBalanceBefore(totalBalanceBefore);
-        dto.setTotalBalanceAfter(CalcUtil.safeAdd(totalBalanceBefore, req.getAmount()));
 
         return b.build();
     }

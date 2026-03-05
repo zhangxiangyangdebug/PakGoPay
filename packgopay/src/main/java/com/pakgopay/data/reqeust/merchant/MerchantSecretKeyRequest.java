@@ -4,7 +4,7 @@ import com.pakgopay.data.reqeust.BaseRequest;
 import lombok.Data;
 
 @Data
-public class MerchantSecretKeyQueryRequest extends BaseRequest {
+public class MerchantSecretKeyRequest extends BaseRequest {
     /**
      * Merchant user id. Required for admin role.
      */

@@ -43,6 +43,7 @@ public class AccountStatementAddRequest extends BaseRequest  {
     /**
      * user role: 1.merchant 2.agent
      */
+    @NotNull(message = "userRole is null")
     private Integer userRole;
 
     /**

@@ -12,7 +12,7 @@ import com.pakgopay.data.reqeust.account.AccountQueryRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantAddRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantEditRequest;
 import com.pakgopay.data.reqeust.merchant.MerchantQueryRequest;
-import com.pakgopay.data.reqeust.merchant.MerchantSecretKeyQueryRequest;
+import com.pakgopay.data.reqeust.merchant.MerchantSecretKeyRequest;
 import com.pakgopay.data.response.BalanceUserInfo;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.account.WithdrawalAccountResponse;
@@ -104,36 +104,12 @@ public class MerchantServiceImpl implements MerchantService {
     }
 
     @Override
-    public CommonResponse queryMerchantSecretKey(MerchantSecretKeyQueryRequest request, String operatorUserId) {
-        if (operatorUserId == null || operatorUserId.isBlank()) {
-            log.warn("queryMerchantSecretKey failed: operator userId is empty");
-            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "operator userId is empty");
-        }
-        Integer roleId = userMapper.queryRoleIdByUserId(operatorUserId);
-        if (roleId == null) {
-            log.warn("queryMerchantSecretKey failed: role not found, operatorUserId={}", operatorUserId);
-            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "user has not role");
-        }
-
-        String targetMerchantUserId;
-        if (CommonConstant.ROLE_ADMIN == roleId) {
-            targetMerchantUserId = request.getMerchantUserId();
-            if (targetMerchantUserId == null || targetMerchantUserId.isBlank()) {
-                log.warn("queryMerchantSecretKey failed: merchantUserId is empty for admin, operatorUserId={}",
-                        operatorUserId);
-                throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchantUserId is empty");
-            }
-        } else if (CommonConstant.ROLE_MERCHANT == roleId) {
-            targetMerchantUserId = operatorUserId;
-        } else {
-            log.warn("queryMerchantSecretKey failed: role forbidden, operatorUserId={}, roleId={}",
-                    operatorUserId, roleId);
-            throw new PakGoPayException(ResultCode.USER_HAS_NO_ROLE_PERMISSION, "no permission");
-        }
-
+    public CommonResponse queryMerchantSecretKey(MerchantSecretKeyRequest request, String operatorUserId) {
+        String targetMerchantUserId = resolveMerchantTarget(request, operatorUserId, "queryMerchantSecretKey");
         MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(targetMerchantUserId);
         if (merchantInfoDto == null) {
-            log.warn("queryMerchantSecretKey failed: merchant not found, merchantUserId={}", targetMerchantUserId);
+            log.warn("queryMerchantSecretKey failed: merchant not found, merchantUserId={}",
+                    targetMerchantUserId);
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchant not found");
         }
 
@@ -141,9 +117,63 @@ public class MerchantServiceImpl implements MerchantService {
         response.setMerchantUserId(targetMerchantUserId);
         response.setApiKey(merchantInfoDto.getApiKey());
         response.setSignKey(resolvePlainMerchantSignKey(merchantInfoDto.getSignKey(), targetMerchantUserId));
-        log.info("queryMerchantSecretKey success, operatorUserId={}, roleId={}, merchantUserId={}",
-                operatorUserId, roleId, targetMerchantUserId);
+        log.info("queryMerchantSecretKey success, operatorUserId={}, merchantUserId={}",
+                operatorUserId, targetMerchantUserId);
         return CommonResponse.success(response);
+    }
+
+    @Override
+    public CommonResponse resetMerchantSignKey(MerchantSecretKeyRequest request, String operatorUserId) {
+        String targetMerchantUserId = resolveMerchantTarget(request, operatorUserId, "resetMerchantSignKey");
+        String newSignKey = KeySignManager.generateSignKey();
+        MerchantInfoDto update = new MerchantInfoDto();
+        update.setUserId(targetMerchantUserId);
+        update.setSignKey(CryptoUtil.encryptSignKey(newSignKey));
+        update.setUpdateBy(operatorUserId);
+        update.setUpdateTime(System.currentTimeMillis() / 1000);
+        int ret = merchantInfoMapper.updateByUserId(update);
+        if (ret <= 0) {
+            log.warn("resetMerchantSignKey failed: update merchant sign key affected 0, merchantUserId={}",
+                    targetMerchantUserId);
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR, "reset merchant sign key failed");
+        }
+
+        MerchantSecretKeyResponse response = new MerchantSecretKeyResponse();
+        response.setMerchantUserId(targetMerchantUserId);
+        response.setSignKey(newSignKey);
+        log.info("resetMerchantSignKey success, operatorUserId={}, merchantUserId={}",
+                operatorUserId, targetMerchantUserId);
+        return CommonResponse.success(response);
+    }
+
+    private String resolveMerchantTarget(
+            MerchantSecretKeyRequest request, String operatorUserId, String scene) {
+        if (operatorUserId == null || operatorUserId.isBlank()) {
+            log.warn("{} failed: operator userId is empty", scene);
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "operator userId is empty");
+        }
+        Integer roleId = userMapper.queryRoleIdByUserId(operatorUserId);
+        if (roleId == null) {
+            log.warn("{} failed: role not found, operatorUserId={}", scene, operatorUserId);
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "user has not role");
+        }
+
+        String targetMerchantUserId;
+        if (CommonConstant.ROLE_ADMIN == roleId) {
+            targetMerchantUserId = request.getMerchantUserId();
+            if (targetMerchantUserId == null || targetMerchantUserId.isBlank()) {
+                log.warn("{} failed: merchantUserId is empty for admin, operatorUserId={}",
+                        scene, operatorUserId);
+                throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchantUserId is empty");
+            }
+        } else if (CommonConstant.ROLE_MERCHANT == roleId) {
+            targetMerchantUserId = operatorUserId;
+        } else {
+            log.warn("{} failed: role forbidden, operatorUserId={}, roleId={}",
+                    scene, operatorUserId, roleId);
+            throw new PakGoPayException(ResultCode.USER_HAS_NO_ROLE_PERMISSION, "no permission");
+        }
+        return targetMerchantUserId;
     }
 
     private MerchantResponse fetchMerchantPage(MerchantQueryRequest merchantQueryRequest) throws PakGoPayException {
