@@ -1,5 +1,7 @@
 package com.pakgopay.service.common;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import com.pakgopay.mapper.BusinessConfigurationMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
@@ -208,6 +210,47 @@ public class TelegramService {
         }
         String url = API_BASE + "/bot" + token + "/getUpdates";
         return restTemplate.getForObject(url, String.class);
+    }
+
+    public byte[] downloadFileBytes(String fileId) {
+        String token = getConfig(TOKEN_KEY);
+        if (!StringUtils.hasText(token)) {
+            log.warn("Telegram token not configured.");
+            return null;
+        }
+        if (!StringUtils.hasText(fileId)) {
+            log.warn("Telegram downloadFile skipped: fileId is empty.");
+            return null;
+        }
+        try {
+            String getFileUrl = API_BASE + "/bot" + token + "/getFile?file_id=" + fileId;
+            String getFileResult = restTemplate.getForObject(getFileUrl, String.class);
+            if (!StringUtils.hasText(getFileResult)) {
+                log.warn("Telegram getFile failed: empty response, fileId={}", fileId);
+                return null;
+            }
+            JSONObject root = JSON.parseObject(getFileResult);
+            if (root == null || !Boolean.TRUE.equals(root.getBoolean("ok"))) {
+                log.warn("Telegram getFile failed: {}", getFileResult);
+                return null;
+            }
+            JSONObject result = root.getJSONObject("result");
+            String filePath = result == null ? null : result.getString("file_path");
+            if (!StringUtils.hasText(filePath)) {
+                log.warn("Telegram getFile failed: file_path empty, fileId={}", fileId);
+                return null;
+            }
+            String fileUrl = API_BASE + "/file/bot" + token + "/" + filePath;
+            ResponseEntity<byte[]> fileResp = restTemplate.getForEntity(fileUrl, byte[].class);
+            if (!fileResp.getStatusCode().is2xxSuccessful()) {
+                log.warn("Telegram download file failed: status={}, fileId={}", fileResp.getStatusCode(), fileId);
+                return null;
+            }
+            return fileResp.getBody();
+        } catch (Exception e) {
+            log.warn("Telegram download file failed, fileId={}, message={}", fileId, e.getMessage());
+            return null;
+        }
     }
 
     public String getWebhookSecret() {

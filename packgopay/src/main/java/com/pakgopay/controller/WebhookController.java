@@ -1,9 +1,12 @@
 package com.pakgopay.controller;
 
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
+import com.pakgopay.common.constant.CommonConstant;
+import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.currencyTypeManagement.CurrencyTypeRequest;
@@ -19,7 +22,9 @@ import com.pakgopay.mapper.dto.CurrencyTypeDTO;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.service.OpsReportService;
+import com.pakgopay.service.common.OrderInterventionTelegramNotifier;
 import com.pakgopay.service.common.TelegramService;
+import com.pakgopay.service.common.TelegramOrderNoRecognizer;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.PayOutOrderService;
 import com.pakgopay.util.SnowflakeIdGenerator;
@@ -59,6 +64,8 @@ public class WebhookController {
     private final PayOutOrderService payOutOrderService;
     private final CollectionOrderMapper collectionOrderMapper;
     private final PayOrderMapper payOrderMapper;
+    private final OrderInterventionTelegramNotifier orderInterventionTelegramNotifier;
+    private final TelegramOrderNoRecognizer telegramOrderNoRecognizer;
 
     public WebhookController(TelegramService telegramService,
                              OpsReportService opsReportService,
@@ -66,7 +73,9 @@ public class WebhookController {
                              CollectionOrderService collectionOrderService,
                              PayOutOrderService payOutOrderService,
                              CollectionOrderMapper collectionOrderMapper,
-                             PayOrderMapper payOrderMapper) {
+                             PayOrderMapper payOrderMapper,
+                             OrderInterventionTelegramNotifier orderInterventionTelegramNotifier,
+                             TelegramOrderNoRecognizer telegramOrderNoRecognizer) {
         this.telegramService = telegramService;
         this.opsReportService = opsReportService;
         this.currencyTypeMapper = currencyTypeMapper;
@@ -74,6 +83,8 @@ public class WebhookController {
         this.payOutOrderService = payOutOrderService;
         this.collectionOrderMapper = collectionOrderMapper;
         this.payOrderMapper = payOrderMapper;
+        this.orderInterventionTelegramNotifier = orderInterventionTelegramNotifier;
+        this.telegramOrderNoRecognizer = telegramOrderNoRecognizer;
     }
 
     @PostMapping
@@ -96,11 +107,9 @@ public class WebhookController {
             if (message == null) {
                 return CommonResponse.success("ignore");
             }
-            String text = message.getString("text");
             JSONObject chat = message.getJSONObject("chat");
             String chatId = chat == null ? null : String.valueOf(chat.get("id"));
-
-            if (text == null || chatId == null) {
+            if (chatId == null) {
                 return CommonResponse.success("ignore");
             }
             if (!telegramService.isEnabled()) {
@@ -113,6 +122,16 @@ public class WebhookController {
                 return CommonResponse.fail(ResultCode.SC_UNAUTHORIZED, "forbidden");
             }
 
+            JSONArray photos = message.getJSONArray("photo");
+            if (photos != null && !photos.isEmpty()) {
+                handlePhotoOrderRecognition(message, chatId);
+                return CommonResponse.success("ok");
+            }
+
+            String text = message.getString("text");
+            if (text == null || text.trim().isEmpty()) {
+                return CommonResponse.success("ignore");
+            }
             String trimmed = text.trim();
             if ("/hello".equals(trimmed)) {
                 telegramService.sendMessageTo(chatId, "Hello");
@@ -144,6 +163,94 @@ public class WebhookController {
             log.error("telegram webhook handle failed: {}", e.getMessage());
         }
         return CommonResponse.success("ok");
+    }
+
+    private void handlePhotoOrderRecognition(JSONObject message, String chatId) {
+        try {
+            String fileId = resolveLargestPhotoFileId(message.getJSONArray("photo"));
+            if (fileId == null) {
+                telegramService.sendMessageTo(chatId, "图片读取失败，请重试。");
+                return;
+            }
+            byte[] imageBytes = telegramService.downloadFileBytes(fileId);
+            if (imageBytes == null || imageBytes.length == 0) {
+                telegramService.sendMessageTo(chatId, "图片下载失败，请重试。");
+                return;
+            }
+
+            String fallbackText = (message.getString("caption") == null ? "" : message.getString("caption")) + " "
+                    + (message.getString("text") == null ? "" : message.getString("text"));
+            String transactionNo = telegramOrderNoRecognizer.recognizeSystemOrderNo(imageBytes, fallbackText);
+            if (transactionNo == null || transactionNo.isEmpty()) {
+                telegramService.sendMessageTo(chatId, "未识别到系统订单号，请确保图片包含以 COLL/PAY/SE 开头的订单号。");
+                return;
+            }
+
+            if (transactionNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
+                handleTimeoutCollectionOrder(chatId, transactionNo);
+                return;
+            }
+            if (transactionNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
+                handleTimeoutPayoutOrder(chatId, transactionNo);
+                return;
+            }
+            if (transactionNo.startsWith(CommonConstant.STATEMENT_PREFIX)) {
+                telegramService.sendMessageTo(chatId, "已识别订单号: " + transactionNo + "，该类型不支持超时回调操作。");
+                return;
+            }
+            telegramService.sendMessageTo(chatId, "识别到订单号: " + transactionNo + "，暂不支持该类型处理。");
+        } catch (Exception e) {
+            log.error("telegram photo order recognition failed: {}", e.getMessage());
+            telegramService.sendMessageTo(chatId, "图片识别处理失败，请稍后重试。");
+        }
+    }
+
+    private void handleTimeoutCollectionOrder(String chatId, String transactionNo) {
+        long[] range = resolveTransactionNoTimeRange(transactionNo);
+        CollectionOrderDto dto = collectionOrderMapper.findByTransactionNo(transactionNo, range[0], range[1]).orElse(null);
+        if (dto == null) {
+            telegramService.sendMessageTo(chatId, "未找到订单: " + transactionNo);
+            return;
+        }
+        if (!String.valueOf(TransactionStatus.EXPIRED.getCode()).equals(dto.getOrderStatus())) {
+            telegramService.sendMessageTo(chatId, "订单 " + transactionNo + " 当前非超时状态，无法触发回调操作。");
+            return;
+        }
+        orderInterventionTelegramNotifier.notifyTimeoutCollectionOrderToChat(chatId, transactionNo, dto.getCreateTime());
+    }
+
+    private void handleTimeoutPayoutOrder(String chatId, String transactionNo) {
+        long[] range = resolveTransactionNoTimeRange(transactionNo);
+        PayOrderDto dto = payOrderMapper.findByTransactionNo(transactionNo, range[0], range[1]).orElse(null);
+        if (dto == null) {
+            telegramService.sendMessageTo(chatId, "未找到订单: " + transactionNo);
+            return;
+        }
+        if (!String.valueOf(TransactionStatus.EXPIRED.getCode()).equals(dto.getOrderStatus())) {
+            telegramService.sendMessageTo(chatId, "订单 " + transactionNo + " 当前非超时状态，无法触发回调操作。");
+            return;
+        }
+        orderInterventionTelegramNotifier.notifyTimeoutPayoutOrderToChat(chatId, transactionNo, dto.getCreateTime());
+    }
+
+    private String resolveLargestPhotoFileId(JSONArray photos) {
+        if (photos == null || photos.isEmpty()) {
+            return null;
+        }
+        long maxSize = -1L;
+        String fileId = null;
+        for (int i = 0; i < photos.size(); i++) {
+            JSONObject photo = photos.getJSONObject(i);
+            if (photo == null) {
+                continue;
+            }
+            long size = photo.getLongValue("file_size");
+            if (size >= maxSize) {
+                maxSize = size;
+                fileId = photo.getString("file_id");
+            }
+        }
+        return fileId;
     }
 
     private CommonResponse handleCallbackQuery(JSONObject callbackQuery, HttpServletResponse response) {
