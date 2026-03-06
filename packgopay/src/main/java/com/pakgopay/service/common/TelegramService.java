@@ -12,11 +12,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Service
@@ -31,7 +33,10 @@ public class TelegramService {
     private static final String API_BASE = "https://api.telegram.org";
 
     private final RestTemplate restTemplate;
+    private final RestTemplate telegramRestTemplate = new RestTemplate();
     private final BusinessConfigurationMapper configMapper;
+    private volatile String cachedBotUsername;
+    private final AtomicLong cachedBotUsernameAtMs = new AtomicLong(0L);
 
     public TelegramService(RestTemplate restTemplate, BusinessConfigurationMapper configMapper) {
         this.restTemplate = restTemplate;
@@ -89,16 +94,44 @@ public class TelegramService {
             body.put("reply_markup", replyMarkup);
         }
         try {
-            ResponseEntity<String> response = restTemplate.postForEntity(url, body, String.class);
+            ResponseEntity<String> response = telegramRestTemplate.postForEntity(url, body, String.class);
             String result = response.getBody();
             if (response.getStatusCode().is2xxSuccessful() && result != null && result.contains("\"ok\":true")) {
                 return result;
             }
             log.warn("Telegram sendMessageWithInlineKeyboard failed: status={}, body={}", response.getStatusCode(), result);
             return result;
+        } catch (HttpStatusCodeException e) {
+            String errorBody = e.getResponseBodyAsString();
+            log.warn("Telegram sendMessageWithInlineKeyboard failed: status={}, body={}",
+                    e.getStatusCode(), errorBody);
+            String migratedChatId = extractMigratedChatId(errorBody);
+            if (StringUtils.hasText(migratedChatId)) {
+                log.info("Telegram chat migrated, oldChatId={}, newChatId={}", chatId, migratedChatId);
+                // keep config in sync when default chat has migrated to supergroup
+                String defaultChatId = getDefaultChatId();
+                if (StringUtils.hasText(defaultChatId) && defaultChatId.equals(chatId)) {
+                    upsertConfig(CHAT_ID_KEY, migratedChatId);
+                }
+                try {
+                    body.put("chat_id", migratedChatId);
+                    ResponseEntity<String> retryResponse = telegramRestTemplate.postForEntity(url, body, String.class);
+                    String retryBody = retryResponse.getBody();
+                    if (retryResponse.getStatusCode().is2xxSuccessful()
+                            && retryBody != null && retryBody.contains("\"ok\":true")) {
+                        log.info("Telegram resend after migration success, chatId={}", migratedChatId);
+                        return retryBody;
+                    }
+                    log.warn("Telegram resend after migration failed: status={}, body={}",
+                            retryResponse.getStatusCode(), retryBody);
+                } catch (Exception retryEx) {
+                    log.warn("Telegram resend after migration exception: {}", retryEx.getMessage());
+                }
+            }
+            return null;
         } catch (Exception e) {
             log.warn("Telegram sendMessageWithInlineKeyboard failed: {}", e.getMessage());
-            throw e;
+            return null;
         }
     }
 
@@ -311,6 +344,46 @@ public class TelegramService {
         return "1".equals(value.trim()) || "true".equalsIgnoreCase(value.trim());
     }
 
+    public String getBotUsername() {
+        long now = System.currentTimeMillis();
+        String cached = cachedBotUsername;
+        if (StringUtils.hasText(cached) && now - cachedBotUsernameAtMs.get() < 10 * 60 * 1000L) {
+            return cached;
+        }
+        synchronized (this) {
+            cached = cachedBotUsername;
+            if (StringUtils.hasText(cached) && now - cachedBotUsernameAtMs.get() < 10 * 60 * 1000L) {
+                return cached;
+            }
+            String token = getConfig(TOKEN_KEY);
+            if (!StringUtils.hasText(token)) {
+                return null;
+            }
+            try {
+                String url = API_BASE + "/bot" + token + "/getMe";
+                String body = telegramRestTemplate.getForObject(url, String.class);
+                if (!StringUtils.hasText(body)) {
+                    return null;
+                }
+                JSONObject root = JSON.parseObject(body);
+                if (root == null || !Boolean.TRUE.equals(root.getBoolean("ok"))) {
+                    return null;
+                }
+                JSONObject result = root.getJSONObject("result");
+                String username = result == null ? null : result.getString("username");
+                if (!StringUtils.hasText(username)) {
+                    return null;
+                }
+                cachedBotUsername = username.trim();
+                cachedBotUsernameAtMs.set(now);
+                return cachedBotUsername;
+            } catch (Exception e) {
+                log.warn("Telegram getMe failed: {}", e.getMessage());
+                return null;
+            }
+        }
+    }
+
     private String getConfig(String key) {
         try {
             String value = configMapper.getConfigValue(key);
@@ -329,6 +402,27 @@ public class TelegramService {
             }
         } catch (Exception e) {
             log.warn("Update config {} failed: {}", key, e.getMessage());
+        }
+    }
+
+    private String extractMigratedChatId(String errorBody) {
+        if (!StringUtils.hasText(errorBody)) {
+            return null;
+        }
+        try {
+            JSONObject root = JSON.parseObject(errorBody);
+            if (root == null) {
+                return null;
+            }
+            JSONObject parameters = root.getJSONObject("parameters");
+            if (parameters == null) {
+                return null;
+            }
+            Long migratedChatId = parameters.getLong("migrate_to_chat_id");
+            return migratedChatId == null ? null : String.valueOf(migratedChatId);
+        } catch (Exception e) {
+            log.warn("Parse telegram migrate_to_chat_id failed: {}", e.getMessage());
+            return null;
         }
     }
 }

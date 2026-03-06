@@ -168,9 +168,14 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                     sendDmqMessage.sendFanout("user-notify", message);
                 }
             }
-            orderInterventionTelegramNotifier.notifyPendingWithdrawOrder(
-                    accountStatementsDto.getId(),
-                    accountStatementsDto.getCreateTime());
+            try {
+                orderInterventionTelegramNotifier.notifyPendingWithdrawOrder(
+                        accountStatementsDto.getId(),
+                        accountStatementsDto.getCreateTime());
+            } catch (Exception e) {
+                log.warn("send telegram withdraw notify failed, statementId={}, message={}",
+                        accountStatementsDto.getId(), e.getMessage());
+            }
         }
 
         log.info("createAccountStatement end");

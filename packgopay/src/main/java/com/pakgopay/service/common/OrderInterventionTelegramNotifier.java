@@ -63,7 +63,12 @@ public class OrderInterventionTelegramNotifier {
                 + "创建时间: " + createTimeText + "\n"
                 + "请选择操作(需填写说明):";
         Map<String, Object> markup = buildWithdrawReplyMarkup(statementId);
-        telegramService.sendMessageWithInlineKeyboardTo(chatId, text, markup);
+        try {
+            telegramService.sendMessageWithInlineKeyboardTo(chatId, text, markup);
+        } catch (Exception e) {
+            log.warn("telegram withdraw notify failed, statementId={}, chatId={}, message={}",
+                    statementId, chatId, e.getMessage());
+        }
     }
 
     private void sendTimeoutOrder(String targetChatId, String orderType, String transactionNo, Long createTime) {
@@ -102,13 +107,6 @@ public class OrderInterventionTelegramNotifier {
         row1.add(buttonCallback("回调失败", CALLBACK_PREFIX + "|" + shortType + "|" + transactionNo + "|3"));
         inlineKeyboard.add(row1);
 
-        String consoleBaseUrl = telegramService.getConsoleBaseUrl();
-        if (StringUtils.hasText(consoleBaseUrl)) {
-            List<Map<String, String>> row2 = new ArrayList<>();
-            row2.add(buttonUrl("前往后台", consoleBaseUrl));
-            inlineKeyboard.add(row2);
-        }
-
         Map<String, Object> replyMarkup = new HashMap<>();
         replyMarkup.put("inline_keyboard", inlineKeyboard);
         return replyMarkup;
@@ -121,12 +119,6 @@ public class OrderInterventionTelegramNotifier {
         row1.add(buttonCallback("驳回", WITHDRAW_CALLBACK_PREFIX + "|" + statementId + "|2"));
         inlineKeyboard.add(row1);
 
-        String consoleBaseUrl = telegramService.getConsoleBaseUrl();
-        if (StringUtils.hasText(consoleBaseUrl)) {
-            List<Map<String, String>> row2 = new ArrayList<>();
-            row2.add(buttonUrl("前往后台", consoleBaseUrl));
-            inlineKeyboard.add(row2);
-        }
         Map<String, Object> replyMarkup = new HashMap<>();
         replyMarkup.put("inline_keyboard", inlineKeyboard);
         return replyMarkup;
@@ -139,10 +131,4 @@ public class OrderInterventionTelegramNotifier {
         return button;
     }
 
-    private Map<String, String> buttonUrl(String text, String url) {
-        Map<String, String> button = new HashMap<>();
-        button.put("text", text);
-        button.put("url", url);
-        return button;
-    }
 }

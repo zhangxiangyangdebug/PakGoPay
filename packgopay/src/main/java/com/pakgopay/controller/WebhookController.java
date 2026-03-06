@@ -52,6 +52,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -137,9 +138,27 @@ public class WebhookController {
                 return CommonResponse.fail(ResultCode.SC_UNAUTHORIZED, "forbidden");
             }
 
+            JSONObject document = message.getJSONObject("document");
+            String documentImageFileId = resolveDocumentImageFileId(document);
+            if (documentImageFileId != null) {
+                if (!isMentionedBotForImageRecognition(message)) {
+                    log.info("skip telegram image recognition: bot not mentioned");
+                    return CommonResponse.success("ignore_not_mentioned");
+                }
+                log.info("telegram image recognition via document, fileId={}", documentImageFileId);
+                handleImageOrderRecognition(message, chatId, documentImageFileId);
+                return CommonResponse.success("ok");
+            }
+
             JSONArray photos = message.getJSONArray("photo");
             if (photos != null && !photos.isEmpty()) {
-                handlePhotoOrderRecognition(message, chatId);
+                if (!isMentionedBotForImageRecognition(message)) {
+                    log.info("skip telegram image recognition: bot not mentioned");
+                    return CommonResponse.success("ignore_not_mentioned");
+                }
+                String fileId = resolveLargestPhotoFileId(photos);
+                log.info("telegram image recognition via photo, fileId={}", fileId);
+                handleImageOrderRecognition(message, chatId, fileId);
                 return CommonResponse.success("ok");
             }
 
@@ -183,9 +202,8 @@ public class WebhookController {
         return CommonResponse.success("ok");
     }
 
-    private void handlePhotoOrderRecognition(JSONObject message, String chatId) {
+    private void handleImageOrderRecognition(JSONObject message, String chatId, String fileId) {
         try {
-            String fileId = resolveLargestPhotoFileId(message.getJSONArray("photo"));
             if (fileId == null) {
                 telegramService.sendMessageTo(chatId, "图片读取失败，请重试。");
                 return;
@@ -221,6 +239,42 @@ public class WebhookController {
             log.error("telegram photo order recognition failed: {}", e.getMessage());
             telegramService.sendMessageTo(chatId, "图片识别处理失败，请稍后重试。");
         }
+    }
+
+    private String resolveDocumentImageFileId(JSONObject document) {
+        if (document == null) {
+            return null;
+        }
+        String mimeType = document.getString("mime_type");
+        if (mimeType != null && mimeType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+            return document.getString("file_id");
+        }
+        String fileName = document.getString("file_name");
+        if (fileName != null) {
+            String lowerName = fileName.toLowerCase(Locale.ROOT);
+            if (lowerName.endsWith(".png")
+                    || lowerName.endsWith(".jpg")
+                    || lowerName.endsWith(".jpeg")
+                    || lowerName.endsWith(".webp")
+                    || lowerName.endsWith(".bmp")
+                    || lowerName.endsWith(".gif")) {
+                return document.getString("file_id");
+            }
+        }
+        return null;
+    }
+
+    private boolean isMentionedBotForImageRecognition(JSONObject message) {
+        String botUsername = telegramService.getBotUsername();
+        if (botUsername == null || botUsername.isBlank()) {
+            log.warn("skip telegram image recognition: bot username not available");
+            return false;
+        }
+        String mention = "@" + botUsername.toLowerCase(Locale.ROOT);
+        String text = message.getString("text");
+        String caption = message.getString("caption");
+        String merged = ((caption == null ? "" : caption) + " " + (text == null ? "" : text)).toLowerCase(Locale.ROOT);
+        return merged.contains(mention);
     }
 
     private void handleTimeoutCollectionOrder(String chatId, String transactionNo) {
@@ -484,7 +538,10 @@ public class WebhookController {
                     + "\n\n处理结果: " + actionText
                     + "\n处理人: " + operator
                     + "\n处理时间: " + Instant.now().atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-            telegramService.editMessageText(chatId, messageId, newText, null);
+            // Remove inline keyboard after processed so buttons can no longer be clicked.
+            Map<String, Object> disabledReplyMarkup = new HashMap<>();
+            disabledReplyMarkup.put("inline_keyboard", new ArrayList<>());
+            telegramService.editMessageText(chatId, messageId, newText, disabledReplyMarkup);
         } catch (Exception e) {
             log.warn("updateCallbackMessage failed: {}", e.getMessage());
         }
