@@ -802,34 +802,37 @@ public class ReportTask {
                             AgentInfoDto::getLevel,
                             Function.identity(),
                             (a, b) -> a));
-            AgentInfoDto agent1 = agentByLevel.get(CommonConstant.AGENT_LEVEL_FIRST);
-            AgentInfoDto agent2 = agentByLevel.get(CommonConstant.AGENT_LEVEL_SECOND);
-            AgentInfoDto agent3 = agentByLevel.get(CommonConstant.AGENT_LEVEL_THIRD);
-
-            addAgentReport(agent1, merchantReport, currency, orderType, recordDate,
-                    merchantReport == null ? BigDecimal.ZERO : merchantReport.getAgent1Fee());
-            addAgentReport(agent2, merchantReport, currency, orderType, recordDate,
-                    merchantReport == null ? BigDecimal.ZERO : merchantReport.getAgent2Fee());
-            addAgentReport(agent3, merchantReport, currency, orderType, recordDate,
-                    merchantReport == null ? BigDecimal.ZERO : merchantReport.getAgent3Fee());
+            Integer effectiveLevel = merchant.getEffectiveLevel();
+            int[] levels = {
+                    CommonConstant.AGENT_LEVEL_FIRST,
+                    CommonConstant.AGENT_LEVEL_SECOND,
+                    CommonConstant.AGENT_LEVEL_THIRD
+            };
+            for (int level : levels) {
+                addAgentReport(agentByLevel, level, effectiveLevel,
+                        merchantReport, currency, orderType, recordDate);
+            }
         }
 
         /**
          * Add or update an agent report entry.
          *
-         * @param agent agent info
+         * @param agentByLevel full agent map by level
+         * @param level agent level
+         * @param effectiveLevel effective level threshold
          * @param merchantReport merchant report
          * @param currency currency code
          * @param orderType order type
          * @param recordDate record date
-         * @param commission commission value
          */
-        private void addAgentReport(AgentInfoDto agent,
+        private void addAgentReport(Map<Integer, AgentInfoDto> agentByLevel,
+                                    int level,
+                                    Integer effectiveLevel,
                                     MerchantReportDto merchantReport,
                                     String currency,
                                     Integer orderType,
-                                    long recordDate,
-                                    BigDecimal commission) {
+                                    long recordDate) {
+            AgentInfoDto agent = agentByLevel.get(level);
             if (agent == null || agent.getUserId() == null) {
                 return;
             }
@@ -849,11 +852,17 @@ public class ReportTask {
                 dto.setCommission(BigDecimal.ZERO);
                 agentReportMap.put(key, dto);
             }
-            dto.setOrderQuantity(dto.getOrderQuantity()
-                    + CommonUtil.defaultLong(merchantReport == null ? null : merchantReport.getOrderQuantity(), 0L));
-            dto.setSuccessQuantity(dto.getSuccessQuantity()
-                    + CommonUtil.defaultLong(merchantReport == null ? null : merchantReport.getSuccessQuantity(), 0L));
-            dto.setCommission(CalcUtil.safeAdd(dto.getCommission(), commission));
+            if (effectiveLevel != null && level >= effectiveLevel && merchantReport != null) {
+                dto.setOrderQuantity(dto.getOrderQuantity() + CommonUtil.defaultLong(merchantReport.getOrderQuantity(), 0L));
+                dto.setSuccessQuantity(dto.getSuccessQuantity() + CommonUtil.defaultLong(merchantReport.getSuccessQuantity(), 0L));
+                if (level == CommonConstant.AGENT_LEVEL_FIRST) {
+                    dto.setCommission(CalcUtil.safeAdd(dto.getCommission(), merchantReport.getAgent1Fee()));
+                } else if (level == CommonConstant.AGENT_LEVEL_SECOND) {
+                    dto.setCommission(CalcUtil.safeAdd(dto.getCommission(), merchantReport.getAgent2Fee()));
+                } else if (level == CommonConstant.AGENT_LEVEL_THIRD) {
+                    dto.setCommission(CalcUtil.safeAdd(dto.getCommission(), merchantReport.getAgent3Fee()));
+                }
+            }
             dto.setUpdateTime(nowEpochSecond);
         }
 
@@ -1890,16 +1899,21 @@ public class ReportTask {
                 }
                 List<Long> channelIds;
                 if (merchant.getParentId() != null && !merchant.getParentId().isBlank()) {
-                    // Merchant under agent: use effective agent chain (enabled + contiguous) and parent channels.
+                    // Merchant under agent:
+                    // full chain for report row generation, effective chain for fee/stat attribution.
+                    List<AgentInfoDto> fullAgentChain = resolveFullAgentChain(merchant.getParentId());
                     List<AgentInfoDto> effectiveAgentChain = resolveEffectiveAgentChain(merchant.getParentId());
                     AgentInfoDto parentAgent = effectiveAgentChain.isEmpty() ? null : effectiveAgentChain.getFirst();
                     channelIds = CommonUtil.parseIds(parentAgent == null ? null : parentAgent.getChannelIds());
-                    merchant.setAgentInfos(effectiveAgentChain);
+                    merchant.setAgentInfos(fullAgentChain);
+                    merchant.setEffectiveLevel(resolveEffectiveLevel(effectiveAgentChain));
                 } else {
                     // Direct merchant: use merchant channels and attach channel info list.
                     channelIds = CommonUtil.parseIds(merchant.getChannelIds());
                     List<ChannelDto> channelInfos = AgentServiceImpl.buildChannelListByIds(channelIds, channelByIdCache);
                     merchant.setChannelDtoList(channelInfos);
+                    merchant.setAgentInfos(Collections.emptyList());
+                    merchant.setEffectiveLevel(null);
                 }
                 // Resolve supported currencies from channel/payment mapping.
                 List<String> currencies = MerchantServiceImpl.resolveCurrenciesByChannelIds(
@@ -1938,6 +1952,46 @@ public class ReportTask {
                 current = agentByUserIdCache.get(current.getParentId());
             }
             return chain;
+        }
+
+        /**
+         * Build full agent chain from direct parent upward.
+         * Disabled agents are retained, so upper-level rows can still be generated with zero values.
+         *
+         * @param startAgentUserId merchant direct parent agent userId
+         * @return full chain (from direct parent upward)
+         */
+        private List<AgentInfoDto> resolveFullAgentChain(String startAgentUserId) {
+            if (startAgentUserId == null || startAgentUserId.isBlank()) {
+                return Collections.emptyList();
+            }
+            List<AgentInfoDto> chain = new ArrayList<>();
+            Set<String> visited = new HashSet<>();
+            AgentInfoDto current = agentByUserIdCache.get(startAgentUserId);
+            while (current != null) {
+                if (current.getUserId() == null || !visited.add(current.getUserId())) {
+                    break;
+                }
+                chain.add(current);
+                if (!StringUtils.hasText(current.getParentId())
+                        || (current.getLevel() != null && current.getLevel() <= CommonConstant.AGENT_LEVEL_FIRST)) {
+                    break;
+                }
+                current = agentByUserIdCache.get(current.getParentId());
+            }
+            return chain;
+        }
+
+        private Integer resolveEffectiveLevel(List<AgentInfoDto> effectiveChain) {
+            if (effectiveChain == null || effectiveChain.isEmpty()) {
+                return null;
+            }
+            return effectiveChain.stream()
+                    .filter(Objects::nonNull)
+                    .map(AgentInfoDto::getLevel)
+                    .filter(Objects::nonNull)
+                    .min(Integer::compareTo)
+                    .orElse(null);
         }
     }
 }

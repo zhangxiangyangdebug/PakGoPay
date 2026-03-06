@@ -116,6 +116,9 @@ public class MerchantInfoDto implements Serializable {
     /** Merchant's agent infos */
     private List<AgentInfoDto> agentInfos;
 
+    /** Merchant's effective level threshold (level >= effectiveLevel is effective) */
+    private Integer effectiveLevel;
+
     /** Merchant's agent infos */
     private List<ChannelDto> channelDtoList;
 
