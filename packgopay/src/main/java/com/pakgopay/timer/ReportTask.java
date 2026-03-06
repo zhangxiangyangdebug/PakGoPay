@@ -6,28 +6,17 @@ import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.impl.AgentServiceImpl;
 import com.pakgopay.service.impl.MerchantServiceImpl;
+import com.pakgopay.timer.data.*;
+import com.pakgopay.util.CalcUtil;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.PatchBuilderUtil;
-import com.pakgopay.util.CalcUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import com.pakgopay.timer.data.OpsContext;
-import com.pakgopay.timer.data.OpsOrderContext;
-import com.pakgopay.timer.data.OpsPeriod;
-import com.pakgopay.timer.data.OpsRecord;
-import com.pakgopay.timer.data.OpsScope;
-import com.pakgopay.timer.data.OpsTotals;
-import com.pakgopay.timer.data.ReportCurrencyRange;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.YearMonth;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Function;
@@ -806,10 +795,16 @@ public class ReportTask {
             if (merchant == null || merchant.getAgentInfos() == null || merchant.getAgentInfos().isEmpty()) {
                 return;
             }
-            List<AgentInfoDto> chain = merchant.getAgentInfos();
-            AgentInfoDto agent1 = getAgentFromChain(chain, 1);
-            AgentInfoDto agent2 = getAgentFromChain(chain, 2);
-            AgentInfoDto agent3 = getAgentFromChain(chain, 3);
+            Map<Integer, AgentInfoDto> agentByLevel = merchant.getAgentInfos().stream()
+                    .filter(Objects::nonNull)
+                    .filter(a -> a.getLevel() != null)
+                    .collect(Collectors.toMap(
+                            AgentInfoDto::getLevel,
+                            Function.identity(),
+                            (a, b) -> a));
+            AgentInfoDto agent1 = agentByLevel.get(CommonConstant.AGENT_LEVEL_FIRST);
+            AgentInfoDto agent2 = agentByLevel.get(CommonConstant.AGENT_LEVEL_SECOND);
+            AgentInfoDto agent3 = agentByLevel.get(CommonConstant.AGENT_LEVEL_THIRD);
 
             addAgentReport(agent1, merchantReport, currency, orderType, recordDate,
                     merchantReport == null ? BigDecimal.ZERO : merchantReport.getAgent1Fee());
@@ -817,24 +812,6 @@ public class ReportTask {
                     merchantReport == null ? BigDecimal.ZERO : merchantReport.getAgent2Fee());
             addAgentReport(agent3, merchantReport, currency, orderType, recordDate,
                     merchantReport == null ? BigDecimal.ZERO : merchantReport.getAgent3Fee());
-        }
-
-        /**
-         * Get agent by level from chain.
-         *
-         * @param chain agent chain
-         * @param level level (1/2/3)
-         * @return agent info
-         */
-        private AgentInfoDto getAgentFromChain(List<AgentInfoDto> chain, int level) {
-            if (chain == null || chain.isEmpty() || level <= 0) {
-                return null;
-            }
-            int indexFromBottom = chain.size() - level;
-            if (indexFromBottom < 0 || indexFromBottom >= chain.size()) {
-                return null;
-            }
-            return chain.get(indexFromBottom);
         }
 
         /**
@@ -1907,20 +1884,17 @@ public class ReportTask {
             if (merchants == null || merchants.isEmpty()) {
                 return;
             }
-            Map<String, List<AgentInfoDto>> ancestorAgentChainCache = new HashMap<>();
             for (MerchantInfoDto merchant : merchants) {
                 if (merchant == null) {
                     continue;
                 }
                 List<Long> channelIds;
                 if (merchant.getParentId() != null && !merchant.getParentId().isBlank()) {
-                    // Merchant under agent: use agent channels and build agent chain.
-                    AgentInfoDto parentAgent = agentByUserIdCache.get(merchant.getParentId());
+                    // Merchant under agent: use effective agent chain (enabled + contiguous) and parent channels.
+                    List<AgentInfoDto> effectiveAgentChain = resolveEffectiveAgentChain(merchant.getParentId());
+                    AgentInfoDto parentAgent = effectiveAgentChain.isEmpty() ? null : effectiveAgentChain.getFirst();
                     channelIds = CommonUtil.parseIds(parentAgent == null ? null : parentAgent.getChannelIds());
-                    List<AgentInfoDto> agentChain = ancestorAgentChainCache.computeIfAbsent(
-                            merchant.getParentId(),
-                            pid -> CommonUtil.safeList(agentInfoMapper.findAncestorAgentsByDescendant(pid)));
-                    merchant.setAgentInfos(agentChain);
+                    merchant.setAgentInfos(effectiveAgentChain);
                 } else {
                     // Direct merchant: use merchant channels and attach channel info list.
                     channelIds = CommonUtil.parseIds(merchant.getChannelIds());
@@ -1932,6 +1906,38 @@ public class ReportTask {
                         channelIds, channelByIdCache, paymentByIdCache);
                 merchant.setCurrencyList(currencies);
             }
+        }
+
+        /**
+         * Build effective agent chain from direct parent upward.
+         * Rule: once an intermediate agent is disabled/missing, upper agents are excluded.
+         * This keeps report attribution aligned with order fee calculation.
+         *
+         * @param startAgentUserId merchant direct parent agent userId
+         * @return effective chain (from direct parent upward)
+         */
+        private List<AgentInfoDto> resolveEffectiveAgentChain(String startAgentUserId) {
+            if (startAgentUserId == null || startAgentUserId.isBlank()) {
+                return Collections.emptyList();
+            }
+            List<AgentInfoDto> chain = new ArrayList<>();
+            Set<String> visited = new HashSet<>();
+            AgentInfoDto current = agentByUserIdCache.get(startAgentUserId);
+            while (current != null) {
+                if (current.getUserId() == null || !visited.add(current.getUserId())) {
+                    break;
+                }
+                if (!CommonConstant.ENABLE_STATUS_ENABLE.equals(current.getStatus())) {
+                    break;
+                }
+                chain.add(current);
+                if (!StringUtils.hasText(current.getParentId())
+                        || (current.getLevel() != null && current.getLevel() <= CommonConstant.AGENT_LEVEL_FIRST)) {
+                    break;
+                }
+                current = agentByUserIdCache.get(current.getParentId());
+            }
+            return chain;
         }
     }
 }

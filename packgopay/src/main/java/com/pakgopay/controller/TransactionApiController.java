@@ -1,5 +1,6 @@
 package com.pakgopay.controller;
 
+import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
@@ -17,13 +18,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.WebAsyncTask;
 
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Slf4j
 @RestController
 @RequestMapping("/pakGoPay/api/server/v1")
 public class TransactionApiController {
-
     @Autowired
     private CollectionOrderService collectionOrderService;
 
@@ -44,22 +46,23 @@ public class TransactionApiController {
         WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L,
                 () -> {
                     try {
-                        return collectionOrderService.createCollectionOrder(collectionOrderRequest, authorization);
+                        CommonResponse response = collectionOrderService.createCollectionOrder(collectionOrderRequest, authorization);
+                        return normalizeExternalResponse(response);
                     } catch (PakGoPayException e) {
                         log.error("createCollectionOrder error, code: {} message: {}",e.getErrorCode(), e.getMessage());
-                        return CommonResponse.fail(e.getCode(), e.getMessage());
+                        return normalizeExternalResponse(CommonResponse.fail(e.getCode(), e.getMessage()));
                     }
                 });
 
         // task time out
         task.onTimeout(() -> {
             log.error("createCollectionOrder async timeout");
-            return CommonResponse.fail(ResultCode.REQUEST_TIME_OUT, "createCollectionOrder async timeout");
+            return normalizeExternalResponse(CommonResponse.fail(ResultCode.REQUEST_TIME_OUT, "createCollectionOrder async timeout"));
         });
         // task error
         task.onError(() -> {
             log.error("createCollectionOrder async error");
-            return CommonResponse.fail(ResultCode.FAIL, "createCollectionOrder async error");
+            return normalizeExternalResponse(CommonResponse.fail(ResultCode.FAIL, "createCollectionOrder async error"));
         });
 
         return task;
@@ -79,21 +82,22 @@ public class TransactionApiController {
         WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L,
                 () -> {
                     try {
-                        return payOutOrderService.createPayOutOrder(payOutOrderRequest, authorization);
+                        CommonResponse response = payOutOrderService.createPayOutOrder(payOutOrderRequest, authorization);
+                        return normalizeExternalResponse(response);
                     } catch (PakGoPayException e) {
                         log.error("createPayOutOrder error, code {} message {}",e.getErrorCode(), e.getMessage());
-                        return CommonResponse.fail(e.getCode(), e.getMessage());
+                        return normalizeExternalResponse(CommonResponse.fail(e.getCode(), e.getMessage()));
                     }
                 });
         // task time out
         task.onTimeout(() -> {
             log.error("createPayOutOrder async timeout");
-            return CommonResponse.fail(ResultCode.REQUEST_TIME_OUT, "createPayOutOrder async timeout");
+            return normalizeExternalResponse(CommonResponse.fail(ResultCode.REQUEST_TIME_OUT, "createPayOutOrder async timeout"));
         });
         // task error
         task.onError(() -> {
             log.error("createPayOutOrder async error");
-            return CommonResponse.fail(ResultCode.FAIL, "createPayOutOrder async error");
+            return normalizeExternalResponse(CommonResponse.fail(ResultCode.FAIL, "createPayOutOrder async error"));
         });
 
         return task;
@@ -108,19 +112,19 @@ public class TransactionApiController {
 
         try {
             if (CommonConstant.COLLECTION_PREFIX.equals(orderType)) {
-                return collectionOrderService.queryOrderInfo(queryRequest, authorization);
+                return normalizeExternalResponse(collectionOrderService.queryOrderInfo(queryRequest, authorization));
             }
 
             if (CommonConstant.PAYOUT_PREFIX.equals(orderType)) {
-                return payOutOrderService.queryOrderInfo(queryRequest, authorization);
+                return normalizeExternalResponse(payOutOrderService.queryOrderInfo(queryRequest, authorization));
             }
         } catch (PakGoPayException e) {
             log.error("queryOrder failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            return CommonResponse.fail(e.getCode(), "queryOrder failed, " + e.getMessage());
+            return normalizeExternalResponse(CommonResponse.fail(e.getCode(), "queryOrder failed, " + e.getMessage()));
         }
 
         log.warn("orderType is invalid, orderType={}", orderType);
-        return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "orderType is invalid");
+        return normalizeExternalResponse(CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "orderType is invalid"));
     }
 
     @PostMapping(value = "/balance")
@@ -129,10 +133,10 @@ public class TransactionApiController {
             @RequestHeader(value = "Authorization") String authorization,
             @Valid @RequestBody QueryBalanceApiRequest queryRequest) {
         try {
-            return collectionOrderService.queryBalance(queryRequest, authorization);
+            return normalizeExternalResponse(collectionOrderService.queryBalance(queryRequest, authorization));
         } catch (PakGoPayException e) {
             log.error("fetchMerchantAvailableBalance failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            return CommonResponse.fail(e.getCode(), "queryBalance failed: " + e.getMessage());
+            return normalizeExternalResponse(CommonResponse.fail(e.getCode(), "queryBalance failed: " + e.getMessage()));
         }
     }
 
@@ -173,5 +177,41 @@ public class TransactionApiController {
             }
         }
         return null;
+    }
+
+    /**
+     * External API contract: convert numeric values in response data to string values.
+     */
+    private CommonResponse normalizeExternalResponse(CommonResponse response) {
+        if (response == null || response.getData() == null || response.getData().isBlank()) {
+            return response;
+        }
+        try {
+            Object parsed = JSON.parse(response.getData());
+            Object normalized = convertAmountFieldToString(parsed, null);
+            response.setData(JSON.toJSONString(normalized));
+        } catch (Exception e) {
+            log.warn("normalizeExternalResponse skipped, message={}", e.getMessage());
+        }
+        return response;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object convertAmountFieldToString(Object value, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof BigDecimal) {
+            return String.valueOf(value);
+        }
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> result = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                String key = String.valueOf(entry.getKey());
+                result.put(key, convertAmountFieldToString(entry.getValue(), key));
+            }
+            return result;
+        }
+        return value;
     }
 }
