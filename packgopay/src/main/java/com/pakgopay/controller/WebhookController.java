@@ -133,9 +133,8 @@ public class WebhookController {
                 return CommonResponse.success("disabled");
             }
             if (!isAllowedUser(message)) {
-                telegramService.sendMessageTo(chatId, "you have no permission");
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                return CommonResponse.fail(ResultCode.SC_UNAUTHORIZED, "forbidden");
+                log.warn("telegram webhook ignore unauthorized message, chatId={}", chatId);
+                return CommonResponse.success("ignore_unauthorized");
             }
 
             JSONObject document = message.getJSONObject("document");
@@ -335,8 +334,8 @@ public class WebhookController {
         }
         if (!telegramService.isAllowedUser(fromUserId)) {
             telegramService.answerCallbackQuery(callbackQueryId, "you have no permission", true);
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            return CommonResponse.fail(ResultCode.SC_UNAUTHORIZED, "forbidden");
+            log.warn("telegram webhook ignore unauthorized callback, fromUserId={}", fromUserId);
+            return CommonResponse.success("ignore_unauthorized");
         }
 
         String callbackData = callbackQuery.getString("data");
@@ -411,8 +410,8 @@ public class WebhookController {
         String fromUserId = from == null ? null : String.valueOf(from.get("id"));
         if (!telegramService.isAllowedUser(fromUserId)) {
             telegramService.answerCallbackQuery(callbackQueryId, "you have no permission", true);
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            return CommonResponse.fail(ResultCode.SC_UNAUTHORIZED, "forbidden");
+            log.warn("telegram webhook ignore unauthorized withdraw callback, fromUserId={}", fromUserId);
+            return CommonResponse.success("ignore_unauthorized");
         }
 
         String callbackData = callbackQuery.getString("data");

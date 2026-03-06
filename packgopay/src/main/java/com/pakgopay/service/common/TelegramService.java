@@ -299,12 +299,19 @@ public class TelegramService {
             log.warn("Telegram allowed user ids not configured.");
             return false;
         }
-        String[] parts = value.split(",");
+        String normalized = value
+                .replace('，', ',')
+                .replace('；', ',')
+                .replace(';', ',')
+                .replaceAll("\\s+", ",");
+        String[] parts = normalized.split(",");
         for (String part : parts) {
             if (userId.trim().equals(part.trim())) {
                 return true;
             }
         }
+        log.warn("Telegram user not allowed, fromUserId={}, allowedUserIdsRaw={}, allowedUserIdsNormalized={}",
+                userId, value, normalized);
         return false;
     }
 
