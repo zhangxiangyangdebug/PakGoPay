@@ -105,7 +105,16 @@
 
     <select id="pageByQuery" resultMap="LoginLogResultMap">
         SELECT
-            <include refid="BaseColumns"/>
+            id,
+            user_id,
+            login_name,
+            login_role,
+            login_ip,
+            create_time,
+            update_time,
+            event_type,
+            event_time,
+            logout_reason
         FROM login_log
         <include refid="LoginLogWhere"/>
         ORDER BY event_time DESC, create_time DESC, id DESC

@@ -51,6 +51,11 @@ public class CommonConstant {
     // statement order no prefix
     public static final String STATEMENT_PREFIX = "SE";
 
+    // order_type values in order tables
+    public static final int ORDER_TYPE_SYSTEM = 1;
+    public static final int ORDER_TYPE_MANUAL = 2;
+    public static final int ORDER_TYPE_TEST = 3;
+
     // First level agent
     public static final Integer AGENT_LEVEL_FIRST = 1;
 

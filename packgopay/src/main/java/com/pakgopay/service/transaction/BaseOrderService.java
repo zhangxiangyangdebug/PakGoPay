@@ -39,14 +39,16 @@ import java.util.Map;
 @Slf4j
 public abstract class BaseOrderService {
     protected enum NotifyFlow {
-        AUTO("notify", true),
-        MANUAL("manual notify", false);
+        AUTO("notify", "SYSTEM", true),
+        MANUAL("manual notify", "MANUAL", false);
 
         private final String scene;
+        private final String operateType;
         private final boolean allowFailedToSuccess;
 
-        NotifyFlow(String scene, boolean allowFailedToSuccess) {
+        NotifyFlow(String scene, String operateType, boolean allowFailedToSuccess) {
             this.scene = scene;
+            this.operateType = operateType;
             this.allowFailedToSuccess = allowFailedToSuccess;
         }
 
@@ -56,6 +58,10 @@ public abstract class BaseOrderService {
 
         public boolean isAllowFailedToSuccess() {
             return allowFailedToSuccess;
+        }
+
+        public String getOperateType() {
+            return operateType;
         }
     }
 

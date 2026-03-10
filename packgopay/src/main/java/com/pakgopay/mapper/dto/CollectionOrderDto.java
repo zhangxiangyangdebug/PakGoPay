@@ -79,7 +79,7 @@ public class CollectionOrderDto implements Serializable {
     /** Request IP */
     private String requestIp;
 
-    /** Operation type: 1-system completed, 2-manual confirmation */
+    /** Operation type: SYSTEM or MANUAL */
     private String operateType;
 
     /** Remark */

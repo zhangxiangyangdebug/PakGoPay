@@ -55,7 +55,7 @@
         <result column="remark" property="remark" javaType="java.lang.String"/>
         <result column="currency_type" property="currencyType" javaType="java.lang.String"/>
 
-        <result column="operate_type" property="operateType" javaType="java.lang.Integer"/>
+        <result column="operate_type" property="operateType" javaType="java.lang.String"/>
     </resultMap>
 
     <resultMap id="MerchantReportResultMap" type="com.pakgopay.mapper.dto.MerchantReportDto">

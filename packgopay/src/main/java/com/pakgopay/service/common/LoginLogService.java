@@ -101,8 +101,7 @@ public class LoginLogService {
             dto.setTokenJti(tokenJti);
             dto.setLogoutReason(logoutReason);
             loginLogMapper.insert(dto);
-            log.info("login log inserted, userId={}, eventType={}, reason={}",
-                    user.getUserId(), eventType, logoutReason);
+            log.info("login log inserted, dto={}", dto);
         } catch (Exception e) {
             log.error("write login log failed, userId={}, eventType={}, message={}",
                     user.getUserId(), eventType, e.getMessage());

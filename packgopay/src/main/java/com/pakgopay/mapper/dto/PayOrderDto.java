@@ -112,6 +112,6 @@ public class PayOrderDto implements Serializable {
     /** Currency code (e.g. USD, CNY) */
     private String currencyType;
 
-    /** Operate type: 1-system completed, 2-manual confirmation */
-    private Integer operateType;
+    /** Operate type: SYSTEM or MANUAL */
+    private String operateType;
 }

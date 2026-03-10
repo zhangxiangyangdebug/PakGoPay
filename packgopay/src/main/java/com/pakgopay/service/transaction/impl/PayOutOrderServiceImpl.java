@@ -63,26 +63,36 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             PayOutOrderRequest payOrderRequest, String authorization) throws PakGoPayException {
         MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(payOrderRequest.getMerchantId(), authorization);
         validatePayOutSign(payOrderRequest, merchantInfoDto);
-        return createPayOutOrderInternal(payOrderRequest, merchantInfoDto, "createPayOutOrder");
+        return createPayOutOrderInternal(
+                payOrderRequest,
+                merchantInfoDto,
+                "createPayOutOrder",
+                CommonConstant.ORDER_TYPE_SYSTEM);
     }
 
     @Override
     public CommonResponse manualCreatePayOutOrder(
             PayOutOrderRequest payOrderRequest) throws PakGoPayException {
         MerchantInfoDto merchantInfoDto = merchantService.fetchMerchantInfo(payOrderRequest.getMerchantId());
-        return createPayOutOrderInternal(payOrderRequest, merchantInfoDto, "manualCreatePayOutOrder");
+        return createPayOutOrderInternal(
+                payOrderRequest,
+                merchantInfoDto,
+                "manualCreatePayOutOrder",
+                CommonConstant.ORDER_TYPE_MANUAL);
     }
 
     private CommonResponse createPayOutOrderInternal(
             PayOutOrderRequest payOrderRequest,
             MerchantInfoDto merchantInfoDto,
-            String scene) throws PakGoPayException {
-        log.info("createPayOutOrder start, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
+            String scene,
+            Integer orderType) throws PakGoPayException {
+        log.info("createPayOutOrder start, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}, orderType={}",
                 payOrderRequest.getMerchantId(),
                 payOrderRequest.getMerchantOrderNo(),
                 payOrderRequest.getCurrency(),
                 payOrderRequest.getAmount(),
-                payOrderRequest.getPaymentNo());
+                payOrderRequest.getPaymentNo(),
+                orderType);
         BigDecimal frozenAmount = BigDecimal.ZERO;
         boolean frozen = false;
         boolean lockAcquired = false;
@@ -133,7 +143,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     transactionInfo.getAgent3Fee());
 
             // 7. build payout order dto
-            PayOrderDto payOrderDto = buildPayOrderDto(payOrderRequest, transactionInfo);
+            PayOrderDto payOrderDto = buildPayOrderDto(payOrderRequest, transactionInfo, orderType);
             log.info("payOrderDto built, transactionNo={}, paymentId={}, channelId={}, paymentMode={}",
                     payOrderDto.getTransactionNo(),
                     payOrderDto.getPaymentId(),
@@ -404,7 +414,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             NotifyFlow notifyFlow) throws PakGoPayException {
         String scene = notifyFlow.getScene();
         // Persist order status transition and related balance changes.
-        boolean updated = applyNotifyUpdate(payOrderDto, targetStatus, notifyFlow.isAllowFailedToSuccess());
+        boolean updated = applyNotifyUpdate(
+                payOrderDto, targetStatus, notifyFlow.isAllowFailedToSuccess(), notifyFlow);
         boolean continuePostProcess = updated
                 || (TransactionStatus.SUCCESS.equals(targetStatus)
                 && TransactionStatus.SUCCESS.getCode().toString().equals(payOrderDto.getOrderStatus()));
@@ -556,7 +567,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
     private boolean applyNotifyUpdate(
             PayOrderDto payOrderDto,
             TransactionStatus targetStatus,
-            boolean allowFailedToSuccess) throws PakGoPayException {
+            boolean allowFailedToSuccess,
+            NotifyFlow notifyFlow) throws PakGoPayException {
         String currentStatus = payOrderDto.getOrderStatus();
         log.info("payout applyNotifyUpdate, transactionNo={}, currentStatus={}, targetStatus={}, allowFailedToSuccess={}",
                 payOrderDto.getTransactionNo(), currentStatus, targetStatus, allowFailedToSuccess);
@@ -584,6 +596,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         PayOrderDto update = new PayOrderDto();
         update.setTransactionNo(payOrderDto.getTransactionNo());
         update.setOrderStatus(targetStatus.getCode().toString());
+        update.setOperateType(notifyFlow.getOperateType());
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
             update.setSuccessCallbackTime(System.currentTimeMillis() / 1000);
         }
@@ -748,7 +761,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
     private PayOrderDto buildPayOrderDto(
             PayOutOrderRequest request,
-            TransactionInfo transactionInfo) {
+            TransactionInfo transactionInfo,
+            Integer orderType) {
         long now = resolveCreateTimeFromTransactionNo(transactionInfo.getTransactionNo());
         MerchantInfoDto merchantInfo = transactionInfo.getMerchantInfo();
 
@@ -799,7 +813,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         // -----------------------------
         // 5) Callback & request metadata
         // -----------------------------
-        .obj(() -> 1, dto::setOrderType) // order type: 1-system, 2-manual
+        .obj(() -> orderType, dto::setOrderType) // order type: 1-system, 2-manual, 3-test
         .obj(() -> OrderStatus.PROCESSING.getCode().toString(), dto::setOrderStatus) // order status: 1-processing, 2-failed
         .obj(() -> 0, dto::setCallbackStatus) // callback status: 0-pending, 1-failed, 2-success
         .obj(request::getNotificationUrl, dto::setCallbackUrl) // async callback url

@@ -58,6 +58,13 @@ public enum OperateInterfaceEnum {
     MANUAL_NOTIFY_COLLECTION_ORDER(1, "Manual Collection Notify"),
     MANUAL_NOTIFY_PAYOUT_ORDER(1, "Manual Payout Notify");
 
+    /**
+     * Operate type:
+     * 1 = update
+     * 2 = delete
+     * 3 = create
+     * 4 = export
+     */
     private final Integer operateType;
     private final String message;
 

@@ -66,25 +66,29 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             CollectionOrderRequest colOrderRequest, String authorization) throws PakGoPayException {
         MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(colOrderRequest.getMerchantId(), authorization);
         validateCollectionSign(colOrderRequest, merchantInfoDto);
-        return createCollectionOrderInternal(colOrderRequest, merchantInfoDto);
+        return createCollectionOrderInternal(
+                colOrderRequest, merchantInfoDto, CommonConstant.ORDER_TYPE_SYSTEM);
     }
 
     @Override
     public CommonResponse manualCreateCollectionOrder(
             CollectionOrderRequest colOrderRequest) throws PakGoPayException {
         MerchantInfoDto merchantInfoDto = merchantService.fetchMerchantInfo(colOrderRequest.getMerchantId());
-        return createCollectionOrderInternal(colOrderRequest, merchantInfoDto);
+        return createCollectionOrderInternal(
+                colOrderRequest, merchantInfoDto, CommonConstant.ORDER_TYPE_MANUAL);
     }
 
     private CommonResponse createCollectionOrderInternal(
             CollectionOrderRequest colOrderRequest,
-            MerchantInfoDto merchantInfoDto) throws PakGoPayException {
-        log.info("createCollectionOrder start, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
+            MerchantInfoDto merchantInfoDto,
+            Integer orderType) throws PakGoPayException {
+        log.info("createCollectionOrder start, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}, orderType={}",
                 colOrderRequest.getMerchantId(),
                 colOrderRequest.getMerchantOrderNo(),
                 colOrderRequest.getCurrency(),
                 colOrderRequest.getAmount(),
-                colOrderRequest.getPaymentNo());
+                colOrderRequest.getPaymentNo(),
+                orderType);
         TransactionInfo transactionInfo = new TransactionInfo();
         boolean lockAcquired = false;
         boolean createdSuccess = false;
@@ -137,7 +141,8 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             transactionInfo.setTransactionNo(systemTransactionNo);
 
             // 7. build collection order dto
-            CollectionOrderDto collectionOrderDto = buildCollectionOrderDto(colOrderRequest, transactionInfo);
+            CollectionOrderDto collectionOrderDto = buildCollectionOrderDto(
+                    colOrderRequest, transactionInfo, orderType);
             log.info("collectionOrderDto built, transactionNo={}, paymentId={}, channelId={}, collectionMode={}",
                     collectionOrderDto.getTransactionNo(),
                     collectionOrderDto.getPaymentId(),
@@ -404,7 +409,8 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             NotifyFlow notifyFlow) throws PakGoPayException {
         String scene = notifyFlow.getScene();
         // Persist order status transition and related balance changes.
-        boolean updated = applyNotifyUpdate(collectionOrderDto, targetStatus, notifyFlow.isAllowFailedToSuccess());
+        boolean updated = applyNotifyUpdate(
+                collectionOrderDto, targetStatus, notifyFlow.isAllowFailedToSuccess(), notifyFlow);
         boolean continuePostProcess = updated
                 || (TransactionStatus.SUCCESS.equals(targetStatus)
                 && TransactionStatus.SUCCESS.getCode().toString().equals(collectionOrderDto.getOrderStatus()));
@@ -522,7 +528,8 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
     private boolean applyNotifyUpdate(
             CollectionOrderDto collectionOrderDto,
             TransactionStatus targetStatus,
-            boolean allowFailedToSuccess) throws PakGoPayException {
+            boolean allowFailedToSuccess,
+            NotifyFlow notifyFlow) throws PakGoPayException {
         String currentStatus = collectionOrderDto.getOrderStatus();
         log.info("collection applyNotifyUpdate, transactionNo={}, currentStatus={}, targetStatus={}, allowFailedToSuccess={}",
                 collectionOrderDto.getTransactionNo(), currentStatus, targetStatus, allowFailedToSuccess);
@@ -550,7 +557,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         CollectionOrderDto update = new CollectionOrderDto();
         update.setTransactionNo(collectionOrderDto.getTransactionNo());
         update.setOrderStatus(targetStatus.getCode().toString());
-        update.setOperateType("SYSTEM");
+        update.setOperateType(notifyFlow.getOperateType());
         if (TransactionStatus.SUCCESS.equals(targetStatus)) {
             update.setSuccessCallbackTime(System.currentTimeMillis() / 1000);
         }
@@ -667,7 +674,8 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
 
     private CollectionOrderDto buildCollectionOrderDto(
             CollectionOrderRequest request,
-            TransactionInfo transactionInfo) {
+            TransactionInfo transactionInfo,
+            Integer orderType) {
         long now = resolveCreateTimeFromTransactionNo(transactionInfo.getTransactionNo());
         MerchantInfoDto merchantInfo = transactionInfo.getMerchantInfo();
 
@@ -724,7 +732,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         // -----------------------------
         // 5) Callback & request metadata
         // -----------------------------
-        builder.obj(() -> 1, dto::setOrderType) // order type: 1-system, 2-manual
+        builder.obj(() -> orderType, dto::setOrderType) // order type: 1-system, 2-manual, 3-test
                 .obj(() -> OrderStatus.PROCESSING.getCode().toString(), dto::setOrderStatus) // order status: 1-processing, 2-failed
                 .obj(() -> 0, dto::setCallbackStatus) // callback status: 0-pending, 1-failed, 2-success
                 .obj(request::getNotificationUrl, dto::setCallbackUrl) // async callback url
