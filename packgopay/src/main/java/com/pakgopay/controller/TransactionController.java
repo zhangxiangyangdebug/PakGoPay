@@ -1,15 +1,18 @@
 package com.pakgopay.controller;
 
 import com.pakgopay.common.enums.OperateInterfaceEnum;
+import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.data.reqeust.transaction.MerchantAvailableChannelRequest;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
+import com.pakgopay.data.reqeust.transaction.OrderFlowLogQueryRequest;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.reqeust.transaction.OrderReverseRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.ChannelPaymentService;
+import com.pakgopay.service.common.OrderFlowLogService;
 import com.pakgopay.service.common.OperateLogService;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.PayOutOrderService;
@@ -37,6 +40,9 @@ public class TransactionController {
 
     @Autowired
     private OperateLogService operateLogService;
+
+    @Autowired
+    private OrderFlowLogService orderFlowLogService;
 
     @PostMapping(value = "/queryCollectionOrders")
     public CommonResponse queryCollectionOrders(@RequestBody @Valid OrderQueryRequest request) {
@@ -175,6 +181,21 @@ public class TransactionController {
         } catch (PakGoPayException e) {
             log.error("manualReverseOrder failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "manualReverseOrder failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Query order flow logs by transactionNo.
+     */
+    @PostMapping(value = "/queryOrderFlowLogs")
+    public CommonResponse queryOrderFlowLogs(@RequestBody @Valid OrderFlowLogQueryRequest request) {
+        log.info("queryOrderFlowLogs request, transactionNo={}", request.getTransactionNo());
+        try {
+            return CommonResponse.success(orderFlowLogService.listByTransactionNo(request.getTransactionNo()));
+        } catch (Exception e) {
+            log.error("queryOrderFlowLogs failed, transactionNo={}, message={}",
+                    request.getTransactionNo(), e.getMessage());
+            return CommonResponse.fail(ResultCode.FAIL, "queryOrderFlowLogs failed: " + e.getMessage());
         }
     }
 }

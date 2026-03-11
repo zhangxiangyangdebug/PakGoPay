@@ -78,6 +78,12 @@ public class CommonConstant {
     // Role customer service
     public static final int ROLE_CUSTOMER = 5;
 
+    // account_statements user_role: merchant
+    public static final int STATEMENT_ROLE_MERCHANT = 1;
+
+    // account_statements user_role: agent
+    public static final int STATEMENT_ROLE_AGENT = 2;
+
     // payment type is 2:app
     public static final String PAYMENT_TYPE_APP = "1";
 

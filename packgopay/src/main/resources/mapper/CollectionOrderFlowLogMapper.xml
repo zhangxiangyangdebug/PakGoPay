@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.CollectionOrderFlowLogMapper">
+
+    <resultMap id="OrderFlowLogResultMap" type="com.pakgopay.mapper.dto.OrderFlowLogDto">
+        <id column="id" property="id" javaType="java.lang.Long"/>
+        <result column="transaction_no" property="transactionNo" javaType="java.lang.String"/>
+        <result column="step_code" property="stepCode" javaType="java.lang.String"/>
+        <result column="step_name" property="stepName" javaType="java.lang.String"/>
+        <result column="step_seq" property="stepSeq" javaType="java.lang.Integer"/>
+        <result column="success" property="success" javaType="java.lang.Boolean"/>
+        <result column="payload" property="payload" javaType="java.lang.String"/>
+        <result column="trace_id" property="traceId" javaType="java.lang.String"/>
+        <result column="event_time" property="eventTime" javaType="java.lang.Long"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.OrderFlowLogDto">
+        INSERT INTO collection_order_flow_log (
+            transaction_no,
+            step_code,
+            step_name,
+            step_seq,
+            success,
+            payload,
+            trace_id,
+            event_time,
+            create_time
+        ) VALUES (
+            #{transactionNo},
+            #{stepCode},
+            #{stepName},
+            #{stepSeq},
+            #{success},
+            CAST(#{payload,jdbcType=VARCHAR} AS jsonb),
+            #{traceId},
+            #{eventTime},
+            #{createTime}
+        )
+    </insert>
+
+    <insert id="insertBatch" parameterType="java.util.List">
+        INSERT INTO collection_order_flow_log (
+            transaction_no,
+            step_code,
+            step_name,
+            step_seq,
+            success,
+            payload,
+            trace_id,
+            event_time,
+            create_time
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.transactionNo},
+                #{item.stepCode},
+                #{item.stepName},
+                #{item.stepSeq},
+                #{item.success},
+                CAST(#{item.payload,jdbcType=VARCHAR} AS jsonb),
+                #{item.traceId},
+                #{item.eventTime},
+                #{item.createTime}
+            )
+        </foreach>
+    </insert>
+
+    <select id="listByTransactionNo" resultMap="OrderFlowLogResultMap">
+        SELECT
+            id,
+            transaction_no,
+            step_code,
+            step_name,
+            step_seq,
+            success,
+            payload::text AS payload,
+            trace_id,
+            event_time,
+            create_time
+        FROM collection_order_flow_log
+        WHERE transaction_no = #{transactionNo}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt; #{endTime}
+        ORDER BY step_seq ASC, event_time ASC, create_time ASC, id ASC
+    </select>
+
+</mapper>

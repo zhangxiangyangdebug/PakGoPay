@@ -24,6 +24,8 @@ import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.MerchantService;
+import com.pakgopay.service.common.OrderFlowLogService;
+import com.pakgopay.service.common.OrderFlowLogSession;
 import com.pakgopay.service.transaction.*;
 import com.pakgopay.util.*;
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +52,9 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
 
     @Autowired
     ChannelPaymentService channelPaymentService;
+
+    @Autowired
+    private OrderFlowLogService orderFlowLogService;
 
     @Autowired
     private CollectionOrderMapper collectionOrderMapper;
@@ -141,6 +146,18 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             String systemTransactionNo = snowflakeIdService.nextId(CommonConstant.COLLECTION_PREFIX);
             log.info("generator system transactionNo :{}", systemTransactionNo);
             transactionInfo.setTransactionNo(systemTransactionNo);
+            OrderFlowLogSession flowSession = orderFlowLogService.newCollectionSession(systemTransactionNo);
+            flowSession.add(OrderFlowStepEnum.MERCHANT_CREATE_REQUEST, true, colOrderRequest);
+            Map<String, Object> channelPayload = new HashMap<>();
+            channelPayload.put("paymentId", transactionInfo.getPaymentId());
+            channelPayload.put("paymentNo", transactionInfo.getPaymentNo());
+            channelPayload.put("channelId", transactionInfo.getChannelId());
+            flowSession.add(OrderFlowStepEnum.CHANNEL_SELECTED, true, channelPayload);
+            Map<String, Object> agentPayload = new HashMap<>();
+            agentPayload.put("merchantUserId", merchantInfoDto.getUserId());
+            agentPayload.put("parentId", merchantInfoDto.getParentId());
+            agentPayload.put("agentInfos", merchantInfoDto.getAgentInfos());
+            flowSession.add(OrderFlowStepEnum.AGENT_CHAIN_RESOLVED, true, agentPayload);
 
             // 7. build collection order dto
             CollectionOrderDto collectionOrderDto = buildCollectionOrderDto(
@@ -157,6 +174,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 if (ret <= 0) {
                     return CommonResponse.fail(ResultCode.DATA_BASE_ERROR, "collection order insert failed");
                 }
+                flowSession.flush();
                 log.info("collection order inserted, transactionNo={}", collectionOrderDto.getTransactionNo());
                 publishOrderTimeoutMessage(
                         RabbitConfig.ORDER_TIMEOUT_COLLECTION_QUEUE,
@@ -893,7 +911,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         // Reverse merchant settlement amount first.
         applyBalanceAdjustmentAndCreateStatement(
                 order.getMerchantUserId(),
-                CommonConstant.ROLE_MERCHANT,
+                CommonConstant.STATEMENT_ROLE_MERCHANT,
                 merchantInfo.getMerchantName(),
                 merchantDelta,
                 context,
@@ -934,7 +952,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             // Reverse agent commission by subtracting credited fee.
             applyBalanceAdjustmentAndCreateStatement(
                     agent.getUserId(),
-                    CommonConstant.ROLE_AGENT,
+                    CommonConstant.STATEMENT_ROLE_AGENT,
                     agent.getAgentName(),
                     fee.negate(),
                     context,

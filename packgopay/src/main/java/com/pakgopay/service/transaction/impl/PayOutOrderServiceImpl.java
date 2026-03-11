@@ -22,6 +22,8 @@ import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.MerchantService;
+import com.pakgopay.service.common.OrderFlowLogService;
+import com.pakgopay.service.common.OrderFlowLogSession;
 import com.pakgopay.service.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.*;
 import com.pakgopay.util.*;
@@ -47,6 +49,9 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
     @Autowired
     private ChannelPaymentServiceImpl channelPaymentService;
+
+    @Autowired
+    private OrderFlowLogService orderFlowLogService;
 
     @Autowired
     private PayOrderMapper payOrderMapper;
@@ -134,6 +139,18 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             String systemTransactionNo = snowflakeIdService.nextId(CommonConstant.PAYOUT_PREFIX);
             log.info("generator system transactionNo :{}", systemTransactionNo);
             transactionInfo.setTransactionNo(systemTransactionNo);
+            OrderFlowLogSession flowSession = orderFlowLogService.newPayoutSession(systemTransactionNo);
+            flowSession.add(OrderFlowStepEnum.MERCHANT_CREATE_REQUEST, true, payOrderRequest);
+            Map<String, Object> channelPayload = new HashMap<>();
+            channelPayload.put("paymentId", transactionInfo.getPaymentId());
+            channelPayload.put("paymentNo", transactionInfo.getPaymentNo());
+            channelPayload.put("channelId", transactionInfo.getChannelId());
+            flowSession.add(OrderFlowStepEnum.CHANNEL_SELECTED, true, channelPayload);
+            Map<String, Object> agentPayload = new HashMap<>();
+            agentPayload.put("merchantUserId", merchantInfoDto.getUserId());
+            agentPayload.put("parentId", merchantInfoDto.getParentId());
+            agentPayload.put("agentInfos", merchantInfoDto.getAgentInfos());
+            flowSession.add(OrderFlowStepEnum.AGENT_CHAIN_RESOLVED, true, agentPayload);
 
             // 6. calculate transaction fee
             transactionInfo.setActualAmount(payOrderRequest.getAmount());
@@ -167,6 +184,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 if (ret <= 0) {
                     throw new PakGoPayException(ResultCode.DATA_BASE_ERROR, "pay order insert failed");
                 }
+                flowSession.flush();
             });
             frozen = true;
             log.info("balance frozen, userId={}, currency={}, frozenAmount={}",
@@ -828,7 +846,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         // Reverse merchant payout deduction first.
         applyBalanceAdjustmentAndCreateStatement(
                 order.getMerchantUserId(),
-                CommonConstant.ROLE_MERCHANT,
+                CommonConstant.STATEMENT_ROLE_MERCHANT,
                 merchantInfo.getMerchantName(),
                 merchantDelta,
                 context,
@@ -869,7 +887,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             // Reverse agent commission by subtracting credited fee.
             applyBalanceAdjustmentAndCreateStatement(
                     agent.getUserId(),
-                    CommonConstant.ROLE_AGENT,
+                    CommonConstant.STATEMENT_ROLE_AGENT,
                     agent.getAgentName(),
                     fee.negate(),
                     context,

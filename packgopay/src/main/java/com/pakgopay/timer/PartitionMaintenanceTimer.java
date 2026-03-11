@@ -56,6 +56,8 @@ public class PartitionMaintenanceTimer {
                 LocalDate monthEnd = monthStart.plusMonths(1);
                 ensureMonthlyPartition("collection_order", monthStart, monthEnd);
                 ensureMonthlyPartition("pay_order", monthStart, monthEnd);
+                ensureMonthlyPartition("collection_order_flow_log", monthStart, monthEnd);
+                ensureMonthlyPartition("pay_order_flow_log", monthStart, monthEnd);
             }
             log.info("partition maintenance done, source={}", source);
         } catch (Exception e) {
@@ -79,12 +81,28 @@ public class PartitionMaintenanceTimer {
                 partTable, parentTable, fromEpoch, toEpoch);
         jdbcTemplate.execute(ddl);
 
-        ensurePartitionIndexes(partTable);
+        ensurePartitionIndexes(parentTable, partTable);
         log.info("partition ready, parent={}, partition={}, from={}, to={}",
                 parentTable, partTable, fromEpoch, toEpoch);
     }
 
-    private void ensurePartitionIndexes(String partTable) {
+    private void ensurePartitionIndexes(String parentTable, String partTable) {
+        if ("collection_order_flow_log".equals(parentTable) || "pay_order_flow_log".equals(parentTable)) {
+            jdbcTemplate.execute(String.format(
+                    "create index if not exists idx_%s_txn_seq_etime on public.%s (transaction_no, step_seq, event_time)",
+                    partTable, partTable));
+            jdbcTemplate.execute(String.format(
+                    "create index if not exists idx_%s_txn_seq_ctime on public.%s (transaction_no, step_seq, create_time)",
+                    partTable, partTable));
+            jdbcTemplate.execute(String.format(
+                    "create index if not exists idx_%s_ctime on public.%s (create_time desc)",
+                    partTable, partTable));
+            jdbcTemplate.execute(String.format(
+                    "create index if not exists idx_%s_step_ctime on public.%s (step_code, create_time)",
+                    partTable, partTable));
+            return;
+        }
+
         // local unique indexes (partition-level uniqueness)
         jdbcTemplate.execute(String.format(
                 "create unique index if not exists uk_%s_txn on public.%s (transaction_no)",

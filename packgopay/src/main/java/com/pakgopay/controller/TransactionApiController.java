@@ -9,6 +9,8 @@ import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.reqeust.transaction.QueryBalanceApiRequest;
 import com.pakgopay.data.reqeust.transaction.QueryOrderApiRequest;
 import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.common.enums.OrderFlowStepEnum;
+import com.pakgopay.service.common.OrderFlowLogService;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.PayOutOrderService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,6 +33,9 @@ public class TransactionApiController {
 
     @Autowired
     private PayOutOrderService payOutOrderService;
+
+    @Autowired
+    private OrderFlowLogService orderFlowLogService;
 
     @PostMapping(value = "/createCollectionOrder")
     public WebAsyncTask<CommonResponse> createCollectionOrder(
@@ -146,11 +151,26 @@ public class TransactionApiController {
         String orderNo = extractOrderNo(notifyData);
         Map<String, Object> data = getDataMap(notifyData);
         log.info("notify parsed, order_no={}", orderNo);
-        if (orderNo != null && orderNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
-            return collectionOrderService.handleNotify(data);
-        }
-        if (orderNo != null && orderNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
-            return payOutOrderService.handleNotify(data);
+        try {
+            if (orderNo != null && orderNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
+                Object response = collectionOrderService.handleNotify(data);
+                orderFlowLogService.logCollection(orderNo, OrderFlowStepEnum.NOTIFY_API_RESPONSE, true, response);
+                return response;
+            }
+            if (orderNo != null && orderNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
+                Object response = payOutOrderService.handleNotify(data);
+                orderFlowLogService.logPayout(orderNo, OrderFlowStepEnum.NOTIFY_API_RESPONSE, true, response);
+                return response;
+            }
+        } catch (Exception e) {
+            Map<String, Object> errorPayload = new LinkedHashMap<>();
+            errorPayload.put("error", e.getMessage());
+            if (orderNo != null && orderNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
+                orderFlowLogService.logCollection(orderNo, OrderFlowStepEnum.NOTIFY_API_RESPONSE, false, errorPayload);
+            } else if (orderNo != null && orderNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
+                orderFlowLogService.logPayout(orderNo, OrderFlowStepEnum.NOTIFY_API_RESPONSE, false, errorPayload);
+            }
+            throw e;
         }
         return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "order_no is valid").toString();
     }
