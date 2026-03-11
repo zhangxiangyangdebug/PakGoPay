@@ -56,7 +56,9 @@ public enum OperateInterfaceEnum {
     MANUAL_CREATE_COLLECTION_ORDER(3, "Manual Create Collection Order"),
     MANUAL_CREATE_PAYOUT_ORDER(3, "Manual Create Payout Order"),
     MANUAL_NOTIFY_COLLECTION_ORDER(1, "Manual Collection Notify"),
-    MANUAL_NOTIFY_PAYOUT_ORDER(1, "Manual Payout Notify");
+    MANUAL_NOTIFY_PAYOUT_ORDER(1, "Manual Payout Notify"),
+    MANUAL_REVERSE_COLLECTION_ORDER(1, "Manual Reverse Collection Order"),
+    MANUAL_REVERSE_PAYOUT_ORDER(1, "Manual Reverse Payout Order");
 
     /**
      * Operate type:

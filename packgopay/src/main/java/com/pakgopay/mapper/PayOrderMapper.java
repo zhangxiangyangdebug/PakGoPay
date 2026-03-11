@@ -39,7 +39,7 @@ public interface PayOrderMapper {
                               @Param("endTime") Long endTime);
 
     /** Update order by transactionNo when status is processing */
-    int updateByTransactionNoWhenProcessing(@Param("dto") PayOrderDto dto,
+    int updateByTransactionNoWhenStatus(@Param("dto") PayOrderDto dto,
                                             @Param("currentStatus") String currentStatus,
                                             @Param("startTime") Long startTime,
                                             @Param("endTime") Long endTime);

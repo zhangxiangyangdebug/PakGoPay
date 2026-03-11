@@ -3,6 +3,7 @@ package com.pakgopay.service.transaction;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
+import com.pakgopay.data.reqeust.transaction.OrderReverseRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.reqeust.transaction.QueryOrderApiRequest;
 import com.pakgopay.data.response.CommonResponse;
@@ -24,4 +25,6 @@ public interface PayOutOrderService {
     CommonResponse manualHandleNotify(NotifyRequest notifyRequest) throws PakGoPayException;
 
     CommonResponse queryPayOutOrders(OrderQueryRequest request) throws PakGoPayException;
+
+    CommonResponse reverseOrder(OrderReverseRequest request) throws PakGoPayException;
 }

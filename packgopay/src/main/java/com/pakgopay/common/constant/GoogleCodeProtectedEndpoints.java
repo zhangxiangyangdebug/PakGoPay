@@ -50,6 +50,7 @@ public final class GoogleCodeProtectedEndpoints {
         // Manual order create
         map.put("POST /pakGoPay/server/v1/manualCreateCollectionOrder", "manual create collection order");
         map.put("POST /pakGoPay/server/v1/manualCreatePayOutOrder", "manual create payout order");
+        map.put("POST /pakGoPay/server/v1/manualReverseOrder", "manual reverse order");
 
         ENDPOINTS = Collections.unmodifiableMap(map);
     }

@@ -4,6 +4,7 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
+import com.pakgopay.data.reqeust.transaction.OrderReverseRequest;
 import com.pakgopay.data.reqeust.transaction.QueryBalanceApiRequest;
 import com.pakgopay.data.reqeust.transaction.QueryOrderApiRequest;
 import com.pakgopay.data.response.CommonResponse;
@@ -29,4 +30,6 @@ public interface CollectionOrderService {
     CommonResponse manualHandleNotify(NotifyRequest notifyRequest) throws PakGoPayException;
 
     CommonResponse queryCollectionOrders(OrderQueryRequest request) throws PakGoPayException;
+
+    CommonResponse reverseOrder(OrderReverseRequest request) throws PakGoPayException;
 }

@@ -176,7 +176,7 @@
           AND create_time &lt; #{endTime}
     </update>
 
-    <update id="updateByTransactionNoWhenProcessing">
+    <update id="updateByTransactionNoWhenStatus">
         UPDATE collection_order
         <set>
             <include refid="CollectionOrderUpdateSetDto"/>

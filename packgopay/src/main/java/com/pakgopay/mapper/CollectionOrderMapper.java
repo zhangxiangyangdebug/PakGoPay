@@ -39,7 +39,7 @@ public interface CollectionOrderMapper {
                               @Param("endTime") Long endTime);
 
     /** Update order by transactionNo when status is processing */
-    int updateByTransactionNoWhenProcessing(@Param("dto") CollectionOrderDto dto,
+    int updateByTransactionNoWhenStatus(@Param("dto") CollectionOrderDto dto,
                                             @Param("currentStatus") String currentStatus,
                                             @Param("startTime") Long startTime,
                                             @Param("endTime") Long endTime);

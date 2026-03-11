@@ -8,6 +8,7 @@ import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.OrderQueryEntity;
+import com.pakgopay.data.entity.account.AdjustmentStatementRecord;
 import com.pakgopay.data.entity.transaction.OrderTimeoutMessage;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
@@ -16,6 +17,7 @@ import com.pakgopay.mapper.PaymentMapper;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.common.SendDmqMessage;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.service.common.AccountStatementService;
 import com.pakgopay.thirdUtil.RedisUtil;
 import com.pakgopay.timer.ReportTask;
 import com.pakgopay.util.CommonUtil;
@@ -89,6 +91,12 @@ public abstract class BaseOrderService {
     private SendDmqMessage sendDmqMessage;
 
     @Autowired
+    protected BalanceService balanceService;
+
+    @Autowired
+    protected AccountStatementService accountStatementService;
+
+    @Autowired
     @Qualifier("pakGoPayExecutor")
     private ThreadPoolTaskExecutor pakGoPayExecutor;
 
@@ -114,8 +122,8 @@ public abstract class BaseOrderService {
         if (TransactionStatus.EXPIRED.getMessage().equalsIgnoreCase(status)) {
             return TransactionStatus.EXPIRED;
         }
-        if (TransactionStatus.CANCELLED.getMessage().equalsIgnoreCase(status)) {
-            return TransactionStatus.CANCELLED;
+        if (TransactionStatus.REVERSED.getMessage().equalsIgnoreCase(status)) {
+            return TransactionStatus.REVERSED;
         }
         log.warn("resolveNotifyStatus failed: unsupported status={}", status);
         throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "unsupported status");
@@ -123,6 +131,15 @@ public abstract class BaseOrderService {
 
     protected BigDecimal resolveOrderAmount(BigDecimal actualAmount, BigDecimal amount) {
         return actualAmount != null ? actualAmount : amount;
+    }
+
+    protected boolean isFailedToSuccessMigration(
+            String currentStatus,
+            boolean allowFailedToSuccess,
+            TransactionStatus targetStatus) {
+        return TransactionStatus.FAILED.getCode().toString().equals(currentStatus)
+                && allowFailedToSuccess
+                && TransactionStatus.SUCCESS.equals(targetStatus);
     }
 
     @SuppressWarnings("unchecked")
@@ -413,6 +430,73 @@ public abstract class BaseOrderService {
             return fallback;
         }
         return epochSecond;
+    }
+
+    /**
+     * Apply balance delta and persist one adjustment statement in one orchestration step.
+     */
+    protected void applyBalanceAdjustmentAndCreateStatement(
+            String userId,
+            Integer userRole,
+            String name,
+            BigDecimal deltaAmount,
+            ReverseContext context,
+            String remark) {
+        if (deltaAmount == null || deltaAmount.compareTo(BigDecimal.ZERO) == 0) {
+            return;
+        }
+        String currency = context.currency();
+        String transactionNo = context.transactionNo();
+        // 1) Capture balance snapshot before change.
+        BalanceDto before = balanceService.loadOrCreateBalanceSnapshot(userId, currency);
+        // 2) Apply delta on balance.
+        CommonUtil.withBalanceLogContext("order.reverse", transactionNo, () ->
+                balanceService.adjustBalance(userId, currency, deltaAmount));
+        // 3) Capture balance snapshot after change.
+        BalanceDto after = balanceService.loadOrCreateBalanceSnapshot(userId, currency);
+        // 4) Persist account statement row for audit trail.
+        accountStatementService.createAdjustmentStatement(new AdjustmentStatementRecord(
+                new AdjustmentStatementRecord.Subject(
+                        userId,
+                        userRole,
+                        name,
+                        currency,
+                        deltaAmount),
+                new AdjustmentStatementRecord.Snapshot(before, after),
+                new AdjustmentStatementRecord.Audit(
+                        context.requestIp(),
+                        context.operator(),
+                        remark)));
+    }
+
+    /**
+     * Reverse flow context shared across merchant/agent adjustments.
+     */
+    protected record ReverseContext(
+            String currency,
+            String transactionNo,
+            String requestIp,
+            String operator,
+            String remarkPrefix) {
+    }
+
+    protected String buildReverseRemark(String biz, String transactionNo, String requestRemark) {
+        String base = "order_reverse:" + biz + ":" + transactionNo;
+        if (requestRemark == null || requestRemark.isBlank()) {
+            return base;
+        }
+        return base + "|" + requestRemark;
+    }
+
+    /**
+     * Build reverse context object for downstream balance/statement operations.
+     */
+    protected ReverseContext buildReverseContext(String currency,
+                                                 String transactionNo,
+                                                 String requestIp,
+                                                 String operator,
+                                                 String remarkPrefix) {
+        return new ReverseContext(currency, transactionNo, requestIp, operator, remarkPrefix);
     }
 
     /**

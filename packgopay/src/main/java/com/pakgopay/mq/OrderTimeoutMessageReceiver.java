@@ -77,7 +77,7 @@ public class OrderTimeoutMessageReceiver {
                 update.setOrderStatus(String.valueOf(TransactionStatus.EXPIRED.getCode()));
                 update.setUpdateTime(now);
                 update.setRemark(TIMEOUT_REMARK);
-                int updated = collectionOrderMapper.updateByTransactionNoWhenProcessing(
+                int updated = collectionOrderMapper.updateByTransactionNoWhenStatus(
                         update,
                         String.valueOf(TransactionStatus.PROCESSING.getCode()),
                         range[0],
@@ -104,7 +104,7 @@ public class OrderTimeoutMessageReceiver {
                 update.setOrderStatus(String.valueOf(TransactionStatus.EXPIRED.getCode()));
                 update.setUpdateTime(now);
                 update.setRemark(TIMEOUT_REMARK);
-                int updated = payOrderMapper.updateByTransactionNoWhenProcessing(
+                int updated = payOrderMapper.updateByTransactionNoWhenStatus(
                         update,
                         String.valueOf(TransactionStatus.PROCESSING.getCode()),
                         range[0],

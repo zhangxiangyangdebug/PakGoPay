@@ -164,7 +164,7 @@
           AND create_time &lt; #{endTime}
     </update>
 
-    <update id="updateByTransactionNoWhenProcessing">
+    <update id="updateByTransactionNoWhenStatus">
         UPDATE pay_order
         <set>
             <include refid="PayOrderUpdateSetDto"/>

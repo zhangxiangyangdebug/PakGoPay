@@ -10,16 +10,17 @@ import com.pakgopay.data.entity.transaction.PayCreateEntity;
 import com.pakgopay.data.entity.transaction.PayQueryEntity;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
+import com.pakgopay.data.reqeust.transaction.OrderReverseRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.reqeust.transaction.QueryOrderApiRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.PayOutOrderPageResponse;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.mapper.PayOrderMapper;
+import com.pakgopay.mapper.dto.AgentInfoDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.mapper.dto.PaymentDto;
-import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.*;
@@ -30,6 +31,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -45,9 +47,6 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
     @Autowired
     private ChannelPaymentServiceImpl channelPaymentService;
-
-    @Autowired
-    private BalanceService balanceService;
 
     @Autowired
     private PayOrderMapper payOrderMapper;
@@ -67,18 +66,21 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 payOrderRequest,
                 merchantInfoDto,
                 "createPayOutOrder",
-                CommonConstant.ORDER_TYPE_SYSTEM);
+                OrderRecordType.SYSTEM.getCode());
     }
 
     @Override
     public CommonResponse manualCreatePayOutOrder(
             PayOutOrderRequest payOrderRequest) throws PakGoPayException {
         MerchantInfoDto merchantInfoDto = merchantService.fetchMerchantInfo(payOrderRequest.getMerchantId());
+        Integer orderType = payOrderRequest.getManualOrderType() == null
+                ? OrderRecordType.MANUAL.getCode()
+                : payOrderRequest.getManualOrderType();
         return createPayOutOrderInternal(
                 payOrderRequest,
                 merchantInfoDto,
                 "manualCreatePayOutOrder",
-                CommonConstant.ORDER_TYPE_MANUAL);
+                orderType);
     }
 
     private CommonResponse createPayOutOrderInternal(
@@ -176,6 +178,17 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     payOrderDto.getTransactionNo(),
                     payOrderDto.getCreateTime());
 
+            if (isTestWithoutExternal(payOrderDto.getOrderType())) {
+                log.info("skip payout external dispatch, test_without_external, transactionNo={}",
+                        payOrderDto.getTransactionNo());
+                processNotifyResult(payOrderDto, TransactionStatus.SUCCESS, null, NotifyFlow.MANUAL);
+                payOrderDto.setOrderStatus(TransactionStatus.SUCCESS.getCode().toString());
+                Map<String, Object> responseBody = buildPayOutResponse(payOrderDto, null);
+                log.info("{} test_without_external success, transactionNo={}", scene, payOrderDto.getTransactionNo());
+                createdSuccess = true;
+                return CommonResponse.success(responseBody);
+            }
+
             // 9. dispatch payout request to handler
             PaymentHttpResponse handlerResponse = dispatchPayOutOrder(
                     payOrderDto,
@@ -264,11 +277,11 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         result.put("updateTime", payOrderDto.getUpdateTime().toString());
 
         // TODO If the transaction fails, return the reason for the failure.
-        if (OrderStatus.FAILED.getCode().toString().equals(payOrderDto.getOrderStatus())) {
+        if (TransactionStatus.FAILED.getCode().toString().equals(payOrderDto.getOrderStatus())) {
             result.put("failureReason", "");
         }
 
-        if (OrderStatus.SUCCESS.getCode().toString().equals(payOrderDto.getOrderStatus())) {
+        if (TransactionStatus.SUCCESS.getCode().toString().equals(payOrderDto.getOrderStatus())) {
             Long successCallBackTime = payOrderDto.getSuccessCallbackTime();
             if (successCallBackTime != null) {
                 result.put("successCallBackTime", successCallBackTime.toString());
@@ -302,6 +315,50 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         response.setPageSize(entity.getPageSize());
         log.info("queryPayOutOrders end, totalNumber={}", response.getTotalNumber());
         return CommonResponse.success(response);
+    }
+
+    @Override
+    public CommonResponse reverseOrder(OrderReverseRequest request) throws PakGoPayException {
+        String transactionNo = request.getTransactionNo();
+        log.info("reverse payout order start, transactionNo={}, operatorUserId={}",
+                transactionNo, request.getUserId());
+        PayOrderDto order = validateNotifyOrder(transactionNo);
+        if (!TransactionStatus.SUCCESS.getCode().toString().equals(order.getOrderStatus())) {
+            log.warn("reverse payout order failed: order is not SUCCESS, transactionNo={}, status={}",
+                    transactionNo, order.getOrderStatus());
+            throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "order status must be SUCCESS");
+        }
+        MerchantInfoDto merchantInfo = merchantService.fetchMerchantInfo(order.getMerchantUserId());
+        if (merchantInfo == null) {
+            throw new PakGoPayException(ResultCode.USER_IS_NOT_EXIST, "merchant not found");
+        }
+
+        BigDecimal merchantDelta = resolvePayoutReverseMerchantDelta(order);
+        String operator = request.getUserName() == null || request.getUserName().isBlank()
+                ? request.getUserId()
+                : request.getUserName();
+        String remark = buildReverseRemark("payout", transactionNo, request.getRemark());
+        long[] range = resolveTransactionNoTimeRange(transactionNo);
+        transactionUtil.runInTransaction(() -> {
+            PayOrderDto update = new PayOrderDto();
+            update.setTransactionNo(transactionNo);
+            update.setOrderStatus(TransactionStatus.REVERSED.getCode().toString());
+            update.setOperateType(NotifyFlow.MANUAL.getOperateType());
+            update.setUpdateTime(System.currentTimeMillis() / 1000);
+            update.setRemark(remark);
+            int updated = payOrderMapper.updateByTransactionNoWhenStatus(
+                    update,
+                    TransactionStatus.SUCCESS.getCode().toString(),
+                    range[0],
+                    range[1]);
+            if (updated <= 0) {
+                throw new PakGoPayException(ResultCode.ORDER_PARAM_VALID, "order status changed, reverse aborted");
+            }
+            reverseBalancesAndStatements(order, merchantInfo, request, operator, remark, merchantDelta);
+        });
+        refreshReportData(order.getCreateTime(), order.getCurrencyType());
+        log.info("reverse payout order success, transactionNo={}", transactionNo);
+        return CommonResponse.success(ResultCode.SUCCESS);
     }
 
     @Override
@@ -362,6 +419,15 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         PayOrderDto payOrderDto = validateNotifyOrder(notifyRequest.getTransactionNo());
         log.info("manual notify order validated, transactionNo={}, orderStatus={}",
                 payOrderDto.getTransactionNo(), payOrderDto.getOrderStatus());
+
+        if (isTestWithoutExternal(payOrderDto.getOrderType())) {
+            log.info("manual notify test_without_external force success, transactionNo={}",
+                    payOrderDto.getTransactionNo());
+            processNotifyResult(payOrderDto, TransactionStatus.SUCCESS, null, NotifyFlow.MANUAL);
+            log.info("manualHandleNotify end, transactionNo={}, targetStatus={}",
+                    payOrderDto.getTransactionNo(), TransactionStatus.SUCCESS);
+            return CommonResponse.success(ResultCode.SUCCESS);
+        }
 
         OrderScope scope = Integer.valueOf(1).equals(payOrderDto.getPaymentMode())
                 ? OrderScope.THIRD_PARTY
@@ -432,7 +498,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
         // Callback result only affects callback metadata, not order final status.
         // Execute callback side-effects asynchronously to avoid blocking API response.
-        if (payOrderDto.getCallbackUrl() != null && !payOrderDto.getCallbackUrl().isBlank()) {
+        if (handler != null && payOrderDto.getCallbackUrl() != null && !payOrderDto.getCallbackUrl().isBlank()) {
             runCallbackAsync(scene, payOrderDto.getTransactionNo(), () -> {
                 try {
                     OrderHandler.NotifyResult notifyResult = handler.sendNotifyToMerchant(
@@ -445,8 +511,11 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 }
             });
         } else {
-            log.info("{} skip merchant callback, callbackUrl empty, transactionNo={}",
-                    scene, payOrderDto.getTransactionNo());
+            log.info("{} skip merchant callback, handlerNull={}, callbackUrlEmpty={}, transactionNo={}",
+                    scene,
+                    handler == null,
+                    payOrderDto.getCallbackUrl() == null || payOrderDto.getCallbackUrl().isBlank(),
+                    payOrderDto.getTransactionNo());
         }
         // Refresh report only when DB status actually changed.
         if (updated) {
@@ -570,21 +639,20 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             boolean allowFailedToSuccess,
             NotifyFlow notifyFlow) throws PakGoPayException {
         String currentStatus = payOrderDto.getOrderStatus();
+        boolean failedToSuccessMigration = isFailedToSuccessMigration(
+                currentStatus, allowFailedToSuccess, targetStatus);
         log.info("payout applyNotifyUpdate, transactionNo={}, currentStatus={}, targetStatus={}, allowFailedToSuccess={}",
                 payOrderDto.getTransactionNo(), currentStatus, targetStatus, allowFailedToSuccess);
-        if (TransactionStatus.SUCCESS.getCode().toString().equals(currentStatus)) {
-            log.info("payout applyNotifyUpdate skip: already SUCCESS, transactionNo={}",
-                    payOrderDto.getTransactionNo());
+        // Skip update when current status is terminal, or FAILED is not allowed to migrate to SUCCESS.
+        if (TransactionStatus.SUCCESS.getCode().toString().equals(currentStatus)
+                || TransactionStatus.REVERSED.getCode().toString().equals(currentStatus)
+                || (TransactionStatus.FAILED.getCode().toString().equals(currentStatus)
+                && !failedToSuccessMigration)) {
+            log.info("payout applyNotifyUpdate skip, transactionNo={}, currentStatus={}, targetStatus={}, allowFailedToSuccess={}",
+                    payOrderDto.getTransactionNo(), currentStatus, targetStatus, allowFailedToSuccess);
             return false;
         }
-        if (TransactionStatus.FAILED.getCode().toString().equals(currentStatus)
-                && !(allowFailedToSuccess && TransactionStatus.SUCCESS.equals(targetStatus))) {
-            log.info("payout applyNotifyUpdate skip: current status is FAILED and migration not allowed, transactionNo={}",
-                    payOrderDto.getTransactionNo());
-            return false;
-        }
-        if (TransactionStatus.FAILED.getCode().toString().equals(currentStatus)
-                && allowFailedToSuccess && TransactionStatus.SUCCESS.equals(targetStatus)) {
+        if (failedToSuccessMigration) {
             log.info("payout applyNotifyUpdate allow migration: FAILED -> SUCCESS, transactionNo={}",
                     payOrderDto.getTransactionNo());
         }
@@ -609,7 +677,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         AtomicBoolean stateUpdated = new AtomicBoolean(false);
         transactionUtil.runInTransaction(() -> {
             try {
-                int updated = payOrderMapper.updateByTransactionNoWhenProcessing(
+                int updated = payOrderMapper.updateByTransactionNoWhenStatus(
                         update, currentStatus,
                         range[0], range[1]);
                 log.info("payout applyNotifyUpdate db update result, transactionNo={}, updatedRows={}, expectedCurrentStatus={}, targetStatus={}",
@@ -737,6 +805,82 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         return result;
     }
 
+    private BigDecimal resolvePayoutReverseMerchantDelta(PayOrderDto order) {
+        BigDecimal payoutAmount = resolveOrderAmount(order.getActualAmount(), order.getAmount());
+        BigDecimal merchantFee = order.getMerchantFee() == null ? BigDecimal.ZERO : order.getMerchantFee();
+        return CalcUtil.safeAdd(payoutAmount, merchantFee);
+    }
+
+    private void reverseBalancesAndStatements(
+            PayOrderDto order,
+            MerchantInfoDto merchantInfo,
+            OrderReverseRequest request,
+            String operator,
+            String remarkPrefix,
+            BigDecimal merchantDelta) {
+        // Build shared reverse context for merchant/agent balance adjustments.
+        ReverseContext context = buildReverseContext(
+                order.getCurrencyType(),
+                order.getTransactionNo(),
+                request.getClientIp(),
+                operator,
+                remarkPrefix);
+        // Reverse merchant payout deduction first.
+        applyBalanceAdjustmentAndCreateStatement(
+                order.getMerchantUserId(),
+                CommonConstant.ROLE_MERCHANT,
+                merchantInfo.getMerchantName(),
+                merchantDelta,
+                context,
+                context.remarkPrefix() + "|merchant");
+
+        // Then reverse agent commissions by configured levels.
+        reverseAgentAdjustments(merchantInfo == null ? null : merchantInfo.getAgentInfos(), order, context);
+    }
+
+    private void reverseAgentAdjustments(
+            List<AgentInfoDto> agentInfos,
+            PayOrderDto order,
+            ReverseContext context) {
+        if (agentInfos == null || agentInfos.isEmpty() || order == null) {
+            return;
+        }
+        for (AgentInfoDto agent : agentInfos) {
+            if (agent == null || agent.getLevel() == null) {
+                continue;
+            }
+            // Map agent level to corresponding commission field on order.
+            BigDecimal fee = null;
+            String remarkSuffix = null;
+            if (CommonConstant.AGENT_LEVEL_FIRST.equals(agent.getLevel())) {
+                fee = order.getAgent1Fee();
+                remarkSuffix = "agent1";
+            } else if (CommonConstant.AGENT_LEVEL_SECOND.equals(agent.getLevel())) {
+                fee = order.getAgent2Fee();
+                remarkSuffix = "agent2";
+            } else if (CommonConstant.AGENT_LEVEL_THIRD.equals(agent.getLevel())) {
+                fee = order.getAgent3Fee();
+                remarkSuffix = "agent3";
+            }
+            // Skip non-positive fee or unknown level.
+            if (fee == null || fee.compareTo(BigDecimal.ZERO) <= 0 || remarkSuffix == null) {
+                continue;
+            }
+            // Reverse agent commission by subtracting credited fee.
+            applyBalanceAdjustmentAndCreateStatement(
+                    agent.getUserId(),
+                    CommonConstant.ROLE_AGENT,
+                    agent.getAgentName(),
+                    fee.negate(),
+                    context,
+                    context.remarkPrefix() + "|" + remarkSuffix);
+        }
+    }
+
+    private boolean isTestWithoutExternal(Integer orderType) {
+        return OrderRecordType.TEST_WITHOUT_EXTERNAL.getCode().equals(orderType);
+    }
+
     private void markPayOrderFailedByDispatch(String transactionNo, String remark) {
         try {
             long now = System.currentTimeMillis() / 1000;
@@ -746,7 +890,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             update.setOrderStatus(String.valueOf(TransactionStatus.FAILED.getCode()));
             update.setUpdateTime(now);
             update.setRemark(remark);
-            int updated = payOrderMapper.updateByTransactionNoWhenProcessing(
+            int updated = payOrderMapper.updateByTransactionNoWhenStatus(
                     update,
                     String.valueOf(TransactionStatus.PROCESSING.getCode()),
                     range[0],
@@ -814,7 +958,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         // 5) Callback & request metadata
         // -----------------------------
         .obj(() -> orderType, dto::setOrderType) // order type: 1-system, 2-manual, 3-test
-        .obj(() -> OrderStatus.PROCESSING.getCode().toString(), dto::setOrderStatus) // order status: 1-processing, 2-failed
+        .obj(() -> TransactionStatus.PROCESSING.getCode().toString(), dto::setOrderStatus) // order status: 1-processing, 2-failed
         .obj(() -> 0, dto::setCallbackStatus) // callback status: 0-pending, 1-failed, 2-success
         .obj(request::getNotificationUrl, dto::setCallbackUrl) // async callback url
         .obj(() -> CommonConstant.ZERO, dto::setCallbackTimes) // initial callback times

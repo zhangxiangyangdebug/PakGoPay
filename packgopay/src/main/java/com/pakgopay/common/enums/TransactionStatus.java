@@ -9,7 +9,7 @@ public enum TransactionStatus {
     SUCCESS(2, "SUCCESS"),
     FAILED(3, "FAILED"),
     EXPIRED(4, "EXPIRED"),
-    CANCELLED(5, "CANCELLED");
+    REVERSED(5, "REVERSED");
 
     private final Integer code;
     private final String message;

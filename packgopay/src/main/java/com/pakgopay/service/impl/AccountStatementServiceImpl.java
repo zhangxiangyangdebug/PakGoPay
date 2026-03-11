@@ -6,6 +6,7 @@ import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.Message;
 import com.pakgopay.data.entity.account.AccountStatementEntity;
+import com.pakgopay.data.entity.account.AdjustmentStatementRecord;
 import com.pakgopay.data.reqeust.account.AccountStatementAddRequest;
 import com.pakgopay.data.reqeust.account.AccountStatementEditRequest;
 import com.pakgopay.data.reqeust.account.AccountStatementQueryRequest;
@@ -14,6 +15,7 @@ import com.pakgopay.data.response.account.AccountStatementsResponse;
 import com.pakgopay.mapper.AccountStatementsMapper;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.AccountStatementsDto;
+import com.pakgopay.mapper.dto.BalanceDto;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.AccountStatementService;
 import com.pakgopay.service.common.OrderInterventionTelegramNotifier;
@@ -297,5 +299,46 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                 .str(request::getRemark, dto::setRemark)
                 .str(request::getUserName, dto::setUpdateBy)
                 .build();
+    }
+
+    /**
+     * Persist one adjustment statement row based on subject/snapshot/audit payload.
+     */
+    @Override
+    public void createAdjustmentStatement(AdjustmentStatementRecord payload) {
+        if (payload == null || payload.subject() == null || payload.snapshot() == null || payload.audit() == null) {
+            return;
+        }
+        long now = System.currentTimeMillis() / 1000;
+        AccountStatementsDto statement = new AccountStatementsDto();
+        statement.setId(snowflakeIdService.nextId(CommonConstant.STATEMENT_PREFIX));
+        statement.setOrderType(3);
+        // Decompose payload parts for readability.
+        AdjustmentStatementRecord.Subject subject = payload.subject();
+        AdjustmentStatementRecord.Snapshot snapshot = payload.snapshot();
+        AdjustmentStatementRecord.Audit audit = payload.audit();
+        statement.setAmount(subject.amount());
+        statement.setStatus(1);
+        // Fill before/after snapshots.
+        BalanceDto before = snapshot.before();
+        BalanceDto after = snapshot.after();
+        statement.setAvailableBalanceBefore(CalcUtil.defaultBigDecimal(before == null ? null : before.getAvailableBalance()));
+        statement.setAvailableBalanceAfter(CalcUtil.defaultBigDecimal(after == null ? null : after.getAvailableBalance()));
+        statement.setFrozenBalanceBefore(CalcUtil.defaultBigDecimal(before == null ? null : before.getFrozenBalance()));
+        statement.setFrozenBalanceAfter(CalcUtil.defaultBigDecimal(after == null ? null : after.getFrozenBalance()));
+        statement.setTotalBalanceBefore(CalcUtil.defaultBigDecimal(before == null ? null : before.getTotalBalance()));
+        statement.setTotalBalanceAfter(CalcUtil.defaultBigDecimal(after == null ? null : after.getTotalBalance()));
+        // Fill business/audit metadata.
+        statement.setRequestIp(audit.requestIp());
+        statement.setUserId(subject.userId());
+        statement.setUserRole(subject.userRole());
+        statement.setName(subject.name());
+        statement.setCurrency(subject.currency());
+        statement.setCreateTime(now);
+        statement.setCreateBy(audit.operator());
+        statement.setUpdateTime(now);
+        statement.setUpdateBy(audit.operator());
+        statement.setRemark(audit.remark());
+        accountStatementsMapper.insert(statement);
     }
 }

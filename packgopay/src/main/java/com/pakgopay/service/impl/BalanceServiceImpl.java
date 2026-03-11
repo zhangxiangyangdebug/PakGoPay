@@ -313,6 +313,24 @@ public class BalanceServiceImpl implements BalanceService {
         }
     }
 
+    /**
+     * Get balance snapshot; create zero-initialized balance row when absent.
+     */
+    @Override
+    public BalanceDto loadOrCreateBalanceSnapshot(String userId, String currency) {
+        BalanceDto dto = fetchBalanceSnapshot(userId, currency);
+        if (dto != null) {
+            return dto;
+        }
+        // Initialize balance row lazily for first-time user/currency.
+        createBalanceRecord(userId, currency);
+        BalanceDto created = fetchBalanceSnapshot(userId, currency);
+        if (created == null) {
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR, "balance record not found");
+        }
+        return created;
+    }
+
     private static BigDecimal amountDefaultValue(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }

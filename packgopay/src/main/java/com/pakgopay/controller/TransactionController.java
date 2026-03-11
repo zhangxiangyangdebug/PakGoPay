@@ -6,6 +6,7 @@ import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.data.reqeust.transaction.MerchantAvailableChannelRequest;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.reqeust.transaction.OrderQueryRequest;
+import com.pakgopay.data.reqeust.transaction.OrderReverseRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.ChannelPaymentService;
@@ -61,13 +62,14 @@ public class TransactionController {
      * Manually create collection order without apiKey/sign verification.
      */
     @PostMapping(value = "/manualCreateCollectionOrder")
-    public CommonResponse manualCreateCollectionOrder(@RequestBody CollectionOrderRequest request) {
-        log.info("manualCreateCollectionOrder request, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
+    public CommonResponse manualCreateCollectionOrder(@RequestBody @Valid CollectionOrderRequest request) {
+        log.info("manualCreateCollectionOrder request, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}, manualOrderType={}",
                 request.getMerchantId(),
                 request.getMerchantOrderNo(),
                 request.getCurrency(),
                 request.getAmount(),
-                request.getPaymentNo());
+                request.getPaymentNo(),
+                request.getManualOrderType());
         try {
             CommonResponse response = collectionOrderService.manualCreateCollectionOrder(request);
             operateLogService.write(OperateInterfaceEnum.MANUAL_CREATE_COLLECTION_ORDER, request.getUserId(), request);
@@ -84,13 +86,14 @@ public class TransactionController {
      * Manually create payout order without apiKey/sign verification.
      */
     @PostMapping(value = "/manualCreatePayOutOrder")
-    public CommonResponse manualCreatePayOutOrder(@RequestBody PayOutOrderRequest request) {
-        log.info("manualCreatePayOutOrder request, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
+    public CommonResponse manualCreatePayOutOrder(@RequestBody @Valid PayOutOrderRequest request) {
+        log.info("manualCreatePayOutOrder request, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}, manualOrderType={}",
                 request.getMerchantId(),
                 request.getMerchantOrderNo(),
                 request.getCurrency(),
                 request.getAmount(),
-                request.getPaymentNo());
+                request.getPaymentNo(),
+                request.getManualOrderType());
         try {
             CommonResponse response = payOutOrderService.manualCreatePayOutOrder(request);
             operateLogService.write(OperateInterfaceEnum.MANUAL_CREATE_PAYOUT_ORDER, request.getUserId(), request);
@@ -149,6 +152,29 @@ public class TransactionController {
         } catch (PakGoPayException e) {
             log.error("queryMerchantAvailableChannels failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
             return CommonResponse.fail(e.getCode(), "queryMerchantAvailableChannels failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Manually reverse a SUCCESS order:
+     * 0 = collection, 1 = payout.
+     */
+    @PostMapping(value = "/manualReverseOrder")
+    public CommonResponse manualReverseOrder(@RequestBody @Valid OrderReverseRequest request) {
+        log.info("manualReverseOrder request, transactionNo={}, bizType={}, operatorUserId={}",
+                request.getTransactionNo(), request.getBizType(), request.getUserId());
+        try {
+            if (request.getBizType() != null && request.getBizType() == 0) {
+                CommonResponse response = collectionOrderService.reverseOrder(request);
+                operateLogService.write(OperateInterfaceEnum.MANUAL_REVERSE_COLLECTION_ORDER, request.getUserId(), request);
+                return response;
+            }
+            CommonResponse response = payOutOrderService.reverseOrder(request);
+            operateLogService.write(OperateInterfaceEnum.MANUAL_REVERSE_PAYOUT_ORDER, request.getUserId(), request);
+            return response;
+        } catch (PakGoPayException e) {
+            log.error("manualReverseOrder failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            return CommonResponse.fail(e.getCode(), "manualReverseOrder failed: " + e.getMessage());
         }
     }
 }

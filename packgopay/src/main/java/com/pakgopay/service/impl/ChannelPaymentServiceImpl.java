@@ -118,8 +118,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         // Update counters only for final status changes.
         boolean isSuccess = TransactionStatus.SUCCESS.equals(status);
         boolean isFailure = TransactionStatus.FAILED.equals(status)
-                || TransactionStatus.EXPIRED.equals(status)
-                || TransactionStatus.CANCELLED.equals(status);
+                || TransactionStatus.EXPIRED.equals(status);
         if (!isSuccess && !isFailure) {
             log.info("skip stats update, status={}", status == null ? null : status.getCode());
             return;

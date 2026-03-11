@@ -1,6 +1,8 @@
 package com.pakgopay.data.reqeust.transaction;
 
 import com.pakgopay.data.reqeust.BaseRequest;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -64,4 +66,12 @@ public class OrderBaseRequest extends BaseRequest implements Serializable {
      * Remark
      */
     private String remark;
+
+    /**
+     * Manual order type for manual-create APIs only:
+     * 2 = manual order, 3 = test with external call, 4 = test without external call.
+     */
+    @Min(value = 2, message = "manualOrderType must be 2, 3 or 4")
+    @Max(value = 4, message = "manualOrderType must be 2, 3 or 4")
+    private Integer manualOrderType;
 }
