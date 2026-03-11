@@ -4,14 +4,14 @@
         <Property name="logPath">./Users/xiaoyou_02/project/YouPayServer</Property>
         <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [pid=%pid tid=%tid] %-5level %X{traceId} %class{1} - %msg%n</Property>
         <Property name="LOG_DIR">logs</Property>
-        <Property name="LOG_FILE_NAME">test.log</Property>
+        <Property name="LOG_FILE_NAME">root.log</Property>
     </Properties>
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="${LOG_PATTERN}"/>
         </Console>
 
-        <RollingFile name="RollingFile" fileName="${LOG_DIR}/${LOG_FILE_NAME}" filePattern="${LOG_DIR}/app-%d{yyyy-MM-dd}-%i.log.gz">
+        <RollingFile name="RollingFile" fileName="${LOG_DIR}/${LOG_FILE_NAME}" filePattern="${LOG_DIR}/root-%d{yyyy-MM-dd}-%i.log.gz">
             <PatternLayout pattern="${LOG_PATTERN}"/>
             <Policies>
                 <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
@@ -19,7 +19,7 @@
             </Policies>
             <DefaultRolloverStrategy>
                 <Delete basePath="${LOG_DIR}" maxDepth="1">
-                    <IfFileName glob="app-*.log.gz"/>
+                    <IfFileName glob="root-*.log.gz"/>
                     <IfLastModified age="30d"/>
                 </Delete>
             </DefaultRolloverStrategy>
