@@ -4,6 +4,7 @@ import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
+import com.pakgopay.service.common.CurrencyTimezoneService;
 import com.pakgopay.service.impl.AgentServiceImpl;
 import com.pakgopay.service.impl.MerchantServiceImpl;
 import com.pakgopay.timer.data.*;
@@ -67,6 +68,9 @@ public class ReportTask {
 
     @Autowired
     private OpsOrderYearlyMapper opsOrderYearlyMapper;
+
+    @Autowired
+    private CurrencyTimezoneService currencyTimezoneService;
 
     private final ResolveHelper resolveHelper = new ResolveHelper();
     private final ComputeHelper computeHelper = new ComputeHelper();
@@ -154,7 +158,7 @@ public class ReportTask {
             log.warn("refreshReportsByDate skipped, currency is blank");
             return;
         }
-        ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+        ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(currency);
         LocalDate targetDate = Instant.ofEpochSecond(recordDateEpoch).atZone(zoneId).toLocalDate();
         log.info("refreshReportsByDate start, recordDateEpoch={}, currency={}, targetDate={}",
                 recordDateEpoch, currency, targetDate);
@@ -1362,7 +1366,7 @@ public class ReportTask {
          * @return base date
          */
         private LocalDate resolveReportBaseDate(String currency) {
-            return resolveHelper.resolveReportBaseDate(currency, CommonUtil.resolveZoneIdByCurrency(currency));
+            return resolveHelper.resolveReportBaseDate(currency, currencyTimezoneService.resolveZoneIdByCurrency(currency));
         }
 
         /**
@@ -1646,7 +1650,7 @@ public class ReportTask {
          */
         private long resolveDayStart(String currency) {
             return dayStartByCurrency.computeIfAbsent(currency, key -> {
-                ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(key);
+                ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(key);
                 LocalDate baseDate = resolveReportBaseDate(key, zoneId);
                 return baseDate.atStartOfDay(zoneId).toEpochSecond();
             });
@@ -1660,7 +1664,7 @@ public class ReportTask {
          */
         private long resolveNextDayStart(String currency) {
             return nextDayStartByCurrency.computeIfAbsent(currency, key -> {
-                ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(key);
+                ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(key);
                 LocalDate baseDate = resolveReportBaseDate(key, zoneId);
                 return baseDate.plusDays(1).atStartOfDay(zoneId).toEpochSecond();
             });
@@ -1693,7 +1697,7 @@ public class ReportTask {
          * @return month start epoch seconds
          */
         private long resolveMonthStart(String currency) {
-            ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+            ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(currency);
             LocalDate baseDate = resolveReportBaseDateForMonth(currency, zoneId);
             LocalDate monthStart = baseDate.withDayOfMonth(1);
             return monthStart.atStartOfDay(zoneId).toEpochSecond();
@@ -1706,7 +1710,7 @@ public class ReportTask {
          * @return next month start epoch seconds
          */
         private long resolveNextMonthStart(String currency) {
-            ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+            ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(currency);
             LocalDate baseDate = resolveReportBaseDateForMonth(currency, zoneId);
             YearMonth ym = YearMonth.from(baseDate).plusMonths(1);
             return ym.atDay(1).atStartOfDay(zoneId).toEpochSecond();
@@ -1719,7 +1723,7 @@ public class ReportTask {
          * @return year start epoch seconds
          */
         private long resolveYearStart(String currency) {
-            ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+            ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(currency);
             LocalDate baseDate = resolveReportBaseDateForYear(currency, zoneId);
             LocalDate yearStart = LocalDate.of(baseDate.getYear(), 1, 1);
             return yearStart.atStartOfDay(zoneId).toEpochSecond();
@@ -1732,7 +1736,7 @@ public class ReportTask {
          * @return next year start epoch seconds
          */
         private long resolveNextYearStart(String currency) {
-            ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+            ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(currency);
             LocalDate baseDate = resolveReportBaseDateForYear(currency, zoneId);
             LocalDate nextYearStart = LocalDate.of(baseDate.getYear() + 1, 1, 1);
             return nextYearStart.atStartOfDay(zoneId).toEpochSecond();

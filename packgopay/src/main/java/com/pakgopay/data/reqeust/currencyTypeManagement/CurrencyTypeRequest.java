@@ -12,6 +12,7 @@ public class CurrencyTypeRequest extends BaseRequest {
     private String currencyType;
     private String icon;
     private BigDecimal currencyAccuracy;
+    private String timezone;
     private Integer isRate;
     private BigDecimal exchangeRate;
     private Integer pageNo;

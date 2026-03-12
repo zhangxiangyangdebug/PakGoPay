@@ -16,4 +16,5 @@ public class CurrencyTypeDTO {
     private String createBy;
     private String updateBy;
     private String remark;
+    private String timezone;
 }
