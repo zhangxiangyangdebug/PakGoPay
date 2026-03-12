@@ -182,7 +182,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             if (isTestWithoutExternal(collectionOrderDto.getOrderType())) {
                 log.info("skip collection external dispatch, test_without_external, transactionNo={}",
                         collectionOrderDto.getTransactionNo());
-                processNotifyResult(collectionOrderDto, TransactionStatus.SUCCESS, null, NotifyFlow.MANUAL);
+                processNotifyResult(collectionOrderDto, TransactionStatus.SUCCESS, null, NotifyFlow.MANUAL, null);
                 collectionOrderDto.setOrderStatus(TransactionStatus.SUCCESS.getCode().toString());
                 Map<String, Object> responseBody = buildCollectionResponse(collectionOrderDto, null);
                 log.info("createCollectionOrder test_without_external success, transactionNo={}",
@@ -415,7 +415,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             targetStatus = TransactionStatus.FAILED;
         }
 
-        processNotifyResult(collectionOrderDto, targetStatus, handler, NotifyFlow.AUTO);
+        processNotifyResult(collectionOrderDto, targetStatus, handler, NotifyFlow.AUTO, null);
 
         return handler.getNotifySuccessResponse();
     }
@@ -436,7 +436,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         if (isTestWithoutExternal(collectionOrderDto.getOrderType())) {
             log.info("manual notify test_without_external force success, transactionNo={}",
                     collectionOrderDto.getTransactionNo());
-            processNotifyResult(collectionOrderDto, TransactionStatus.SUCCESS, null, NotifyFlow.MANUAL);
+            processNotifyResult(collectionOrderDto, TransactionStatus.SUCCESS, null, NotifyFlow.MANUAL, notifyRequest.getRemark());
             log.info("manualHandleNotify end, transactionNo={}, targetStatus={}",
                     collectionOrderDto.getTransactionNo(), TransactionStatus.SUCCESS);
             return CommonResponse.success(ResultCode.SUCCESS);
@@ -456,7 +456,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         }
 
         // Execute shared post-notify pipeline.
-        processNotifyResult(collectionOrderDto, targetStatus, handler, NotifyFlow.MANUAL);
+        processNotifyResult(collectionOrderDto, targetStatus, handler, NotifyFlow.MANUAL, notifyRequest.getRemark());
         log.info("manualHandleNotify end, transactionNo={}, targetStatus={}",
                 collectionOrderDto.getTransactionNo(), targetStatus);
         return CommonResponse.success(ResultCode.SUCCESS);
@@ -490,11 +490,12 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             CollectionOrderDto collectionOrderDto,
             TransactionStatus targetStatus,
             OrderHandler handler,
-            NotifyFlow notifyFlow) throws PakGoPayException {
+            NotifyFlow notifyFlow,
+            String manualRemark) throws PakGoPayException {
         String scene = notifyFlow.getScene();
         // Persist order status transition and related balance changes.
         boolean updated = applyNotifyUpdate(
-                collectionOrderDto, targetStatus, notifyFlow.isAllowFailedToSuccess(), notifyFlow);
+                collectionOrderDto, targetStatus, notifyFlow.isAllowFailedToSuccess(), notifyFlow, manualRemark);
         boolean continuePostProcess = updated
                 || (TransactionStatus.SUCCESS.equals(targetStatus)
                 && TransactionStatus.SUCCESS.getCode().toString().equals(collectionOrderDto.getOrderStatus()));
@@ -616,7 +617,8 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             CollectionOrderDto collectionOrderDto,
             TransactionStatus targetStatus,
             boolean allowFailedToSuccess,
-            NotifyFlow notifyFlow) throws PakGoPayException {
+            NotifyFlow notifyFlow,
+            String manualRemark) throws PakGoPayException {
         String currentStatus = collectionOrderDto.getOrderStatus();
         boolean failedToSuccessMigration = isFailedToSuccessMigration(
                 currentStatus, allowFailedToSuccess, targetStatus);
@@ -649,6 +651,9 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         }
         if (TransactionStatus.FAILED.equals(targetStatus)) {
             update.setRemark("notify_failed");
+        }
+        if (NotifyFlow.MANUAL.equals(notifyFlow) && manualRemark != null && !manualRemark.isBlank()) {
+            update.setRemark(manualRemark);
         }
         update.setUpdateTime(System.currentTimeMillis() / 1000);
         long[] range = resolveTransactionNoTimeRange(collectionOrderDto.getTransactionNo());
@@ -846,28 +851,37 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
 
     private PaymentHttpResponse dispatchCollectionOrder(
             CollectionOrderDto dto, PaymentDto paymentInfo, Object channelParams) {
-        OrderScope scope = Integer.valueOf(1).equals(dto.getCollectionMode())
-                ? OrderScope.THIRD_PARTY
-                : OrderScope.SYSTEM;
-        String channelCode = resolveChannelCode(channelParams);
-        OrderHandler handler = OrderHandlerFactory.get(
-                scope, resolveCurrencyKey(dto.getCurrencyType(), channelCode), dto.getPaymentNo());
-        CollectionCreateEntity entity = new CollectionCreateEntity();
-        entity.setTransactionNo(dto.getTransactionNo());
-        entity.setAmount(dto.getActualAmount() != null ? dto.getActualAmount() : new BigDecimal("1"));
-        entity.setMerchantOrderNo(dto.getTransactionNo());
-        entity.setMerchantUserId(dto.getMerchantUserId());
-        entity.setCallbackUrl(paymentInfo == null ? null : paymentInfo.getCollectionCallbackAddr());
-        entity.setIp(dto.getRequestIp());
-        entity.setPaymentRequestCollectionUrl(
-                paymentInfo == null ? null : paymentInfo.getPaymentRequestCollectionUrl());
-        entity.setCollectionInterfaceParam(
-                paymentInfo == null ? null : paymentInfo.getCollectionInterfaceParam());
-        entity.setChannelCode(channelCode);
-        if (channelParams instanceof Map<?, ?> params) {
-            entity.setChannelParams((Map<String, Object>) params);
+        try {
+            OrderScope scope = Integer.valueOf(1).equals(dto.getCollectionMode())
+                    ? OrderScope.THIRD_PARTY
+                    : OrderScope.SYSTEM;
+            String channelCode = resolveChannelCode(channelParams);
+            OrderHandler handler = OrderHandlerFactory.get(
+                    scope, resolveCurrencyKey(dto.getCurrencyType(), channelCode), dto.getPaymentNo());
+            CollectionCreateEntity entity = new CollectionCreateEntity();
+            entity.setTransactionNo(dto.getTransactionNo());
+            entity.setAmount(dto.getActualAmount() != null ? dto.getActualAmount() : new BigDecimal("1"));
+            entity.setMerchantOrderNo(dto.getTransactionNo());
+            entity.setMerchantUserId(dto.getMerchantUserId());
+            entity.setCallbackUrl(paymentInfo == null ? null : paymentInfo.getCollectionCallbackAddr());
+            entity.setIp(dto.getRequestIp());
+            entity.setPaymentRequestCollectionUrl(
+                    paymentInfo == null ? null : paymentInfo.getPaymentRequestCollectionUrl());
+            entity.setCollectionInterfaceParam(
+                    paymentInfo == null ? null : paymentInfo.getCollectionInterfaceParam());
+            entity.setChannelCode(channelCode);
+            if (channelParams instanceof Map<?, ?> params) {
+                entity.setChannelParams((Map<String, Object>) params);
+            }
+            return handler.handleCol(entity);
+        } catch (Exception e) {
+            log.error("dispatchCollectionOrder exception, transactionNo={}, message={}",
+                    dto.getTransactionNo(), e.getMessage());
+            PaymentHttpResponse failedResponse = new PaymentHttpResponse();
+            failedResponse.setCode(-1);
+            failedResponse.setMessage(e.getMessage() == null ? "dispatch_exception" : e.getMessage());
+            return failedResponse;
         }
-        return handler.handleCol(entity);
     }
 
     private String resolveChannelCode(Object channelParams) {

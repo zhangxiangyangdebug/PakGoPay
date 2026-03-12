@@ -191,7 +191,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             if (isTestWithoutExternal(payOrderDto.getOrderType())) {
                 log.info("skip payout external dispatch, test_without_external, transactionNo={}",
                         payOrderDto.getTransactionNo());
-                processNotifyResult(payOrderDto, TransactionStatus.SUCCESS, null, NotifyFlow.MANUAL);
+                processNotifyResult(payOrderDto, TransactionStatus.SUCCESS, null, NotifyFlow.MANUAL, null);
                 payOrderDto.setOrderStatus(TransactionStatus.SUCCESS.getCode().toString());
                 Map<String, Object> responseBody = buildPayOutResponse(payOrderDto, null);
                 log.info("{} test_without_external success, transactionNo={}", scene, payOrderDto.getTransactionNo());
@@ -418,7 +418,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             targetStatus = TransactionStatus.FAILED;
         }
 
-        processNotifyResult(payOrderDto, targetStatus, handler, NotifyFlow.AUTO);
+        processNotifyResult(payOrderDto, targetStatus, handler, NotifyFlow.AUTO, null);
 
         return handler.getNotifySuccessResponse();
     }
@@ -438,7 +438,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         if (isTestWithoutExternal(payOrderDto.getOrderType())) {
             log.info("manual notify test_without_external force success, transactionNo={}",
                     payOrderDto.getTransactionNo());
-            processNotifyResult(payOrderDto, TransactionStatus.SUCCESS, null, NotifyFlow.MANUAL);
+            processNotifyResult(payOrderDto, TransactionStatus.SUCCESS, null, NotifyFlow.MANUAL, notifyRequest.getRemark());
             log.info("manualHandleNotify end, transactionNo={}, targetStatus={}",
                     payOrderDto.getTransactionNo(), TransactionStatus.SUCCESS);
             return CommonResponse.success(ResultCode.SUCCESS);
@@ -458,7 +458,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         }
 
         // Execute shared post-notify pipeline.
-        processNotifyResult(payOrderDto, targetStatus, handler, NotifyFlow.MANUAL);
+        processNotifyResult(payOrderDto, targetStatus, handler, NotifyFlow.MANUAL, notifyRequest.getRemark());
         log.info("manualHandleNotify end, transactionNo={}, targetStatus={}",
                 payOrderDto.getTransactionNo(), targetStatus);
         return CommonResponse.success(ResultCode.SUCCESS);
@@ -492,11 +492,12 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             PayOrderDto payOrderDto,
             TransactionStatus targetStatus,
             OrderHandler handler,
-            NotifyFlow notifyFlow) throws PakGoPayException {
+            NotifyFlow notifyFlow,
+            String manualRemark) throws PakGoPayException {
         String scene = notifyFlow.getScene();
         // Persist order status transition and related balance changes.
         boolean updated = applyNotifyUpdate(
-                payOrderDto, targetStatus, notifyFlow.isAllowFailedToSuccess(), notifyFlow);
+                payOrderDto, targetStatus, notifyFlow.isAllowFailedToSuccess(), notifyFlow, manualRemark);
         boolean continuePostProcess = updated
                 || (TransactionStatus.SUCCESS.equals(targetStatus)
                 && TransactionStatus.SUCCESS.getCode().toString().equals(payOrderDto.getOrderStatus()));
@@ -652,7 +653,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             PayOrderDto payOrderDto,
             TransactionStatus targetStatus,
             boolean allowFailedToSuccess,
-            NotifyFlow notifyFlow) throws PakGoPayException {
+            NotifyFlow notifyFlow,
+            String manualRemark) throws PakGoPayException {
         String currentStatus = payOrderDto.getOrderStatus();
         boolean failedToSuccessMigration = isFailedToSuccessMigration(
                 currentStatus, allowFailedToSuccess, targetStatus);
@@ -685,6 +687,9 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         }
         if (TransactionStatus.FAILED.equals(targetStatus)) {
             update.setRemark("notify_failed");
+        }
+        if (NotifyFlow.MANUAL.equals(notifyFlow) && manualRemark != null && !manualRemark.isBlank()) {
+            update.setRemark(manualRemark);
         }
         update.setUpdateTime(System.currentTimeMillis() / 1000);
         long[] range = resolveTransactionNoTimeRange(payOrderDto.getTransactionNo());

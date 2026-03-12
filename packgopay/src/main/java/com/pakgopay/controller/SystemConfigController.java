@@ -10,12 +10,10 @@ import com.pakgopay.data.reqeust.roleManagement.ModifyRoleRequest;
 import com.pakgopay.data.reqeust.systemConfig.LoginLogQueryRequest;
 import com.pakgopay.data.reqeust.systemConfig.LoginUserRequest;
 import com.pakgopay.data.reqeust.systemConfig.OperateLogQueryRequest;
-import com.pakgopay.data.reqeust.systemConfig.RateLimitConfigRequest;
-import com.pakgopay.data.reqeust.systemConfig.TelegramConfigRequest;
+import com.pakgopay.data.reqeust.systemConfig.SystemConfigGroupUpdateRequest;
 import com.pakgopay.data.response.CommonResponse;
-import com.pakgopay.service.common.TelegramService;
-import com.pakgopay.service.common.RateLimitConfigService;
 import com.pakgopay.service.common.OperateLogService;
+import com.pakgopay.service.common.SystemConfigGroupService;
 import com.pakgopay.service.SystemConfigService;
 import com.pakgopay.service.impl.UserService;
 import com.pakgopay.thirdUtil.GoogleUtil;
@@ -38,9 +36,7 @@ public class SystemConfigController {
     @Autowired
     private RedisUtil redisUtil;
     @Autowired
-    private TelegramService telegramService;
-    @Autowired
-    private RateLimitConfigService rateLimitConfigService;
+    private SystemConfigGroupService systemConfigGroupService;
 
     @Autowired
     private OperateLogService operateLogService;
@@ -159,48 +155,33 @@ public class SystemConfigController {
         }
     }
 
-    @GetMapping("/telegramConfig")
-    public CommonResponse getTelegramConfig() {
-        return CommonResponse.success(telegramService.getTelegramConfig());
-    }
-
-    @PostMapping("/telegramConfig")
-    public CommonResponse updateTelegramConfig(@RequestBody TelegramConfigRequest request, HttpServletRequest httpServletRequest) {
-        telegramService.updateTelegramConfig(
-            request.getToken(),
-            request.getChatId(),
-            request.getWebhookSecret(),
-            request.getAllowedUserIds(),
-            request.getEnabled()
-        );
-        operateLogService.write(OperateInterfaceEnum.UPDATE_TELEGRAM_CONFIG,
-                resolveOperatorUserIdFromRequest(httpServletRequest), request);
-        return CommonResponse.success("ok");
-    }
-
-    @GetMapping("/rateLimitConfig")
-    public CommonResponse getRateLimitConfig() {
-        return CommonResponse.success(rateLimitConfigService.getConfigAsMap());
-    }
-
-    @PostMapping("/rateLimitConfig")
-    public CommonResponse updateRateLimitConfig(@RequestBody RateLimitConfigRequest request, HttpServletRequest httpServletRequest) {
-        if (Boolean.TRUE.equals(request.getEnabled())) {
-            Long windowSeconds = request.getWindowSeconds();
-            Long maxRequests = request.getMaxRequests();
-            if (windowSeconds == null || windowSeconds <= 0 || maxRequests == null || maxRequests <= 0) {
-                return CommonResponse.fail(ResultCode.INVALID_PARAMS, "windowSeconds/maxRequests must be greater than 0");
-            }
+    @GetMapping("/config")
+    public CommonResponse getSystemConfig(@RequestParam String group) {
+        try {
+            return CommonResponse.success(systemConfigGroupService.queryByGroup(group));
+        } catch (IllegalArgumentException e) {
+            return CommonResponse.fail(ResultCode.INVALID_PARAMS, e.getMessage());
         }
-        rateLimitConfigService.updateConfig(
-            request.getEnabled(),
-            request.getWindowSeconds(),
-            request.getMaxRequests(),
-            request.getFixedIpQps()
-        );
-        operateLogService.write(OperateInterfaceEnum.UPDATE_RATE_LIMIT_CONFIG,
-                resolveOperatorUserIdFromRequest(httpServletRequest), request);
-        return CommonResponse.success("ok");
+    }
+
+    @PostMapping("/config")
+    public CommonResponse updateSystemConfig(
+            @RequestBody @Valid SystemConfigGroupUpdateRequest request,
+            HttpServletRequest httpServletRequest) {
+        try {
+            String operatorUserId = resolveOperatorUserIdFromRequest(httpServletRequest);
+            systemConfigGroupService.updateByGroup(request);
+            if ("telegram".equalsIgnoreCase(request.getGroup())) {
+                operateLogService.write(OperateInterfaceEnum.UPDATE_TELEGRAM_CONFIG, operatorUserId, request);
+            } else if ("ratelimit".equalsIgnoreCase(request.getGroup())) {
+                operateLogService.write(OperateInterfaceEnum.UPDATE_RATE_LIMIT_CONFIG, operatorUserId, request);
+            }
+            return CommonResponse.success("ok");
+        } catch (IllegalArgumentException e) {
+            return CommonResponse.fail(ResultCode.INVALID_PARAMS, e.getMessage());
+        } catch (Exception e) {
+            return CommonResponse.fail(ResultCode.FAIL, "update system config failed: " + e.getMessage());
+        }
     }
 
     private String resolveOperatorUserIdFromRequest(HttpServletRequest request) {

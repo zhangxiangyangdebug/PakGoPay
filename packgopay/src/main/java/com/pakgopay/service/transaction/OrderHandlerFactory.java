@@ -72,6 +72,7 @@ public class OrderHandlerFactory implements ApplicationContextAware {
     private static void registerExplicitMappings() {
         // CNY + THIRD_PARTY + ALIPAY -> ColThirdPartyAlipayHandler
         register("CNY", OrderScope.THIRD_PARTY, "ALIPAY", ThirdPartyAlipayHandler.class);
+        register("USD", OrderScope.THIRD_PARTY, "ALIPAY", ThirdPartyAlipayHandler.class);
     }
 
     private static String normalizePaymentNo(String paymentNo) {

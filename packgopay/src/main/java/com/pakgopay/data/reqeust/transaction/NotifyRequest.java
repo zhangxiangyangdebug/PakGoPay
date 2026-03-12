@@ -10,4 +10,5 @@ public class NotifyRequest extends BaseRequest {
     private String transactionNo;
     private String merchantNo;
     private String status;
+    private String remark;
 }

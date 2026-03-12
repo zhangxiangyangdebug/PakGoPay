@@ -117,8 +117,8 @@ public class TransactionController {
      */
     @PostMapping(value = "/manualNotifyCollectionOrder")
     public CommonResponse manualNotifyCollectionOrder(@RequestBody @Valid NotifyRequest request) {
-        log.info("manualNotifyCollectionOrder request, transactionNo={}, merchantNo={}, status={}",
-                request.getTransactionNo(), request.getMerchantNo(), request.getStatus());
+        log.info("manualNotifyCollectionOrder request, transactionNo={}, merchantNo={}, status={}, remark={}",
+                request.getTransactionNo(), request.getMerchantNo(), request.getStatus(), request.getRemark());
         try {
             CommonResponse response = collectionOrderService.manualHandleNotify(request);
             operateLogService.write(OperateInterfaceEnum.MANUAL_NOTIFY_COLLECTION_ORDER, request.getUserId(), request);
@@ -135,8 +135,8 @@ public class TransactionController {
      */
     @PostMapping(value = "/manualNotifyPayOutOrder")
     public CommonResponse manualNotifyPayOutOrder(@RequestBody @Valid NotifyRequest request) {
-        log.info("manualNotifyPayOutOrder request, transactionNo={}, merchantNo={}, status={}",
-                request.getTransactionNo(), request.getMerchantNo(), request.getStatus());
+        log.info("manualNotifyPayOutOrder request, transactionNo={}, merchantNo={}, status={}, remark={}",
+                request.getTransactionNo(), request.getMerchantNo(), request.getStatus(), request.getRemark());
         try {
             CommonResponse response = payOutOrderService.manualHandleNotify(request);
             operateLogService.write(OperateInterfaceEnum.MANUAL_NOTIFY_PAYOUT_ORDER, request.getUserId(), request);

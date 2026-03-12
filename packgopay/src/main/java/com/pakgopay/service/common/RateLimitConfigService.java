@@ -54,16 +54,6 @@ public class RateLimitConfigService {
         }
     }
 
-    public Map<String, Object> getConfigAsMap() {
-        RateLimitConfig config = getConfig();
-        Map<String, Object> map = new HashMap<>();
-        map.put("enabled", config.isEnabled());
-        map.put("windowSeconds", config.getWindowSeconds());
-        map.put("maxRequests", config.getMaxRequests());
-        map.put("fixedIpQps", config.getFixedIpQpsRaw());
-        return map;
-    }
-
     public void updateConfig(Boolean enabled, Long windowSeconds, Long maxRequests, String fixedIpQps) {
         if (enabled != null) {
             upsert(KEY_ENABLED, enabled ? "1" : "0");

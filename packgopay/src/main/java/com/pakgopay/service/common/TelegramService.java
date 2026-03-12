@@ -315,16 +315,6 @@ public class TelegramService {
         return false;
     }
 
-    public Map<String, String> getTelegramConfig() {
-        Map<String, String> result = new HashMap<>();
-        result.put("token", getConfig(TOKEN_KEY));
-        result.put("chatId", getConfig(CHAT_ID_KEY));
-        result.put("webhookSecret", getConfig(WEBHOOK_SECRET_KEY));
-        result.put("allowedUserIds", getConfig(ALLOWED_USER_IDS_KEY));
-        result.put("enabled", getConfig(ENABLED_KEY));
-        return result;
-    }
-
     public String getDefaultChatId() {
         return getConfig(CHAT_ID_KEY);
     }
