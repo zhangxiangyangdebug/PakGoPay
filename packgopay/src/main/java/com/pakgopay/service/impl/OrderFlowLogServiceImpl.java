@@ -9,27 +9,33 @@ import com.pakgopay.mapper.PayOrderFlowLogMapper;
 import com.pakgopay.mapper.dto.OrderFlowLogDto;
 import com.pakgopay.service.common.OrderFlowLogService;
 import com.pakgopay.service.common.OrderFlowLogSession;
+import com.pakgopay.util.SensitiveDataMaskUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 
 @Slf4j
 @Service
 public class OrderFlowLogServiceImpl implements OrderFlowLogService {
 
+    // Async queue config.
     private static final int QUEUE_CAPACITY = 20000;
     private static final int BATCH_SIZE = 1000;
     private static final int MAX_BATCH_ROUNDS_PER_FLUSH = 2;
+
+    // Keys that must be masked in flow log payload.
+    private static final Set<String> FLOW_LOG_SENSITIVE_KEYS = Set.of("apikey", "signkey");
 
     @Autowired
     private CollectionOrderFlowLogMapper collectionOrderFlowLogMapper;
@@ -39,26 +45,42 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
 
     private final LinkedBlockingQueue<QueueEvent> queue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
 
+    /**
+     * Create a session for collection order flow logs.
+     */
     @Override
     public OrderFlowLogSession newCollectionSession(String transactionNo) {
         return new DefaultOrderFlowLogSession(transactionNo, true);
     }
 
+    /**
+     * Create a session for payout order flow logs.
+     */
     @Override
     public OrderFlowLogSession newPayoutSession(String transactionNo) {
         return new DefaultOrderFlowLogSession(transactionNo, false);
     }
 
+    /**
+     * Enqueue a collection flow event for async persistence.
+     */
     @Override
     public void logCollection(String transactionNo, OrderFlowStepEnum step, Boolean success, Object payload) {
         enqueue(transactionNo, step, success, payload, true);
     }
 
+    /**
+     * Enqueue a payout flow event for async persistence.
+     */
     @Override
     public void logPayout(String transactionNo, OrderFlowStepEnum step, Boolean success, Object payload) {
         enqueue(transactionNo, step, success, payload, false);
     }
 
+    /**
+     * Query flow logs by transaction number.
+     * Sort order: stepSeq, eventTime, createTime, id.
+     */
     @Override
     public OrderFlowLogQueryResponse listByTransactionNo(String transactionNo) {
         OrderFlowLogQueryResponse response = new OrderFlowLogQueryResponse();
@@ -67,6 +89,27 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
         return response;
     }
 
+    /**
+     * Scheduled async flush.
+     */
+    @Scheduled(fixedDelay = 200, initialDelay = 1000)
+    public void flushAsyncQueue() {
+        flushQueueBatches();
+    }
+
+    /**
+     * Flush all remaining events before bean shutdown.
+     */
+    @PreDestroy
+    public void flushOnShutdown() {
+        while (!queue.isEmpty()) {
+            flushQueueBatch();
+        }
+    }
+
+    /**
+     * Load flow logs from matching order table(s) using month boundary from transactionNo.
+     */
     private List<OrderFlowLogDto> listLogsByTransactionNo(String transactionNo) {
         if (transactionNo == null || transactionNo.isBlank()) {
             return Collections.emptyList();
@@ -80,6 +123,8 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
         if (transactionNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
             return payOrderFlowLogMapper.listByTransactionNo(transactionNo, startTime, endTime);
         }
+
+        // Fallback: unknown prefix, query both tables then merge-sort.
         List<OrderFlowLogDto> result = new ArrayList<>();
         result.addAll(collectionOrderFlowLogMapper.listByTransactionNo(transactionNo, startTime, endTime));
         result.addAll(payOrderFlowLogMapper.listByTransactionNo(transactionNo, startTime, endTime));
@@ -90,13 +135,16 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
         return result;
     }
 
+    /**
+     * Put one event into async queue.
+     */
     private void enqueue(String transactionNo, OrderFlowStepEnum step, Boolean success, Object payload, boolean collection) {
         if (transactionNo == null || transactionNo.isBlank() || step == null) {
             return;
         }
         long createTime = resolveCreateTimeFromTransactionNo(transactionNo);
         long eventTime = System.currentTimeMillis() / 1000;
-        boolean offered = queue.offer(new QueueEvent(
+        QueueEvent event = new QueueEvent(
                 transactionNo,
                 step,
                 success,
@@ -104,24 +152,17 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
                 collection,
                 MDC.get("traceId"),
                 eventTime,
-                createTime));
+                createTime
+        );
+        boolean offered = queue.offer(event);
         if (!offered) {
             log.warn("order flow log queue full, drop event, transactionNo={}, step={}", transactionNo, step.getCode());
         }
     }
 
-    @Scheduled(fixedDelay = 200, initialDelay = 1000)
-    public void flushAsyncQueue() {
-        flushQueueBatches();
-    }
-
-    @PreDestroy
-    public void flushOnShutdown() {
-        while (!queue.isEmpty()) {
-            flushQueueBatch();
-        }
-    }
-
+    /**
+     * Flush up to configured rounds each schedule tick.
+     */
     private void flushQueueBatches() {
         for (int i = 0; i < MAX_BATCH_ROUNDS_PER_FLUSH; i++) {
             if (queue.isEmpty()) {
@@ -131,10 +172,14 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
         }
     }
 
+    /**
+     * Drain one batch from queue, then bulk insert into target tables.
+     */
     private void flushQueueBatch() {
         if (queue.isEmpty()) {
             return;
         }
+
         List<QueueEvent> drained = new ArrayList<>(BATCH_SIZE);
         queue.drainTo(drained, BATCH_SIZE);
         if (drained.isEmpty()) {
@@ -144,16 +189,15 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
         List<OrderFlowLogDto> collectionList = new ArrayList<>();
         List<OrderFlowLogDto> payoutList = new ArrayList<>();
         for (QueueEvent event : drained) {
-            OrderFlowLogDto dto = new OrderFlowLogDto();
-            dto.setTransactionNo(event.transactionNo());
-            dto.setStepCode(event.step().getCode());
-            dto.setStepName(event.step().getName());
-            dto.setStepSeq(event.step().getSeq());
-            dto.setSuccess(event.success());
-            dto.setPayload(event.payload() == null ? null : JSON.toJSONString(event.payload()));
-            dto.setTraceId(event.traceId());
-            dto.setEventTime(event.eventTime());
-            dto.setCreateTime(event.createTime());
+            OrderFlowLogDto dto = buildLogDto(
+                    event.transactionNo(),
+                    event.step(),
+                    event.success(),
+                    event.payload(),
+                    event.traceId(),
+                    event.eventTime(),
+                    event.createTime()
+            );
             if (event.collection()) {
                 collectionList.add(dto);
             } else {
@@ -165,25 +209,20 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
         saveBatchWithRetry(payoutList, false);
     }
 
+    /**
+     * Batch insert with one retry to reduce transient DB failures.
+     */
     private void saveBatchWithRetry(List<OrderFlowLogDto> list, boolean collection) {
         if (list == null || list.isEmpty()) {
             return;
         }
         try {
-            if (collection) {
-                collectionOrderFlowLogMapper.insertBatch(list);
-            } else {
-                payOrderFlowLogMapper.insertBatch(list);
-            }
+            insertBatch(list, collection);
         } catch (Exception first) {
             log.warn("order flow async batch insert failed, retrying once, collection={}, size={}, message={}",
                     collection, list.size(), first.getMessage());
             try {
-                if (collection) {
-                    collectionOrderFlowLogMapper.insertBatch(list);
-                } else {
-                    payOrderFlowLogMapper.insertBatch(list);
-                }
+                insertBatch(list, collection);
             } catch (Exception second) {
                 log.error("order flow async batch insert failed after retry, collection={}, size={}, message={}",
                         collection, list.size(), second.getMessage());
@@ -191,6 +230,76 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
         }
     }
 
+    /**
+     * Insert batch to collection/payout table by route flag.
+     */
+    private void insertBatch(List<OrderFlowLogDto> list, boolean collection) {
+        if (collection) {
+            collectionOrderFlowLogMapper.insertBatch(list);
+        } else {
+            payOrderFlowLogMapper.insertBatch(list);
+        }
+    }
+
+    /**
+     * Build one DB dto from event fields.
+     */
+    private OrderFlowLogDto buildLogDto(
+            String transactionNo,
+            OrderFlowStepEnum step,
+            Boolean success,
+            Object payload,
+            String traceId,
+            long eventTime,
+            long createTime) {
+        OrderFlowLogDto dto = new OrderFlowLogDto();
+        dto.setTransactionNo(transactionNo);
+        dto.setStepCode(step.getCode());
+        dto.setStepName(step.getName());
+        dto.setStepSeq(step.getSeq());
+        dto.setSuccess(success);
+        dto.setPayload(serializePayloadSafely(payload));
+        dto.setTraceId(traceId);
+        dto.setEventTime(eventTime);
+        dto.setCreateTime(createTime);
+        return dto;
+    }
+
+    /**
+     * Resolve createTime from transactionNo snowflake timestamp.
+     * If failed, fallback to current epoch second.
+     */
+    private long resolveCreateTimeFromTransactionNo(String transactionNo) {
+        Long epochSecond = SnowflakeIdGenerator.extractEpochSecondFromPrefixedId(transactionNo);
+        if (epochSecond == null || epochSecond <= 0) {
+            long fallback = System.currentTimeMillis() / 1000;
+            log.warn("resolve flow log createTime fallback now, transactionNo={}, now={}", transactionNo, fallback);
+            return fallback;
+        }
+        return epochSecond;
+    }
+
+    /**
+     * Serialize payload after masking sensitive keys.
+     */
+    private String serializePayloadSafely(Object payload) {
+        if (payload == null) {
+            return null;
+        }
+        try {
+            Object sanitized = SensitiveDataMaskUtil.sanitizePayload(payload, FLOW_LOG_SENSITIVE_KEYS);
+            return JSON.toJSONString(sanitized);
+        } catch (Exception e) {
+            // Keep logging non-blocking even if payload masking fails.
+            log.warn("serializePayloadSafely failed, fallback raw json, message={}", e.getMessage());
+            return JSON.toJSONString(payload);
+        }
+    }
+
+    /**
+     * Session-based flow recorder.
+     * Used by create-order path where multiple steps are flushed together.
+     */
     private class DefaultOrderFlowLogSession implements OrderFlowLogSession {
         private final String transactionNo;
         private final boolean collection;
@@ -204,6 +313,9 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
             this.traceId = MDC.get("traceId");
         }
 
+        /**
+         * Add one event into local session buffer.
+         */
         @Override
         public void add(OrderFlowStepEnum step, Boolean success, Object payload) {
             if (flushed || step == null) {
@@ -212,6 +324,9 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
             events.add(new FlowEvent(step, success, payload, System.currentTimeMillis() / 1000));
         }
 
+        /**
+         * Flush buffered events by batch insert.
+         */
         @Override
         public void flush() {
             if (flushed) {
@@ -221,32 +336,29 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
             if (events.isEmpty()) {
                 return;
             }
-            List<OrderFlowLogDto> dtoList = new ArrayList<>(events.size());
+
             long createTime = resolveCreateTimeFromTransactionNo(transactionNo);
+            List<OrderFlowLogDto> dtoList = new ArrayList<>(events.size());
             for (FlowEvent event : events) {
-                OrderFlowLogDto dto = new OrderFlowLogDto();
-                dto.setTransactionNo(transactionNo);
-                dto.setStepCode(event.step().getCode());
-                dto.setStepName(event.step().getName());
-                dto.setStepSeq(event.step().getSeq());
-                dto.setSuccess(event.success());
-                dto.setPayload(event.payload() == null ? null : JSON.toJSONString(event.payload()));
-                dto.setTraceId(traceId);
-                dto.setEventTime(event.eventTime());
-                dto.setCreateTime(createTime);
-                dtoList.add(dto);
+                dtoList.add(buildLogDto(
+                        transactionNo,
+                        event.step(),
+                        event.success(),
+                        event.payload(),
+                        traceId,
+                        event.eventTime(),
+                        createTime
+                ));
             }
+
             try {
-                if (collection) {
-                    collectionOrderFlowLogMapper.insertBatch(dtoList);
-                } else {
-                    payOrderFlowLogMapper.insertBatch(dtoList);
-                }
+                insertBatch(dtoList, collection);
             } catch (Exception e) {
                 log.warn("order flow log batch insert failed, transactionNo={}, message={}",
                         transactionNo, e.getMessage());
+            } finally {
+                events.clear();
             }
-            events.clear();
         }
     }
 
@@ -262,15 +374,5 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
             String traceId,
             long eventTime,
             long createTime) {
-    }
-
-    private long resolveCreateTimeFromTransactionNo(String transactionNo) {
-        Long epochSecond = SnowflakeIdGenerator.extractEpochSecondFromPrefixedId(transactionNo);
-        if (epochSecond == null || epochSecond <= 0) {
-            long fallback = System.currentTimeMillis() / 1000;
-            log.warn("resolve flow log createTime fallback now, transactionNo={}, now={}", transactionNo, fallback);
-            return fallback;
-        }
-        return epochSecond;
     }
 }

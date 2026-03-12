@@ -20,6 +20,7 @@ import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.common.SendDmqMessage;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.AccountStatementService;
+import com.pakgopay.service.common.CurrencyTimezoneService;
 import com.pakgopay.service.common.OrderFlowLogService;
 import com.pakgopay.thirdUtil.RedisUtil;
 import com.pakgopay.timer.ReportTask;
@@ -101,6 +102,9 @@ public abstract class BaseOrderService {
 
     @Autowired
     protected OrderFlowLogService orderFlowLogService;
+
+    @Autowired
+    protected CurrencyTimezoneService currencyTimezoneService;
 
     @Autowired
     @Qualifier("pakGoPayExecutor")
@@ -677,7 +681,7 @@ public abstract class BaseOrderService {
     protected void refreshReportData(long recordDateEpoch, String currency) {
         try {
             if (currency != null && !currency.isBlank()) {
-                ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+                ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(currency);
                 LocalDate targetDate = Instant.ofEpochSecond(recordDateEpoch).atZone(zoneId).toLocalDate();
                 LocalDate today = Instant.now().atZone(zoneId).toLocalDate();
                 if (targetDate.isEqual(today)) {

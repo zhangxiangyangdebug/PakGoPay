@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -48,6 +49,8 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
     @Override
     public CommonResponse createCurrencyType(CurrencyTypeRequest currencyTypeRequest, HttpServletRequest request) {
         try {
+            String timezone = normalizeTimezone(currencyTypeRequest.getTimezone());
+            currencyTypeRequest.setTimezone(timezone);
             CurrencyTypeDTO currencyTypeDTO = new CurrencyTypeDTO();
             BeanUtils.copyProperties(currencyTypeRequest, currencyTypeDTO);
             Integer addResult = currencyTypeMapper.addNewCurrency(currencyTypeDTO);
@@ -58,6 +61,8 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
             }
         } catch (DuplicateKeyException e) {
             return CommonResponse.fail(ResultCode.FAIL, "currency already exists");
+        } catch (IllegalArgumentException e) {
+            return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, e.getMessage());
         } catch (Exception e) {
             return CommonResponse.fail(ResultCode.FAIL,"add currency type failed "+ e.getMessage());
         }
@@ -69,6 +74,8 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
             if (currencyTypeRequest.getId() == null) {
                 return CommonResponse.fail(ResultCode.FAIL, "currency id is required");
             }
+            String timezone = normalizeTimezone(currencyTypeRequest.getTimezone());
+            currencyTypeRequest.setTimezone(timezone);
             String operatorName = currencyTypeRequest.getUserName();
             CurrencyTypeDTO currencyTypeDTO = new CurrencyTypeDTO();
             BeanUtils.copyProperties(currencyTypeRequest, currencyTypeDTO);
@@ -81,8 +88,21 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
             return CommonResponse.fail(ResultCode.FAIL, "update currency type failed");
         } catch (DuplicateKeyException e) {
             return CommonResponse.fail(ResultCode.FAIL, "currency already exists");
+        } catch (IllegalArgumentException e) {
+            return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, e.getMessage());
         } catch (Exception e) {
             return CommonResponse.fail(ResultCode.FAIL, "update currency type failed " + e.getMessage());
+        }
+    }
+
+    private String normalizeTimezone(String timezone) {
+        if (timezone == null || timezone.isBlank()) {
+            return null;
+        }
+        try {
+            return ZoneId.of(timezone.trim()).getId();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("invalid timezone: " + timezone);
         }
     }
 }

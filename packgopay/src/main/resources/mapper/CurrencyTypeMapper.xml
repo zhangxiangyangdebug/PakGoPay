@@ -14,12 +14,13 @@
         <result column="update_by" property="updateBy" javaType="String"/>
         <result column="remark" property="remark" javaType="String" />
         <result column="currency_scale" property="currencyAccuracy" javaType="java.math.BigDecimal"/>
+        <result column="timezone" property="timezone" javaType="String"/>
     </resultMap>
     <sql id="allColumn">
-        id, currency_type, name, icon, create_time, create_by, update_time, update_by, remark, currency_scale
+        id, currency_type, name, icon, create_time, create_by, update_time, update_by, remark, currency_scale, timezone
     </sql>
     <sql id="insertColumn">
-        currency_type, name, icon, create_time, create_by, update_time, update_by, remark, currency_scale
+        currency_type, name, icon, create_time, create_by, update_time, update_by, remark, currency_scale, timezone
     </sql>
     <select id="getAllCurrencyType" parameterType="com.pakgopay.data.reqeust.currencyTypeManagement.CurrencyTypeRequest" resultMap="currencyTypeMap">
         SELECT
@@ -41,7 +42,7 @@
     <insert id="addNewCurrency">
         INSERT INTO currency (
                               <include refid="insertColumn"/>
-        ) values (#{currencyType},#{name},#{icon},#{createTime},#{createBy},#{updateTime},#{updateBy},#{remark},#{currencyAccuracy})
+        ) values (#{currencyType},#{name},#{icon},#{createTime},#{createBy},#{updateTime},#{updateBy},#{remark},#{currencyAccuracy},#{timezone})
     </insert>
 
     <update id="updateCurrencyType">
@@ -51,6 +52,7 @@
             <if test="name != null">name = #{name},</if>
             <if test="icon != null">icon = #{icon},</if>
             <if test="currencyAccuracy != null">currency_scale = #{currencyAccuracy},</if>
+            <if test="timezone != null and timezone != ''">timezone = #{timezone},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
         </set>
@@ -74,6 +76,13 @@
             and name = #{name}
         </if>
 
+    </select>
+
+    <select id="getTimezoneByCurrencyType" parameterType="java.lang.String" resultType="java.lang.String">
+        SELECT timezone
+        FROM currency
+        WHERE currency_type = #{currencyType}
+        LIMIT 1
     </select>
 
 </mapper>

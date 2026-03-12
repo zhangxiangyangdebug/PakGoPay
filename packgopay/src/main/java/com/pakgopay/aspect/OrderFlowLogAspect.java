@@ -2,10 +2,13 @@ package com.pakgopay.aspect;
 
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.OrderFlowStepEnum;
+import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.data.entity.transaction.CollectionCreateEntity;
 import com.pakgopay.data.entity.transaction.CollectionQueryEntity;
 import com.pakgopay.data.entity.transaction.PayCreateEntity;
 import com.pakgopay.data.entity.transaction.PayQueryEntity;
+import com.pakgopay.data.response.http.PaymentHttpResponse;
+import com.pakgopay.service.transaction.OrderHandler;
 import com.pakgopay.service.common.OrderFlowLogService;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -34,7 +37,11 @@ public class OrderFlowLogAspect {
         logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_CREATE_REQUEST, true, request);
         try {
             Object result = pjp.proceed();
-            logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_CREATE_RESPONSE, true, result);
+            logByTransactionNo(
+                    transactionNo,
+                    OrderFlowStepEnum.THIRD_CREATE_RESPONSE,
+                    resolveThirdCreateSuccess(result),
+                    result);
             return result;
         } catch (Throwable e) {
             logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_CREATE_RESPONSE, false, buildErrorPayload(e));
@@ -51,7 +58,11 @@ public class OrderFlowLogAspect {
         logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_CREATE_REQUEST, true, request);
         try {
             Object result = pjp.proceed();
-            logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_CREATE_RESPONSE, true, result);
+            logByTransactionNo(
+                    transactionNo,
+                    OrderFlowStepEnum.THIRD_CREATE_RESPONSE,
+                    resolveThirdCreateSuccess(result),
+                    result);
             return result;
         } catch (Throwable e) {
             logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_CREATE_RESPONSE, false, buildErrorPayload(e));
@@ -79,7 +90,11 @@ public class OrderFlowLogAspect {
         logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_QUERY_REQUEST, true, request);
         try {
             Object result = pjp.proceed();
-            logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_QUERY_RESPONSE, true, result);
+            logByTransactionNo(
+                    transactionNo,
+                    OrderFlowStepEnum.THIRD_QUERY_RESPONSE,
+                    resolveThirdQuerySuccess(result),
+                    result);
             return result;
         } catch (Throwable e) {
             logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_QUERY_RESPONSE, false, buildErrorPayload(e));
@@ -96,7 +111,11 @@ public class OrderFlowLogAspect {
         logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_QUERY_REQUEST, true, request);
         try {
             Object result = pjp.proceed();
-            logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_QUERY_RESPONSE, true, result);
+            logByTransactionNo(
+                    transactionNo,
+                    OrderFlowStepEnum.THIRD_QUERY_RESPONSE,
+                    resolveThirdQuerySuccess(result),
+                    result);
             return result;
         } catch (Throwable e) {
             logByTransactionNo(transactionNo, OrderFlowStepEnum.THIRD_QUERY_RESPONSE, false, buildErrorPayload(e));
@@ -114,7 +133,11 @@ public class OrderFlowLogAspect {
         logByTransactionNo(transactionNo, OrderFlowStepEnum.MERCHANT_NOTIFY_REQUEST, true, body);
         try {
             Object result = pjp.proceed();
-            logByTransactionNo(transactionNo, OrderFlowStepEnum.MERCHANT_NOTIFY_RESPONSE, true, result);
+            logByTransactionNo(
+                    transactionNo,
+                    OrderFlowStepEnum.MERCHANT_NOTIFY_RESPONSE,
+                    resolveMerchantNotifySuccess(result),
+                    result);
             return result;
         } catch (Throwable e) {
             logByTransactionNo(transactionNo, OrderFlowStepEnum.MERCHANT_NOTIFY_RESPONSE, false, buildErrorPayload(e));
@@ -153,5 +176,29 @@ public class OrderFlowLogAspect {
         payload.put("type", e == null ? null : e.getClass().getName());
         return payload;
     }
-}
 
+    private boolean resolveMerchantNotifySuccess(Object result) {
+        if (result instanceof OrderHandler.NotifyResult notifyResult) {
+            return notifyResult.isSuccess();
+        }
+        return true;
+    }
+
+    private boolean resolveThirdCreateSuccess(Object result) {
+        if (result instanceof PaymentHttpResponse response) {
+            Integer code = response.getCode();
+            // Internal normalized success code is 0; some handlers may still return 200.
+            return Integer.valueOf(0).equals(code) || Integer.valueOf(200).equals(code);
+        }
+        return result != null;
+    }
+
+    private boolean resolveThirdQuerySuccess(Object result) {
+        if (result instanceof TransactionStatus status) {
+            // Query returns FAILED both for upstream error and business failed status.
+            // Keep conservative behavior: FAILED => false, others => true.
+            return !TransactionStatus.FAILED.equals(status);
+        }
+        return result != null;
+    }
+}

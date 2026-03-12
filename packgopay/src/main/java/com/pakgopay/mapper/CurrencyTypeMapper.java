@@ -3,7 +3,6 @@ package com.pakgopay.mapper;
 import com.pakgopay.data.reqeust.currencyTypeManagement.CurrencyTypeRequest;
 import com.pakgopay.mapper.dto.CurrencyTypeDTO;
 import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -16,4 +15,6 @@ public interface CurrencyTypeMapper {
     Integer addNewCurrency(CurrencyTypeDTO currencyTypeDTO);
 
     Integer updateCurrencyType(CurrencyTypeDTO currencyTypeDTO);
+
+    String getTimezoneByCurrencyType(String currencyType);
 }

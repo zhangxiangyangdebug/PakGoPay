@@ -20,6 +20,7 @@ import com.pakgopay.mapper.dto.MerchantReportDto;
 import com.pakgopay.timer.data.ReportCurrencyRange;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.OpsReportService;
+import com.pakgopay.service.common.CurrencyTimezoneService;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.CalcUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +57,9 @@ public class OpsReportServiceImpl implements OpsReportService {
 
     @Autowired
     private BalanceService balanceService;
+
+    @Autowired
+    private CurrencyTimezoneService currencyTimezoneService;
 
     @Override
     public CommonResponse queryOpsDailyReports(OpsReportRequest request) {
@@ -156,7 +160,7 @@ public class OpsReportServiceImpl implements OpsReportService {
 
     private OpsOrderCardResponse loadYearlyCard(String currency, String scopeId, Integer orderType) {
         OpsOrderCardResponse response = new OpsOrderCardResponse();
-        ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+        ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(currency);
         LocalDate today = Instant.now().atZone(zoneId).toLocalDate();
         long todayStart = today.atStartOfDay(zoneId).toEpochSecond();
         OpsOrderDailyDto dto = opsOrderDailyMapper.sumTotalsBeforeDate(
@@ -225,7 +229,7 @@ public class OpsReportServiceImpl implements OpsReportService {
         String currency = request.getCurrency();
         Integer scopeType = request.getScopeType();
         String scopeId = request.getScopeId();
-        ZoneId zoneId = CommonUtil.resolveZoneIdByCurrency(currency);
+        ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(currency);
         LocalDate today = Instant.now().atZone(zoneId).toLocalDate();
         long startTime = today.atStartOfDay(zoneId).toEpochSecond();
         long endTime = today.plusDays(1).atStartOfDay(zoneId).toEpochSecond();

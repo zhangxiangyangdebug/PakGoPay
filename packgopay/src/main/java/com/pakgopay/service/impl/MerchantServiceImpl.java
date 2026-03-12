@@ -30,6 +30,7 @@ import com.pakgopay.util.CryptoUtil;
 import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.KeySignManager;
 import com.pakgopay.util.PatchBuilderUtil;
+import com.pakgopay.util.SensitiveDataMaskUtil;
 import com.pakgopay.util.TransactionUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -241,8 +242,9 @@ public class MerchantServiceImpl implements MerchantService {
             if (merchantInfoDto == null) {
                 continue;
             }
-            merchantInfoDto.setApiKey(maskKeepHeadTail2(merchantInfoDto.getApiKey()));
-            merchantInfoDto.setSignKey(maskKeepHeadTail2(decryptSignKeyForMasking(merchantInfoDto.getSignKey())));
+            merchantInfoDto.setApiKey(SensitiveDataMaskUtil.maskKeepHeadTail2(merchantInfoDto.getApiKey()));
+            merchantInfoDto.setSignKey(SensitiveDataMaskUtil.maskKeepHeadTail2(
+                    decryptSignKeyForMasking(merchantInfoDto.getSignKey())));
         }
     }
 
@@ -259,18 +261,6 @@ public class MerchantServiceImpl implements MerchantService {
             log.warn("decrypt signKey for masking failed, message={}", e.getMessage());
             return signKey;
         }
-    }
-
-    private String maskKeepHeadTail2(String value) {
-        if (value == null || value.isBlank()) {
-            return value;
-        }
-        String v = value.trim();
-        int len = v.length();
-        if (len <= 4) {
-            return "*".repeat(len);
-        }
-        return v.substring(0, 2) + "*".repeat(len - 4) + v.substring(len - 2);
     }
 
     private String resolvePlainMerchantSignKey(String signKey, String merchantUserId) {
