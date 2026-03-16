@@ -29,7 +29,7 @@ public class ThirdPartyHhtradeHandler extends AbstractThirdPartySignedHandler {
                 request.getCollectionInterfaceParam(), "collection", payload);
         validateRequiredFields(payload, Arrays.asList(
                 "mid", "amount", "order_no", "gateway", "ip", "notify_url", "sign"));
-        return postForCreate(entity, resolveDirectUrl(request), getClass().getSimpleName(), CHANNEL_CODE);
+        return postForCreate(entity, resolveDirectUrl(request), getClass().getSimpleName(), request.getChannelCode());
     }
 
     @Override
@@ -40,7 +40,7 @@ public class ThirdPartyHhtradeHandler extends AbstractThirdPartySignedHandler {
         validateRequiredFields(payload, Arrays.asList(
                 "mid", "amount", "order_no", "ip", "notify_url",
                 "bank_code", "card_no", "holder_name", "sign"));
-        return postForCreate(entity, resolvePayUrl(request), getClass().getSimpleName(), CHANNEL_CODE);
+        return postForCreate(entity, resolvePayUrl(request), getClass().getSimpleName(), request.getChannelCode());
     }
 
     @Override
@@ -71,7 +71,7 @@ public class ThirdPartyHhtradeHandler extends AbstractThirdPartySignedHandler {
             flowSession.add(OrderFlowStepEnum.THIRD_BALANCE_REQUEST, true, entity.getBody());
         }
         PaymentHttpResponse response = postForBalance(
-                entity, resolvePayBalanceUrl(request), getClass().getSimpleName(), CHANNEL_CODE);
+                entity, resolvePayBalanceUrl(request), getClass().getSimpleName(), request.getChannelCode());
         if (flowSession != null) {
             flowSession.add(OrderFlowStepEnum.THIRD_BALANCE_RESPONSE, true, response);
         }
@@ -103,7 +103,7 @@ public class ThirdPartyHhtradeHandler extends AbstractThirdPartySignedHandler {
         Map<String, Object> params = extractChannelParams(payload);
         result.put("amount", resolveAmountString(payload.getAmount()));
         result.put("order_no", resolveValue(params, "orderNo", payload.getMerchantOrderNo()));
-        result.put("gateway", CHANNEL_CODE);
+        result.put("gateway", payload.getChannelCode());
         result.put("ip", IpAddressUtil.resolveServerIp());
         result.put("notify_url", resolveValue(params, "notifyUrl", payload.getCallbackUrl()));
         result.put("return_url", resolveValue(params, "returnUrl", null));

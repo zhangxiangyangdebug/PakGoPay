@@ -76,6 +76,7 @@ public class OrderHandlerFactory implements ApplicationContextAware {
         register("USD", OrderScope.THIRD_PARTY, "ALIPAY", ThirdPartyLuckyHandler.class);
         // PHP + THIRD_PARTY + HHTRADE -> ThirdPartyHhtradeHandler
         register("PHP", OrderScope.THIRD_PARTY, "GCASH_WAKE", ThirdPartyHhtradeHandler.class);
+        register("INR", OrderScope.THIRD_PARTY, "UPI_WAKE", ThirdPartyHhtradeHandler.class);
     }
 
     private static String normalizePaymentNo(String paymentNo) {

@@ -10,6 +10,7 @@ public class PayCreateEntity {
     private String transactionNo;
     private BigDecimal amount;
     private String currency;
+    private String channelCode;
     private String merchantOrderNo;
     private String merchantUserId;
     private String callbackUrl;

@@ -790,6 +790,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         payRequest.setTransactionNo(dto.getTransactionNo());
         payRequest.setAmount(dto.getAmount());
         payRequest.setCurrency(dto.getCurrencyType());
+        payRequest.setChannelCode(dto.getPaymentNo());
         payRequest.setMerchantOrderNo(dto.getTransactionNo());
         payRequest.setMerchantUserId(dto.getMerchantUserId());
         payRequest.setCallbackUrl(paymentInfo == null ? null : paymentInfo.getPayCallbackAddr());
@@ -823,6 +824,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         OrderHandler handler = OrderHandlerFactory.get(
                 OrderScope.THIRD_PARTY, payOrderDto.getCurrencyType(), payOrderDto.getPaymentNo());
         PayCreateEntity query = new PayCreateEntity();
+        query.setChannelCode(payOrderDto.getPaymentNo());
         query.setBalanceQueryUrl(paymentInfo.getBalanceQueryUrl());
         query.setPayInterfaceParam(paymentInfo.getPayInterfaceParam());
         BigDecimal available = handler.queryPayBalance(query, flowSession);

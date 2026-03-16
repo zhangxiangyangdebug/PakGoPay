@@ -856,7 +856,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             OrderScope scope = Integer.valueOf(1).equals(dto.getCollectionMode())
                     ? OrderScope.THIRD_PARTY
                     : OrderScope.SYSTEM;
-            String channelCode = resolveChannelCode(channelParams);
+            String channelCode = dto.getPaymentNo();
             OrderHandler handler = OrderHandlerFactory.get(
                     scope, resolveCurrencyKey(dto.getCurrencyType(), channelCode), dto.getPaymentNo());
             CollectionCreateEntity entity = new CollectionCreateEntity();
@@ -883,16 +883,6 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             failedResponse.setMessage(e.getMessage() == null ? "dispatch_exception" : e.getMessage());
             return failedResponse;
         }
-    }
-
-    private String resolveChannelCode(Object channelParams) {
-        if (channelParams instanceof Map<?, ?> params) {
-            Object value = params.get("channelCode");
-            if (value != null) {
-                return String.valueOf(value);
-            }
-        }
-        return "digimone";
     }
 
     private String resolveCurrencyKey(String currency, String channelCode) {

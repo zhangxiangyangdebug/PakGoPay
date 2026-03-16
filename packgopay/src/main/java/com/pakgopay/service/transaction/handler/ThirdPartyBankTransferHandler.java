@@ -130,7 +130,7 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
         Map<String, Object> payload = new HashMap<>();
         payload.put("transactionNo", request.getTransactionNo());
         payload.put("amount", request.getAmount());
-        payload.put("channelCode", resolveChannelCodeFromParams(request.getChannelParams()));
+        payload.put("channelCode", request.getChannelCode());
         payload.put("channelParams", request.getChannelParams());
         if (request.getChannelParams() != null) {
             payload.putAll(request.getChannelParams());
