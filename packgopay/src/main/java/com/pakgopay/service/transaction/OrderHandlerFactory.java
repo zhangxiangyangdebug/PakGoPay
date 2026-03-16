@@ -3,7 +3,8 @@ package com.pakgopay.service.transaction;
 import com.pakgopay.common.enums.OrderScope;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.service.transaction.handler.ThirdPartyAlipayHandler;
+import com.pakgopay.service.transaction.handler.ThirdPartyHhtradeHandler;
+import com.pakgopay.service.transaction.handler.ThirdPartyLuckyHandler;
 import com.pakgopay.service.transaction.handler.ThirdPartyBankTransferHandler;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -70,9 +71,11 @@ public class OrderHandlerFactory implements ApplicationContextAware {
     }
 
     private static void registerExplicitMappings() {
-        // CNY + THIRD_PARTY + ALIPAY -> ColThirdPartyAlipayHandler
-        register("CNY", OrderScope.THIRD_PARTY, "ALIPAY", ThirdPartyAlipayHandler.class);
-        register("USD", OrderScope.THIRD_PARTY, "ALIPAY", ThirdPartyAlipayHandler.class);
+        // CNY/USD + THIRD_PARTY + ALIPAY -> ThirdPartyLuckyHandler
+        register("CNY", OrderScope.THIRD_PARTY, "ALIPAY", ThirdPartyLuckyHandler.class);
+        register("USD", OrderScope.THIRD_PARTY, "ALIPAY", ThirdPartyLuckyHandler.class);
+        // PHP + THIRD_PARTY + HHTRADE -> ThirdPartyHhtradeHandler
+        register("PHP", OrderScope.THIRD_PARTY, "GCASH_WAKE", ThirdPartyHhtradeHandler.class);
     }
 
     private static String normalizePaymentNo(String paymentNo) {

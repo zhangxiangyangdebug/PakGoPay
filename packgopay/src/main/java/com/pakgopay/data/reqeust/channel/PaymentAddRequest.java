@@ -156,6 +156,11 @@ public class PaymentAddRequest extends BaseRequest {
      */
     private String paymentCheckCollectionUrl;
 
+    /**
+     * Balance query URL
+     */
+    private String balanceQueryUrl;
+
 
     // =====================
     // 6) Interface Parameters

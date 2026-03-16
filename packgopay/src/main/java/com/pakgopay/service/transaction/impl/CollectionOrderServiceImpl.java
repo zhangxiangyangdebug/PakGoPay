@@ -802,7 +802,8 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         // 4) Merchant & agent fee config
         // -----------------------------
         if (transactionInfo.getPaymentInfo() != null) {
-            Integer collectionMode = "1".equals(transactionInfo.getPaymentInfo().getIsThird()) ? 2 : 1;
+            Integer collectionMode = OrderScope.fromIsThird(
+                    transactionInfo.getPaymentInfo().getIsThird()).getCode();
             builder.obj(() -> collectionMode, dto::setCollectionMode); // collection mode
         }
         if (merchantInfo != null) {

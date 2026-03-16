@@ -1017,6 +1017,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 .str(paymentEditRequest::getPaymentCollectionRate, dto::setPaymentCollectionRate)
                 .str(paymentEditRequest::getPaymentCheckPayUrl, dto::setPaymentCheckPayUrl)
                 .str(paymentEditRequest::getPaymentCheckCollectionUrl, dto::setPaymentCheckCollectionUrl)
+                .str(paymentEditRequest::getBalanceQueryUrl, dto::setBalanceQueryUrl)
                 .obj(paymentEditRequest::getPaymentMaxAmount, dto::setPaymentMaxAmount)
                 .obj(paymentEditRequest::getPaymentMinAmount, dto::setPaymentMinAmount)
                 .str(paymentEditRequest::getIsThird, dto::setIsThird)
@@ -1091,6 +1092,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
                 .obj(paymentAddRequest::getSupportType, dto::setSupportType)
                 .obj(paymentAddRequest::getIsCheckoutCounter, dto::setIsCheckoutCounter)
                 .str(paymentAddRequest::getEnableTimePeriod, dto::setEnableTimePeriod)
+                .str(paymentAddRequest::getBalanceQueryUrl, dto::setBalanceQueryUrl)
 
                 // 3) Amount Limits (optional)
                 .obj(paymentAddRequest::getPaymentMaxAmount, dto::setPaymentMaxAmount)

@@ -94,6 +94,9 @@ public class PaymentEditRequest extends BaseRequest {
     /** Collection order check URL */
     private String paymentCheckCollectionUrl;
 
+    /** Balance query URL */
+    private String balanceQueryUrl;
+
     /** Whether it is a third-party channel: 0-no, 1-yes (varchar in DB) */
     private String isThird;
 

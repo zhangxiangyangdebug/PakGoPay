@@ -8,6 +8,7 @@ import com.pakgopay.data.entity.transaction.CollectionCreateEntity;
 import com.pakgopay.data.entity.transaction.PayQueryEntity;
 import com.pakgopay.data.entity.transaction.PayCreateEntity;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
+import com.pakgopay.service.common.OrderFlowLogSession;
 import com.pakgopay.service.transaction.OrderHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -82,6 +84,11 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
     @Override
     public TransactionStatus handlePayQuery(PayQueryEntity request) {
         throw new UnsupportedOperationException("pay query is not supported for ThirdPartyBankTransferHandler");
+    }
+
+    @Override
+    public BigDecimal queryPayBalance(PayCreateEntity request, OrderFlowLogSession flowSession) {
+        return null;
     }
 
     @Override

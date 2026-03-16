@@ -25,6 +25,7 @@
 
         <result column="payment_check_pay_url" property="paymentCheckPayUrl" javaType="java.lang.String"/>
         <result column="payment_check_collection_url" property="paymentCheckCollectionUrl" javaType="java.lang.String"/>
+        <result column="balance_query_url" property="balanceQueryUrl" javaType="java.lang.String"/>
 
         <result column="payment_max_amount" property="paymentMaxAmount" javaType="java.math.BigDecimal"/>
         <result column="payment_min_amount" property="paymentMinAmount" javaType="java.math.BigDecimal"/>
@@ -76,6 +77,7 @@
         payment_request_collection_url,
         payment_check_pay_url,
         payment_check_collection_url,
+        balance_query_url,
         payment_max_amount,
         payment_min_amount,
         collection_daily_limit,
@@ -115,6 +117,7 @@
         payment_request_collection_url,
         payment_check_pay_url,
         payment_check_collection_url,
+        balance_query_url,
         payment_max_amount,
         payment_min_amount,
         collection_daily_limit,
@@ -181,6 +184,7 @@
         #{paymentRequestCollectionUrl},
         #{paymentCheckPayUrl},
         #{paymentCheckCollectionUrl},
+        #{balanceQueryUrl},
         #{paymentMaxAmount},
         #{paymentMinAmount},
         #{collectionDailyLimit},
@@ -224,6 +228,7 @@
             <if test="paymentRequestCollectionUrl != null">payment_request_collection_url = #{paymentRequestCollectionUrl},</if>
             <if test="paymentCheckPayUrl != null">payment_check_pay_url = #{paymentCheckPayUrl},</if>
             <if test="paymentCheckCollectionUrl != null">payment_check_collection_url = #{paymentCheckCollectionUrl},</if>
+            <if test="balanceQueryUrl != null">balance_query_url = #{balanceQueryUrl},</if>
             <if test="paymentMaxAmount != null">payment_max_amount = #{paymentMaxAmount},</if>
             <if test="paymentMinAmount != null">payment_min_amount = #{paymentMinAmount},</if>
             <if test="collectionDailyLimit != null">collection_daily_limit = #{collectionDailyLimit},</if>

@@ -4,7 +4,8 @@ import lombok.Getter;
 
 @Getter
 public enum OrderScope {
-    SYSTEM(0, "SYSTEM"), THIRD_PARTY(0, "THIRD_PARTY");
+    THIRD_PARTY(1, "THIRD_PARTY"),
+    SYSTEM(2, "SYSTEM");
 
 
     private final Integer code;
@@ -15,4 +16,7 @@ public enum OrderScope {
         this.message = message;
     }
 
+    public static OrderScope fromIsThird(String isThird) {
+        return "1".equals(isThird) ? THIRD_PARTY : SYSTEM;
+    }
 }

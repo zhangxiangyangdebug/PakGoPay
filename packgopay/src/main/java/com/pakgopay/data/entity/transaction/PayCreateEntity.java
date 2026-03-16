@@ -19,5 +19,6 @@ public class PayCreateEntity {
     private Map<String, Object> channelParams;
     private String ip;
     private String paymentRequestPayUrl;
+    private String balanceQueryUrl;
     private String payInterfaceParam;
 }

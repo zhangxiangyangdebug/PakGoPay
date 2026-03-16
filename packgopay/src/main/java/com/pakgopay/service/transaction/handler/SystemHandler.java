@@ -8,9 +8,11 @@ import com.pakgopay.data.entity.transaction.PayQueryEntity;
 import com.pakgopay.data.entity.transaction.PayCreateEntity;
 import com.pakgopay.service.transaction.OrderHandler;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
+import com.pakgopay.service.common.OrderFlowLogSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 @Slf4j
@@ -45,6 +47,11 @@ public class SystemHandler extends OrderHandler {
     @Override
     public TransactionStatus handlePayQuery(PayQueryEntity request) {
         throw new UnsupportedOperationException("pay query is not supported for SystemHandler");
+    }
+
+    @Override
+    public BigDecimal queryPayBalance(PayCreateEntity request, OrderFlowLogSession flowSession) {
+        return null;
     }
 
     @Override

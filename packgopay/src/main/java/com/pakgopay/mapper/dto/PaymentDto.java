@@ -48,6 +48,9 @@ public class PaymentDto implements Serializable {
     /** Collection order check URL */
     private String paymentCheckCollectionUrl;
 
+    /** Balance query URL */
+    private String balanceQueryUrl;
+
     /** Maximum amount */
     private BigDecimal paymentMaxAmount;
 

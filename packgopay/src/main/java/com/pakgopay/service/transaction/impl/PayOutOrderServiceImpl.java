@@ -161,7 +161,10 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     payOrderDto.getChannelId(),
                     payOrderDto.getPaymentMode());
 
-            // 8. freeze balance, persist processing order and publish timeout message
+            // 8. query channel available balance before freeze/insert.
+            ensureChannelBalanceSufficient(payOrderDto, transactionInfo.getPaymentInfo(), flowSession);
+
+            // 9. freeze balance, persist processing order and publish timeout message
             frozenAmount = CalcUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
             BigDecimal frozenAmountSnapshot = frozenAmount;
             transactionUtil.runInTransaction(() -> {
@@ -201,7 +204,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                         CommonResponse.success(responseBody));
             }
 
-            // 9. dispatch payout request to handler
+            // 10. dispatch payout request to handler
             PaymentHttpResponse handlerResponse = dispatchPayOutOrder(
                     payOrderDto,
                     payOrderRequest,
@@ -217,7 +220,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                         "payout channel request failed, code=" + handlerCode);
             }
 
-            // 10. build and return create response
+            // 11. build and return create response
             Map<String, Object> responseBody = buildPayOutResponse(payOrderDto, handlerResponse);
             log.info("{} success, transactionNo={}", scene, payOrderDto.getTransactionNo());
             createdSuccess = true;
@@ -799,11 +802,40 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         payRequest.setIp(dto.getRequestIp());
         payRequest.setPaymentRequestPayUrl(
                 paymentInfo == null ? null : paymentInfo.getPaymentRequestPayUrl());
+        payRequest.setBalanceQueryUrl(
+                paymentInfo == null ? null : paymentInfo.getBalanceQueryUrl());
         payRequest.setPayInterfaceParam(
                 paymentInfo == null ? null : paymentInfo.getPayInterfaceParam());
         log.info("dispatchPayOutOrder payload ready, transactionNo={}, paymentMode={}, currency={}",
                 dto.getTransactionNo(), dto.getPaymentMode(), dto.getCurrencyType());
         return handler.handlePay(payRequest);
+    }
+
+    private void ensureChannelBalanceSufficient(
+            PayOrderDto payOrderDto,
+            PaymentDto paymentInfo,
+            OrderFlowLogSession flowSession) throws PakGoPayException {
+        if (paymentInfo.getBalanceQueryUrl() == null || paymentInfo.getBalanceQueryUrl().isBlank()) {
+            log.info("skip channel balance query, balanceQueryUrl empty, transactionNo={}",
+                    payOrderDto.getTransactionNo());
+            return;
+        }
+        OrderHandler handler = OrderHandlerFactory.get(
+                OrderScope.THIRD_PARTY, payOrderDto.getCurrencyType(), payOrderDto.getPaymentNo());
+        PayCreateEntity query = new PayCreateEntity();
+        query.setBalanceQueryUrl(paymentInfo.getBalanceQueryUrl());
+        query.setPayInterfaceParam(paymentInfo.getPayInterfaceParam());
+        BigDecimal available = handler.queryPayBalance(query, flowSession);
+        if (available == null) {
+            throw new PakGoPayException(ResultCode.HTTP_REQUEST_ERROR, "channel balance query returned empty");
+        }
+        if (available.compareTo(payOrderDto.getAmount()) < 0) {
+            log.warn("channel balance not enough, transactionNo={}, required={}, available={}",
+                    payOrderDto.getTransactionNo(), payOrderDto.getAmount(), available);
+            throw new PakGoPayException(ResultCode.MERCHANT_BALANCE_NOT_ENOUGH, "channel balance not enough");
+        }
+        log.info("channel balance check passed, transactionNo={}, required={}, available={}",
+                payOrderDto.getTransactionNo(), payOrderDto.getAmount(), available);
     }
 
     private Map<String, Object> buildPayOutResponse(PayOrderDto dto, PaymentHttpResponse handlerResponse) {
@@ -958,7 +990,8 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         // 4) Merchant & agent fee config
         // -----------------------------
         if (transactionInfo.getPaymentInfo() != null) {
-            int paymentMode = "1".equals(transactionInfo.getPaymentInfo().getIsThird()) ? 2 : 1;
+            int paymentMode = OrderScope.fromIsThird(
+                    transactionInfo.getPaymentInfo().getIsThird()).getCode();
             builder.obj(() -> paymentMode, dto::setPaymentMode); // payment mode
         }
         builder.obj(transactionInfo::getMerchantRate, dto::setMerchantRate) // merchant pay rate

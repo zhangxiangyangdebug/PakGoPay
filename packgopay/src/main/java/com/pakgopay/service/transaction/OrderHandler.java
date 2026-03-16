@@ -11,6 +11,7 @@ import com.pakgopay.data.entity.transaction.PayCreateEntity;
 import com.pakgopay.data.entity.transaction.PayQueryEntity;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
+import com.pakgopay.service.common.OrderFlowLogSession;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -39,6 +40,11 @@ public abstract class OrderHandler {
      * Handle payout query request.
      */
     public abstract TransactionStatus handlePayQuery(PayQueryEntity request);
+
+    /**
+     * Query third-party available balance before payout create.
+     */
+    public abstract BigDecimal queryPayBalance(PayCreateEntity request, OrderFlowLogSession flowSession);
 
     /**
      * Handle async notification callbacks.
@@ -192,6 +198,22 @@ public abstract class OrderHandler {
         if (value == null) {
             throw new PakGoPayException(ResultCode.INVALID_PARAMS,
                     "missing required field: paymentCheckPayUrl");
+        }
+        return String.valueOf(value);
+    }
+
+    /**
+     * Resolve payout balance query URL from request body or channel params.
+     */
+    protected String resolvePayBalanceUrl(PayCreateEntity payload) {
+        Object value = payload.getBalanceQueryUrl();
+        Map<String, Object> params = extractChannelParams(payload);
+        if (value == null) {
+            value = params.get("balanceQueryUrl");
+        }
+        if (value == null) {
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS,
+                    "missing required field: balanceQueryUrl");
         }
         return String.valueOf(value);
     }

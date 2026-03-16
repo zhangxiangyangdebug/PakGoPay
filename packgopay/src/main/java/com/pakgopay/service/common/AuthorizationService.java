@@ -93,7 +93,6 @@ public class AuthorizationService {
                 String userName = (String) claims.getClaimValue("userName");
                 String requestIp = (String) claims.getClaimValue("clientIp");
                 String userAgent = (String) claims.getClaimValue("userAgent");
-                System.out.println("认证通过， token payload携带的自定义内容：用户账号account=" + account);
                 return account+"&"+userName+"&"+requestIp+"&"+userAgent;
             }
         } catch (JoseException | InvalidJwtException e) {
