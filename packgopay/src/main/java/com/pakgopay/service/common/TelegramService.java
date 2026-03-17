@@ -415,10 +415,6 @@ public class TelegramService {
         return getConfig(WEBHOOK_SECRET_KEY);
     }
 
-    public String getDefaultChatId() {
-        return null;
-    }
-
     public String getConsoleBaseUrl() {
         return getConfig(CONSOLE_URL_KEY);
     }

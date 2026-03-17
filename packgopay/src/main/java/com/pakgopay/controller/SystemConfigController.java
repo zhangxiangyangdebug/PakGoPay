@@ -26,6 +26,8 @@ import com.pakgopay.thirdUtil.GoogleUtil;
 import com.pakgopay.thirdUtil.RedisUtil;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import org.apache.ibatis.annotations.Param;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
@@ -273,8 +275,13 @@ public class SystemConfigController {
     private record DeleteLoginUserPayload(String userId) {}
     private record ResetGoogleKeyPayload(String userId, String loginName) {}
     private record BindGoogleKeyPayload(String userId, String loginName) {}
-    private record TelegramBroadcastResult(Integer totalAccounts,
-                                           Integer sentGroupCount,
-                                           List<String> skippedUnboundAccounts,
-                                           List<String> invalidAccounts) {}
+
+    @Data
+    @AllArgsConstructor
+    private static class TelegramBroadcastResult {
+        private Integer totalAccounts;
+        private Integer sentGroupCount;
+        private List<String> skippedUnboundAccounts;
+        private List<String> invalidAccounts;
+    }
 }

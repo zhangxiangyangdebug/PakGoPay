@@ -198,12 +198,8 @@ public class WebhookController {
                         telegramService.sendMessageTo(chatId, "Unsupported currency: " + currency + "\n" + buildCurrencyPrompt());
                     } else {
                         byte[] excel = buildTodayOpsDataExcel(currency);
-                        String targetChatId = telegramService.getDefaultChatId();
-                        if (targetChatId == null || targetChatId.isEmpty()) {
-                            targetChatId = chatId;
-                        }
                         String fileName = "today_ops_data_" + currency + ".xlsx";
-                        telegramService.sendDocumentTo(targetChatId, fileName, excel);
+                        telegramService.sendDocumentTo(chatId, fileName, excel);
                         telegramService.sendMessageTo(chatId, "Ops data sent.");
                     }
                 }
@@ -936,35 +932,7 @@ public class WebhookController {
         try {
             return String.valueOf(callbackQuery.getJSONObject("message").getJSONObject("chat").get("id"));
         } catch (Exception ignored) {
-            return telegramService.getDefaultChatId();
-        }
-    }
-
-    private void updateCallbackMessage(JSONObject callbackQuery, String status, JSONObject from) {
-        try {
-            JSONObject message = callbackQuery.getJSONObject("message");
-            if (message == null) {
-                return;
-            }
-            JSONObject chat = message.getJSONObject("chat");
-            if (chat == null) {
-                return;
-            }
-            String chatId = String.valueOf(chat.get("id"));
-            Long messageId = message.getLong("message_id");
-            String oldText = message.getString("text");
-            String operator = from == null ? "unknown" : String.valueOf(from.get("id"));
-            String actionText = "2".equals(status) ? "回调成功" : "回调失败";
-            String newText = (oldText == null ? "" : oldText)
-                    + "\n\n处理结果: " + actionText
-                    + "\n处理人: " + operator
-                    + "\n处理时间: " + Instant.now().atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-            // Remove inline keyboard after processed so buttons can no longer be clicked.
-            Map<String, Object> disabledReplyMarkup = new HashMap<>();
-            disabledReplyMarkup.put("inline_keyboard", new ArrayList<>());
-            telegramService.editMessageText(chatId, messageId, newText, disabledReplyMarkup);
-        } catch (Exception e) {
-            log.warn("updateCallbackMessage failed: {}", e.getMessage());
+            return null;
         }
     }
 
