@@ -1,6 +1,5 @@
 package com.pakgopay.aspect;
 
-import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.OrderFlowStepEnum;
 import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.data.entity.transaction.CollectionCreateEntity;
@@ -10,6 +9,7 @@ import com.pakgopay.data.entity.transaction.PayQueryEntity;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.service.transaction.OrderHandler;
 import com.pakgopay.service.common.OrderFlowLogService;
+import com.pakgopay.util.CommonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -149,9 +149,9 @@ public class OrderFlowLogAspect {
         if (transactionNo == null || transactionNo.isBlank() || step == null) {
             return;
         }
-        if (transactionNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
+        if (CommonUtil.isCollectionTransactionNo(transactionNo)) {
             orderFlowLogService.logCollection(transactionNo, step, success, payload);
-        } else if (transactionNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
+        } else if (CommonUtil.isPayoutTransactionNo(transactionNo)) {
             orderFlowLogService.logPayout(transactionNo, step, success, payload);
         }
     }

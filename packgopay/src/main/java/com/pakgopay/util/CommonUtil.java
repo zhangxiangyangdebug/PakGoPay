@@ -58,6 +58,20 @@ public class CommonUtil {
         return String.valueOf(supportType);
     }
 
+    /**
+     * Check whether transaction no is a collection order no.
+     */
+    public static boolean isCollectionTransactionNo(String transactionNo) {
+        return transactionNo != null && transactionNo.startsWith(CommonConstant.COLLECTION_PREFIX);
+    }
+
+    /**
+     * Check whether transaction no is a payout order no.
+     */
+    public static boolean isPayoutTransactionNo(String transactionNo) {
+        return transactionNo != null && transactionNo.startsWith(CommonConstant.PAYOUT_PREFIX);
+    }
+
     public static List<Long> parseIds(String csv) {
         if (csv == null || csv.isBlank()) {
             return Collections.emptyList();

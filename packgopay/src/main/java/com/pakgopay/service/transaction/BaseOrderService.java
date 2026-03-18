@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.OrderFlowStepEnum;
 import com.pakgopay.common.enums.ResultCode;
+import com.pakgopay.common.enums.SystemConfigGroupEnum;
+import com.pakgopay.common.enums.SystemConfigItemKeyEnum;
 import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.entity.OrderQueryEntity;
@@ -22,6 +24,7 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.AccountStatementService;
 import com.pakgopay.service.common.CurrencyTimezoneService;
 import com.pakgopay.service.common.OrderFlowLogService;
+import com.pakgopay.service.common.SystemConfigGroupService;
 import com.pakgopay.thirdUtil.RedisUtil;
 import com.pakgopay.timer.ReportTask;
 import com.pakgopay.util.CommonUtil;
@@ -73,9 +76,23 @@ public abstract class BaseOrderService {
 
     private static final String API_KEY_PREFIX = "api-key ";
     private static final int CREATE_ORDER_IDEMPOTENCY_TTL_SECONDS = 120;
-    private static final long ORDER_TIMEOUT_DELAY_MILLIS = 10 * 60 * 1000L;
+    private static final int DEFAULT_ORDER_TIMEOUT_SECONDS = 10 * 60;
     private static final String MERCHANT_SIGN_KEY_CACHE_PREFIX = "merchant:signkey:";
     private static final int MERCHANT_SIGN_KEY_CACHE_TTL_SECONDS = 300;
+    private static final String FIELD_MERCHANT_USER_ID = "merchantUserId";
+    private static final String FIELD_TRANSACTION_NO = "transactionNo";
+    private static final String FIELD_MERCHANT_ORDER_NO = "merchantOrderNo";
+    private static final String FIELD_CREATE_TIME = "createTime";
+    private static final String FIELD_AMOUNT = "amount";
+    private static final String FIELD_ACTUAL_AMOUNT = "actualAmount";
+    private static final String FIELD_MERCHANT_FEE = "merchantFee";
+    private static final String FIELD_DEPOSIT_TIME = "depositTime";
+    private static final String FIELD_NOTIFY_TIME = "notifyTime";
+    private static final String FIELD_STATUS = "status";
+    private static final String FIELD_ORIG_AMOUNT = "origAmount";
+    private static final String FIELD_PAYER_NAME = "payerName";
+    private static final String FIELD_FROM_CARD_NO = "fromCardNo";
+    private static final String FIELD_SIGN = "sign";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() { };
 
@@ -105,6 +122,9 @@ public abstract class BaseOrderService {
 
     @Autowired
     protected CurrencyTimezoneService currencyTimezoneService;
+
+    @Autowired
+    protected SystemConfigGroupService systemConfigGroupService;
 
     @Autowired
     @Qualifier("pakGoPayExecutor")
@@ -505,11 +525,11 @@ public abstract class BaseOrderService {
         if (flowLogService == null || transactionNo == null || transactionNo.isBlank()) {
             return;
         }
-        if (transactionNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
+        if (CommonUtil.isCollectionTransactionNo(transactionNo)) {
             flowLogService.logCollection(transactionNo, OrderFlowStepEnum.MERCHANT_CREATE_RESPONSE, success, payload);
             return;
         }
-        if (transactionNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
+        if (CommonUtil.isPayoutTransactionNo(transactionNo)) {
             flowLogService.logPayout(transactionNo, OrderFlowStepEnum.MERCHANT_CREATE_RESPONSE, success, payload);
             return;
         }
@@ -543,9 +563,10 @@ public abstract class BaseOrderService {
      */
     protected void publishOrderTimeoutMessage(
             String routingKey,
-            String orderType,
+            SystemConfigGroupEnum orderTypeGroup,
             String transactionNo,
             Long createTime) {
+        long delayMillis = resolveOrderTimeoutDelayMillis(orderTypeGroup);
         try {
             OrderTimeoutMessage message = new OrderTimeoutMessage();
             message.setTransactionNo(transactionNo);
@@ -554,13 +575,24 @@ public abstract class BaseOrderService {
             sendDmqMessage.sendToDelayQueue(
                     routingKey,
                     JSON.toJSONString(message),
-                    ORDER_TIMEOUT_DELAY_MILLIS);
+                    delayMillis);
             log.info("order timeout message sent, type={}, transactionNo={}, delayMillis={}",
-                    orderType, transactionNo, ORDER_TIMEOUT_DELAY_MILLIS);
+                    orderTypeGroup == null ? null : orderTypeGroup.getGroup(), transactionNo, delayMillis);
         } catch (Exception e) {
             log.error("order timeout message send failed, type={}, transactionNo={}, message={}",
-                    orderType, transactionNo, e.getMessage());
+                    orderTypeGroup == null ? null : orderTypeGroup.getGroup(), transactionNo, e.getMessage());
         }
+    }
+
+    private long resolveOrderTimeoutDelayMillis(SystemConfigGroupEnum orderTypeGroup) {
+        SystemConfigItemKeyEnum timeoutKey = SystemConfigGroupEnum.PAYOUT == orderTypeGroup
+                ? SystemConfigItemKeyEnum.PAYOUT_ORDER_TIMEOUT_SECONDS
+                : SystemConfigItemKeyEnum.COLLECTION_ORDER_TIMEOUT_SECONDS;
+        Integer timeoutSeconds = systemConfigGroupService.getConfigValue(
+                timeoutKey, Integer.class, DEFAULT_ORDER_TIMEOUT_SECONDS);
+        return (timeoutSeconds == null || timeoutSeconds <= 0
+                ? DEFAULT_ORDER_TIMEOUT_SECONDS
+                : timeoutSeconds) * 1000L;
     }
 
     // ----------------------------- notify body / balance / report -----------------------------
@@ -569,18 +601,18 @@ public abstract class BaseOrderService {
             CollectionOrderDto orderDto, TransactionStatus targetStatus) {
         String signKey = resolveMerchantSignKeyByMerchantUserId(orderDto.getMerchantUserId());
         Map<String, Object> body = buildSignPayload(orderDto,
-                "merchantUserId", "transactionNo", "merchantOrderNo", "createTime");
-        body.put("amount", formatNotifyAmount(orderDto.getAmount()));
+                FIELD_MERCHANT_USER_ID, FIELD_TRANSACTION_NO, FIELD_MERCHANT_ORDER_NO, FIELD_CREATE_TIME);
+        body.put(FIELD_AMOUNT, formatNotifyAmount(orderDto.getAmount()));
         body.put(
-                "actualAmount",
+                FIELD_ACTUAL_AMOUNT,
                 formatNotifyAmount(resolveOrderAmount(orderDto.getActualAmount(), orderDto.getAmount())));
-        body.put("merchantFee", formatNotifyAmount(orderDto.getMerchantFee()));
-        body.put("depositTime", orderDto.getSuccessCallbackTime());
-        body.put("notifyTime", System.currentTimeMillis() / 1000);
-        body.put("status", targetStatus.getMessage());
-        body.put("origAmount", formatNotifyAmount(orderDto.getAmount()));
-        body.put("payerName", null);
-        body.put("sign", CryptoUtil.signSystemHmacSha256Base64(body, signKey));
+        body.put(FIELD_MERCHANT_FEE, formatNotifyAmount(orderDto.getMerchantFee()));
+        body.put(FIELD_DEPOSIT_TIME, orderDto.getSuccessCallbackTime());
+        body.put(FIELD_NOTIFY_TIME, System.currentTimeMillis() / 1000);
+        body.put(FIELD_STATUS, targetStatus.getMessage());
+        body.put(FIELD_ORIG_AMOUNT, formatNotifyAmount(orderDto.getAmount()));
+        body.put(FIELD_PAYER_NAME, null);
+        body.put(FIELD_SIGN, CryptoUtil.signSystemHmacSha256Base64(body, signKey));
         return body;
     }
 
@@ -588,18 +620,18 @@ public abstract class BaseOrderService {
             PayOrderDto orderDto, TransactionStatus targetStatus) {
         String signKey = resolveMerchantSignKeyByMerchantUserId(orderDto.getMerchantUserId());
         Map<String, Object> body = buildSignPayload(orderDto,
-                "merchantUserId", "transactionNo", "merchantOrderNo", "createTime");
-        body.put("amount", formatNotifyAmount(orderDto.getAmount()));
+                FIELD_MERCHANT_USER_ID, FIELD_TRANSACTION_NO, FIELD_MERCHANT_ORDER_NO, FIELD_CREATE_TIME);
+        body.put(FIELD_AMOUNT, formatNotifyAmount(orderDto.getAmount()));
         body.put(
-                "actualAmount",
+                FIELD_ACTUAL_AMOUNT,
                 formatNotifyAmount(resolveOrderAmount(orderDto.getActualAmount(), orderDto.getAmount())));
-        body.put("merchantFee", formatNotifyAmount(orderDto.getMerchantFee()));
-        body.put("depositTime", orderDto.getSuccessCallbackTime());
-        body.put("notifyTime", System.currentTimeMillis() / 1000);
-        body.put("status", targetStatus.getMessage());
-        body.put("origAmount", formatNotifyAmount(orderDto.getAmount()));
-        body.put("fromCardNo", null);
-        body.put("sign", CryptoUtil.signSystemHmacSha256Base64(body, signKey));
+        body.put(FIELD_MERCHANT_FEE, formatNotifyAmount(orderDto.getMerchantFee()));
+        body.put(FIELD_DEPOSIT_TIME, orderDto.getSuccessCallbackTime());
+        body.put(FIELD_NOTIFY_TIME, System.currentTimeMillis() / 1000);
+        body.put(FIELD_STATUS, targetStatus.getMessage());
+        body.put(FIELD_ORIG_AMOUNT, formatNotifyAmount(orderDto.getAmount()));
+        body.put(FIELD_FROM_CARD_NO, null);
+        body.put(FIELD_SIGN, CryptoUtil.signSystemHmacSha256Base64(body, signKey));
         return body;
     }
 

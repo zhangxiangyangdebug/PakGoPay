@@ -37,6 +37,7 @@ import com.pakgopay.service.common.TelegramOrderNoRecognizer;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.PayOutOrderService;
 import com.pakgopay.thirdUtil.RedisUtil;
+import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
@@ -539,11 +540,11 @@ public class WebhookController {
                 return;
             }
 
-            if (transactionNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
+            if (CommonUtil.isCollectionTransactionNo(transactionNo)) {
                 handleTimeoutCollectionOrder(chatId, transactionNo);
                 return;
             }
-            if (transactionNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
+            if (CommonUtil.isPayoutTransactionNo(transactionNo)) {
                 handleTimeoutPayoutOrder(chatId, transactionNo);
                 return;
             }

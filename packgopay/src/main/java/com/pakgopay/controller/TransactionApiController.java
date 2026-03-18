@@ -13,6 +13,7 @@ import com.pakgopay.common.enums.OrderFlowStepEnum;
 import com.pakgopay.service.common.OrderFlowLogService;
 import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.PayOutOrderService;
+import com.pakgopay.util.CommonUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -152,12 +153,12 @@ public class TransactionApiController {
         Map<String, Object> data = getDataMap(notifyData);
         log.info("notify parsed, order_no={}", orderNo);
         try {
-            if (orderNo != null && orderNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
+            if (CommonUtil.isCollectionTransactionNo(orderNo)) {
                 Object response = collectionOrderService.handleNotify(data);
                 orderFlowLogService.logCollection(orderNo, OrderFlowStepEnum.NOTIFY_API_RESPONSE, true, response);
                 return response;
             }
-            if (orderNo != null && orderNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
+            if (CommonUtil.isPayoutTransactionNo(orderNo)) {
                 Object response = payOutOrderService.handleNotify(data);
                 orderFlowLogService.logPayout(orderNo, OrderFlowStepEnum.NOTIFY_API_RESPONSE, true, response);
                 return response;
@@ -165,9 +166,9 @@ public class TransactionApiController {
         } catch (Exception e) {
             Map<String, Object> errorPayload = new LinkedHashMap<>();
             errorPayload.put("error", e.getMessage());
-            if (orderNo != null && orderNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
+            if (CommonUtil.isCollectionTransactionNo(orderNo)) {
                 orderFlowLogService.logCollection(orderNo, OrderFlowStepEnum.NOTIFY_API_RESPONSE, false, errorPayload);
-            } else if (orderNo != null && orderNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
+            } else if (CommonUtil.isPayoutTransactionNo(orderNo)) {
                 orderFlowLogService.logPayout(orderNo, OrderFlowStepEnum.NOTIFY_API_RESPONSE, false, errorPayload);
             }
             throw e;

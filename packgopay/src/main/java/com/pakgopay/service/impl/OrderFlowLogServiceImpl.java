@@ -1,7 +1,6 @@
 package com.pakgopay.service.impl;
 
 import com.alibaba.fastjson.JSON;
-import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.OrderFlowStepEnum;
 import com.pakgopay.data.response.OrderFlowLogQueryResponse;
 import com.pakgopay.mapper.CollectionOrderFlowLogMapper;
@@ -9,6 +8,7 @@ import com.pakgopay.mapper.PayOrderFlowLogMapper;
 import com.pakgopay.mapper.dto.OrderFlowLogDto;
 import com.pakgopay.service.common.OrderFlowLogService;
 import com.pakgopay.service.common.OrderFlowLogSession;
+import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.SensitiveDataMaskUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
 import jakarta.annotation.PreDestroy;
@@ -117,10 +117,10 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
         long[] range = SnowflakeIdGenerator.extractMonthEpochSecondRange(transactionNo);
         long startTime = range[0];
         long endTime = range[1];
-        if (transactionNo.startsWith(CommonConstant.COLLECTION_PREFIX)) {
+        if (CommonUtil.isCollectionTransactionNo(transactionNo)) {
             return collectionOrderFlowLogMapper.listByTransactionNo(transactionNo, startTime, endTime);
         }
-        if (transactionNo.startsWith(CommonConstant.PAYOUT_PREFIX)) {
+        if (CommonUtil.isPayoutTransactionNo(transactionNo)) {
             return payOrderFlowLogMapper.listByTransactionNo(transactionNo, startTime, endTime);
         }
 

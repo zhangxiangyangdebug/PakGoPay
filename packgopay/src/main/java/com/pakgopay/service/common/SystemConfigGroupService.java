@@ -83,6 +83,14 @@ public class SystemConfigGroupService {
     }
 
     /**
+     * Internal access: read config value by enum key with fallback default value.
+     */
+    public <T> T getConfigValue(SystemConfigItemKeyEnum itemKey, Class<T> targetType, T defaultValue) {
+        T value = getConfigValue(itemKey, targetType);
+        return value == null ? defaultValue : value;
+    }
+
+    /**
      * Internal access: update one config item and refresh group cache immediately.
      */
     public void setConfigValue(SystemConfigItemKeyEnum itemKey, Object value) {

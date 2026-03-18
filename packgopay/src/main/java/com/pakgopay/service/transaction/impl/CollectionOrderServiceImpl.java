@@ -171,7 +171,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 log.info("collection order inserted, transactionNo={}", collectionOrderDto.getTransactionNo());
                 publishOrderTimeoutMessage(
                         RabbitConfig.ORDER_TIMEOUT_COLLECTION_QUEUE,
-                        "collection",
+                        SystemConfigGroupEnum.COLLECTION,
                         collectionOrderDto.getTransactionNo(),
                         collectionOrderDto.getCreateTime());
             } catch (Exception e) {

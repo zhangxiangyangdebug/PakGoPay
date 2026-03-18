@@ -187,7 +187,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             log.info("pay order inserted, transactionNo={}", payOrderDto.getTransactionNo());
             publishOrderTimeoutMessage(
                     RabbitConfig.ORDER_TIMEOUT_PAYING_QUEUE,
-                    "payout",
+                    SystemConfigGroupEnum.PAYOUT,
                     payOrderDto.getTransactionNo(),
                     payOrderDto.getCreateTime());
 

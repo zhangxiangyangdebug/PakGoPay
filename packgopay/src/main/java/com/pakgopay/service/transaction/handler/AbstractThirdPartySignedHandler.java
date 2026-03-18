@@ -2,12 +2,15 @@ package com.pakgopay.service.transaction.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pakgopay.common.enums.ResultCode;
+import com.pakgopay.common.enums.SystemConfigItemKeyEnum;
 import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.common.http.RestTemplateUtil;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
+import com.pakgopay.service.common.SystemConfigGroupService;
 import com.pakgopay.service.transaction.OrderHandler;
+import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.CryptoUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,9 +29,18 @@ import java.util.concurrent.ThreadLocalRandom;
 public abstract class AbstractThirdPartySignedHandler extends OrderHandler {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final int DEFAULT_CALLBACK_RETRY_TIMES = 5;
+    private static final String FIELD_AVAILABLE_BALANCE = "available_balance";
+    private static final String FIELD_TRANSACTION_NO = "transactionNo";
+    private static final String FIELD_MID = "mid";
+    private static final String FIELD_SIGN = "sign";
+    private static final String FIELD_URL = "url";
+    private static final String FIELD_PAY_URL = "payUrl";
 
     @Autowired
     protected RestTemplateUtil restTemplateUtil;
+    @Autowired
+    protected SystemConfigGroupService systemConfigGroupService;
 
     protected String resolveMerchantId(ChannelCredential credential) {
         return credential == null ? null : credential.merchantId;
@@ -98,7 +110,7 @@ public abstract class AbstractThirdPartySignedHandler extends OrderHandler {
         if (!(data instanceof Map<?, ?> rawMap)) {
             return null;
         }
-        String value = firstNonBlank((Map<String, Object>) rawMap, "available_balance");
+        String value = firstNonBlank((Map<String, Object>) rawMap, FIELD_AVAILABLE_BALANCE);
         if (value == null) {
             return null;
         }
@@ -133,7 +145,7 @@ public abstract class AbstractThirdPartySignedHandler extends OrderHandler {
         }
         Map<String, Object> payload = body == null ? new HashMap<>() : body;
         HttpEntity<Map<String, Object>> entity = buildNotifyRequestEntity(payload);
-        int maxAttempts = 5;
+        int maxAttempts = resolveCallbackRetryTimes(payload);
         long delayMs = 500L;
         long maxDelayMs = 8000L;
         int failedAttempts = 0;
@@ -169,6 +181,20 @@ public abstract class AbstractThirdPartySignedHandler extends OrderHandler {
             }
         }
         return new NotifyResult(false, failedAttempts);
+    }
+
+    private int resolveCallbackRetryTimes(Map<String, Object> payload) {
+        String transactionNo = payload == null ? null : firstNonBlank(payload, FIELD_TRANSACTION_NO);
+        SystemConfigItemKeyEnum retryKey = isPayoutTransaction(transactionNo)
+                ? SystemConfigItemKeyEnum.PAYOUT_CALLBACK_RETRY_TIMES
+                : SystemConfigItemKeyEnum.COLLECTION_CALLBACK_RETRY_TIMES;
+        Integer retryTimes = systemConfigGroupService.getConfigValue(
+                retryKey, Integer.class, DEFAULT_CALLBACK_RETRY_TIMES);
+        return retryTimes == null || retryTimes <= 0 ? DEFAULT_CALLBACK_RETRY_TIMES : retryTimes;
+    }
+
+    private boolean isPayoutTransaction(String transactionNo) {
+        return CommonUtil.isPayoutTransactionNo(transactionNo);
     }
 
     protected NotifyRequest buildNotifyResponseInternal(Map<String, Object> bodyMap) {
@@ -234,8 +260,8 @@ public abstract class AbstractThirdPartySignedHandler extends OrderHandler {
     }
 
     protected void applyCredential(Map<String, Object> payload, ChannelCredential credential) {
-        payload.put("mid", resolveMerchantId(credential));
-        payload.put("sign", CryptoUtil.signThirdPartyHmacSha1Base64(payload, credential.signKey));
+        payload.put(FIELD_MID, resolveMerchantId(credential));
+        payload.put(FIELD_SIGN, CryptoUtil.signThirdPartyHmacSha1Base64(payload, credential.signKey));
     }
 
     protected HttpHeaders jsonHeadersWithApiKey(String apiKey) {
@@ -251,9 +277,9 @@ public abstract class AbstractThirdPartySignedHandler extends OrderHandler {
         }
         Object data = response.getData();
         if (data instanceof Map<?, ?> map) {
-            Object url = map.get("url");
-            if (url != null && !map.containsKey("payUrl")) {
-                ((Map<String, Object>) map).put("payUrl", url);
+            Object url = map.get(FIELD_URL);
+            if (url != null && !map.containsKey(FIELD_PAY_URL)) {
+                ((Map<String, Object>) map).put(FIELD_PAY_URL, url);
             }
         }
     }

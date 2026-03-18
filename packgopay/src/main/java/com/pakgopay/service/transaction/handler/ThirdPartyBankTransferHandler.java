@@ -28,6 +28,19 @@ import java.util.Map;
 public class ThirdPartyBankTransferHandler extends OrderHandler {
 
     private static final String BASE_URL = "http://localhost:8092";
+    private static final String FIELD_PAY_URL = "payUrl";
+    private static final String FIELD_TRANSACTION_NO = "transactionNo";
+    private static final String FIELD_AMOUNT = "amount";
+    private static final String FIELD_CHANNEL_CODE = "channelCode";
+    private static final String FIELD_CHANNEL_PARAMS = "channelParams";
+    private static final String FIELD_MERCHANT_NAME = "merchantName";
+    private static final String FIELD_MERCHANT_CITY = "merchantCity";
+    private static final String FIELD_MERCHANT_ACCOUNT_NUMBER = "merchantAccountNumber";
+    private static final String FIELD_PAY_IN_URL = "payInUrl";
+    private static final String FIELD_CURRENCY = "currency";
+    private static final String FIELD_BANK_CODE = "bankCode";
+    private static final String FIELD_PAYER_MERCHANT_CARD_NO = "payermerchantCardNo";
+    private static final String FIELD_PAYER_MERCHANT_NAME = "payerMerchantName";
 
     @Autowired
     private RestTemplateUtil restTemplateUtil;
@@ -45,11 +58,11 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
         response.setCode(0);
         response.setMessage("success");
         Map<String, Object> data = new HashMap<>();
-        data.put("payUrl",
+        data.put(FIELD_PAY_URL,
                 "https://mock-digimone.local/Transaction/Index?transactionNo="
-                        + payload.get("transactionNo")
+                        + payload.get(FIELD_TRANSACTION_NO)
                         + "&amount="
-                        + payload.get("amount")
+                        + payload.get(FIELD_AMOUNT)
                         + "&channelCode=digimone");
         response.setData(data);
         log.info("third-party collection response, channelCode={}, code={}, response={}", resolveChannelCode(request), response == null ? null : response.getCode(), response);
@@ -113,10 +126,10 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
             return Collections.emptyMap();
         }
         Map<String, Object> payload = new HashMap<>();
-        payload.put("transactionNo", request.getTransactionNo());
-        payload.put("amount", request.getAmount());
-        payload.put("channelCode", request.getChannelCode());
-        payload.put("channelParams", request.getChannelParams());
+        payload.put(FIELD_TRANSACTION_NO, request.getTransactionNo());
+        payload.put(FIELD_AMOUNT, request.getAmount());
+        payload.put(FIELD_CHANNEL_CODE, request.getChannelCode());
+        payload.put(FIELD_CHANNEL_PARAMS, request.getChannelParams());
         if (request.getChannelParams() != null) {
             payload.putAll(request.getChannelParams());
         }
@@ -128,10 +141,10 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
             return Collections.emptyMap();
         }
         Map<String, Object> payload = new HashMap<>();
-        payload.put("transactionNo", request.getTransactionNo());
-        payload.put("amount", request.getAmount());
-        payload.put("channelCode", request.getChannelCode());
-        payload.put("channelParams", request.getChannelParams());
+        payload.put(FIELD_TRANSACTION_NO, request.getTransactionNo());
+        payload.put(FIELD_AMOUNT, request.getAmount());
+        payload.put(FIELD_CHANNEL_CODE, request.getChannelCode());
+        payload.put(FIELD_CHANNEL_PARAMS, request.getChannelParams());
         if (request.getChannelParams() != null) {
             payload.putAll(request.getChannelParams());
         }
@@ -146,7 +159,7 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
 
     private String resolveChannelCode(CollectionCreateEntity request) {
         Map<String, Object> payload = toPayload(request);
-        Object raw = payload.get("channelCode");
+        Object raw = payload.get(FIELD_CHANNEL_CODE);
         if (raw == null) {
             raw = resolveChannelCodeFromParams(request == null ? null : request.getChannelParams());
         }
@@ -155,7 +168,7 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
 
     private String resolveChannelCode(PayCreateEntity request) {
         Map<String, Object> payload = toPayload(request);
-        Object raw = payload.get("channelCode");
+        Object raw = payload.get(FIELD_CHANNEL_CODE);
         if (raw == null) {
             raw = resolveChannelCodeFromParams(request == null ? null : request.getChannelParams());
         }
@@ -166,9 +179,9 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
         if (payload == null) {
             return null;
         }
-        Object raw = payload.get("channelCode");
-        if (raw == null && payload.get("channelParams") instanceof Map<?, ?> params) {
-            raw = params.get("channelCode");
+        Object raw = payload.get(FIELD_CHANNEL_CODE);
+        if (raw == null && payload.get(FIELD_CHANNEL_PARAMS) instanceof Map<?, ?> params) {
+            raw = params.get(FIELD_CHANNEL_CODE);
         }
         return raw == null ? null : String.valueOf(raw);
     }
@@ -177,34 +190,34 @@ public class ThirdPartyBankTransferHandler extends OrderHandler {
         if (channelParams == null) {
             return null;
         }
-        return channelParams.get("channelCode");
+        return channelParams.get(FIELD_CHANNEL_CODE);
     }
 
     private void validateRequiredFields(String path, Map<String, Object> payload) {
-        requireNonBlank(payload, "transactionNo");
-        requirePositiveNumber(payload, "amount");
+        requireNonBlank(payload, FIELD_TRANSACTION_NO);
+        requirePositiveNumber(payload, FIELD_AMOUNT);
         switch (path) {
             case "/digimone/collection/create":
                 break;
             case "/dana/collection/create":
                 break;
             case "/nagad/collection/create":
-                requireNonBlank(payload, "merchantName");
-                requireNonBlank(payload, "merchantCity");
-                requireNonBlank(payload, "merchantAccountNumber");
+                requireNonBlank(payload, FIELD_MERCHANT_NAME);
+                requireNonBlank(payload, FIELD_MERCHANT_CITY);
+                requireNonBlank(payload, FIELD_MERCHANT_ACCOUNT_NUMBER);
                 break;
             case "/bkash/collection/create":
-                requireNonBlank(payload, "merchantName");
-                requireNonBlank(payload, "merchantCity");
-                requireNonBlank(payload, "payInUrl");
+                requireNonBlank(payload, FIELD_MERCHANT_NAME);
+                requireNonBlank(payload, FIELD_MERCHANT_CITY);
+                requireNonBlank(payload, FIELD_PAY_IN_URL);
                 break;
             case "/generateqrcode/collection/create":
-                requireNonBlank(payload, "currency");
-                requireNonBlank(payload, "bankCode");
-                requireNonBlank(payload, "merchantName");
-                requireNonBlank(payload, "merchantCity");
-                requireNonBlank(payload, "payermerchantCardNo");
-                requireNonBlank(payload, "payerMerchantName");
+                requireNonBlank(payload, FIELD_CURRENCY);
+                requireNonBlank(payload, FIELD_BANK_CODE);
+                requireNonBlank(payload, FIELD_MERCHANT_NAME);
+                requireNonBlank(payload, FIELD_MERCHANT_CITY);
+                requireNonBlank(payload, FIELD_PAYER_MERCHANT_CARD_NO);
+                requireNonBlank(payload, FIELD_PAYER_MERCHANT_NAME);
                 break;
             default:
                 break;
