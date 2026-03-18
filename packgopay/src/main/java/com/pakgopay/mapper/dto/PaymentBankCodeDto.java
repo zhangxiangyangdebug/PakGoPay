@@ -18,6 +18,11 @@ public class PaymentBankCodeDto extends BankCodeDictDto {
     private Boolean selected;
 
     /**
+     * Support type of current relation. 0=collection,1=payout,2=both.
+     */
+    private Integer supportType;
+
+    /**
      * Status for current payment-channel bank-code relation.
      */
     private Integer status;

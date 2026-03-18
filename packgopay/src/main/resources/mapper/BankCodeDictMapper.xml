@@ -19,6 +19,7 @@
     <resultMap id="PaymentBankCodeResultMap" type="com.pakgopay.mapper.dto.PaymentBankCodeDto"
                extends="BankCodeDictResultMap">
         <result column="selected" property="selected" javaType="java.lang.Boolean"/>
+        <result column="support_type" property="supportType" javaType="java.lang.Integer"/>
         <result column="status" property="status" javaType="java.lang.Integer"/>
     </resultMap>
 
@@ -164,6 +165,7 @@
             b.create_time,
             b.update_time,
             CASE WHEN pcb.payment_id IS NOT NULL THEN TRUE ELSE FALSE END AS selected,
+            pcb.support_type,
             COALESCE(pcb.status, 0) AS status
         FROM bank_code_dict b
         LEFT JOIN payment_channel_bank pcb
