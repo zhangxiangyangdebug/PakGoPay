@@ -37,6 +37,13 @@ public class CurrencyManagementController {
         return response;
     }
 
+    @PostMapping("/syncCurrencyType")
+    public CommonResponse syncCurrencyType(@RequestBody CurrencyTypeRequest currencyTypeRequest, HttpServletRequest request) {
+        CommonResponse response = currencyTypeManagementService.syncCurrencyTypes(currencyTypeRequest, request);
+        operateLogService.write(OperateInterfaceEnum.SYNC_CURRENCY_TYPE, currencyTypeRequest.getUserId(), currencyTypeRequest);
+        return response;
+    }
+
     @PostMapping("/updateCurrencyType")
     public CommonResponse updateCurrencyType(@RequestBody CurrencyTypeRequest currencyTypeRequest, HttpServletRequest request) {
         CommonResponse response = currencyTypeManagementService.updateCurrencyType(currencyTypeRequest, request);

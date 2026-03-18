@@ -82,4 +82,12 @@
         LIMIT 1
     </select>
 
+    <select id="getCurrencyByCurrencyType" parameterType="java.lang.String" resultMap="currencyTypeMap">
+        SELECT
+        <include refid="allColumn"/>
+        FROM currency
+        WHERE currency_type = #{currencyType}
+        LIMIT 1
+    </select>
+
 </mapper>

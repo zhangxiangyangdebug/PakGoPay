@@ -18,6 +18,7 @@ public enum OperateInterfaceEnum {
 
     // Currency
     ADD_CURRENCY_TYPE(3, "Create Currency Type"),
+    SYNC_CURRENCY_TYPE(1, "Sync Currency Type"),
     UPDATE_CURRENCY_TYPE(1, "Update Currency Type"),
 
     // Auth

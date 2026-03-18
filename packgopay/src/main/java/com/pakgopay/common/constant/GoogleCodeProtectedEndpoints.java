@@ -46,6 +46,7 @@ public final class GoogleCodeProtectedEndpoints {
 
         // Currency type management
         map.put("POST /pakGoPay/server/CurrencyTypeManagement/addCurrencyType", "add currency type");
+        map.put("POST /pakGoPay/server/CurrencyTypeManagement/syncCurrencyType", "sync currency type");
         map.put("POST /pakGoPay/server/CurrencyTypeManagement/updateCurrencyType", "update currency type");
 
         // Manual order create
