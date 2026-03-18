@@ -1,12 +1,13 @@
 package com.pakgopay.service.impl;
 
+import com.alibaba.excel.EasyExcel;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
+import com.pakgopay.common.enums.SyncTypeEnum;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.roleManagement.AddRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.DeleteRoleRequest;
 import com.pakgopay.data.reqeust.roleManagement.ModifyRoleRequest;
-import com.pakgopay.data.reqeust.currencyTypeManagement.CurrencyTypeRequest;
 import com.pakgopay.data.reqeust.systemConfig.SystemSyncRequest;
 import com.pakgopay.data.reqeust.systemConfig.LoginLogQueryRequest;
 import com.pakgopay.data.reqeust.systemConfig.LoginUserRequest;
@@ -23,11 +24,14 @@ import com.pakgopay.mapper.OperateLogMapper;
 import com.pakgopay.mapper.RoleMapper;
 import com.pakgopay.mapper.RoleMenuMapper;
 import com.pakgopay.mapper.UserMapper;
+import com.pakgopay.mapper.dto.CurrencyTypeSyncExcelRow;
+import com.pakgopay.mapper.dto.BankCodeSyncExcelRow;
 import com.pakgopay.mapper.dto.Role;
 import com.pakgopay.mapper.dto.RoleMenuDTO;
 import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.service.common.LoginLogService;
 import com.pakgopay.service.common.UserStatusService;
+import com.pakgopay.service.BankCodeService;
 import com.pakgopay.service.CurrencyTypeManagementService;
 import com.pakgopay.service.SystemConfigService;
 import com.pakgopay.thirdUtil.GoogleUtil;
@@ -35,11 +39,14 @@ import com.pakgopay.thirdUtil.RedisUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
+import java.io.InputStream;
+import java.net.URI;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -75,6 +82,15 @@ public class SystemConfigServiceImpl implements SystemConfigService {
 
     @Autowired
     private CurrencyTypeManagementService currencyTypeManagementService;
+
+    @Autowired
+    private BankCodeService bankCodeService;
+
+    @Value("${pakgopay.currency-sync.excel-url}")
+    private String currencySyncExcelUrl;
+
+    @Value("${pakgopay.bankCode-sync.excel-url}")
+    private String bankCodeSyncExcelUrl;
 
     @Override
     public CommonResponse listRoles(String roleName) {
@@ -354,11 +370,43 @@ public class SystemConfigServiceImpl implements SystemConfigService {
 
     @Override
     public CommonResponse syncSystemData(SystemSyncRequest request) {
-        CurrencyTypeRequest currencyTypeRequest = new CurrencyTypeRequest();
-        currencyTypeRequest.setSyncType(request.getSyncType());
-        currencyTypeRequest.setUserId(request.getUserId());
-        currencyTypeRequest.setUserName(request.getUserName());
-        return currencyTypeManagementService.syncData(currencyTypeRequest, null);
+        SyncTypeEnum syncType = SyncTypeEnum.fromType(request.getSyncType());
+        if (syncType == null) {
+            return CommonResponse.fail(ResultCode.ORDER_PARAM_VALID, "invalid syncType");
+        }
+        try {
+            if (syncType == SyncTypeEnum.CURRENCY) {
+                List<CurrencyTypeSyncExcelRow> rows;
+                try (InputStream inputStream = URI.create(currencySyncExcelUrl).toURL().openStream()) {
+                    rows = EasyExcel.read(inputStream)
+                            .head(CurrencyTypeSyncExcelRow.class)
+                            .headRowNumber(2)
+                            .sheet()
+                            .doReadSync();
+                }
+                return currencyTypeManagementService.syncCurrencyTypesFromRows(
+                        rows,
+                        currencySyncExcelUrl,
+                        request.getUserId(),
+                        request.getUserName());
+            }
+            List<BankCodeSyncExcelRow> rows;
+            try (InputStream inputStream = URI.create(bankCodeSyncExcelUrl).toURL().openStream()) {
+                rows = EasyExcel.read(inputStream)
+                        .head(BankCodeSyncExcelRow.class)
+                        .headRowNumber(2)
+                        .sheet()
+                        .doReadSync();
+            }
+            return bankCodeService.syncBankCodesFromRows(
+                    rows,
+                    bankCodeSyncExcelUrl,
+                    request.getUserId(),
+                    request.getUserName());
+        } catch (Exception e) {
+            log.error("sync system data failed", e);
+            return CommonResponse.fail(ResultCode.FAIL, "sync system data failed " + e.getMessage());
+        }
     }
 
     public CommonResponse resetKey(String userId, String userName) {

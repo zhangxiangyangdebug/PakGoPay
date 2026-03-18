@@ -15,10 +15,10 @@ public enum OperateInterfaceEnum {
     EDIT_CHANNEL(1, "Update Channel"),
     ADD_PAYMENT(3, "Create Payment"),
     EDIT_PAYMENT(1, "Update Payment"),
+    UPDATE_PAYMENT_BANK_CODES(1, "Update Payment Bank Codes"),
 
     // Currency
     ADD_CURRENCY_TYPE(3, "Create Currency Type"),
-    SYNC_CURRENCY_TYPE(1, "Sync Currency Type"),
     UPDATE_CURRENCY_TYPE(1, "Update Currency Type"),
 
     // Auth
@@ -53,6 +53,7 @@ public enum OperateInterfaceEnum {
     BIND_GOOGLE_KEY(1, "Bind Google Key"),
     UPDATE_TELEGRAM_CONFIG(1, "Update Telegram Config"),
     TELEGRAM_BROADCAST(1, "Telegram Broadcast"),
+    SYNC_SYSTEM_DATA(1, "Sync System Data"),
     UPDATE_RATE_LIMIT_CONFIG(1, "Update Rate Limit Config"),
     UPDATE_COLLECTION_CONFIG(1, "Update Collection Config"),
     UPDATE_PAYOUT_CONFIG(1, "Update Payout Config"),

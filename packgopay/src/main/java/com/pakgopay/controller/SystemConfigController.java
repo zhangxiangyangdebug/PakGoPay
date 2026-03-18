@@ -219,7 +219,7 @@ public class SystemConfigController {
         String operatorUserId = resolveOperatorUserIdFromRequest(httpServletRequest);
         request.setUserId(operatorUserId);
         CommonResponse response = systemConfigService.syncSystemData(request);
-        operateLogService.write(OperateInterfaceEnum.SYNC_CURRENCY_TYPE, operatorUserId, request);
+        operateLogService.write(OperateInterfaceEnum.SYNC_SYSTEM_DATA, operatorUserId, request);
         return response;
     }
 

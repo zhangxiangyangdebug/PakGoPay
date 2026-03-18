@@ -125,10 +125,6 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
         if (syncType == SyncTypeEnum.BANK_CODE) {
             return CommonResponse.fail(ResultCode.FAIL, "sync bank code is not implemented");
         }
-        return syncCurrencyTypes(currencyTypeRequest);
-    }
-
-    private CommonResponse syncCurrencyTypes(CurrencyTypeRequest currencyTypeRequest) {
         try {
             List<CurrencyTypeSyncExcelRow> rows;
             try (InputStream inputStream = URI.create(currencySyncExcelUrl).toURL().openStream()) {
@@ -138,7 +134,27 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
                         .sheet()
                         .doReadSync();
             }
+            return syncCurrencyTypesFromRows(
+                    rows,
+                    currencySyncExcelUrl,
+                    currencyTypeRequest == null ? null : currencyTypeRequest.getUserId(),
+                    currencyTypeRequest == null ? null : currencyTypeRequest.getUserName());
+        } catch (Exception e) {
+            log.error("sync currency types failed", e);
+            if (isCurrencySyncContentError(e)) {
+                return CommonResponse.fail(ResultCode.SYNC_FILE_INVALID, INVALID_SYNC_FILE_MESSAGE);
+            }
+            return CommonResponse.fail(ResultCode.FAIL, "sync currency type failed " + e.getMessage());
+        }
+    }
 
+    @Override
+    public CommonResponse syncCurrencyTypesFromRows(
+            List<CurrencyTypeSyncExcelRow> rows,
+            String source,
+            String userId,
+            String userName) {
+        try {
             List<String> skippedCurrencies = new ArrayList<>();
             List<String> invalidRows = new ArrayList<>();
             int insertedCount = 0;
@@ -165,15 +181,15 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
                     currencyTypeDTO.setIcon(row.getIcon().trim());
                     currencyTypeDTO.setCurrencyAccuracy(parseCurrencyAccuracy(row.getCurrencyAccuracy()));
                     currencyTypeDTO.setTimezone(normalizeTimezone(row.getTimezone()));
-                    currencyTypeDTO.setCreateBy(resolveOperatorName(currencyTypeRequest));
-                    currencyTypeDTO.setUpdateBy(resolveOperatorName(currencyTypeRequest));
+                    currencyTypeDTO.setCreateBy(resolveOperatorName(userId, userName));
+                    currencyTypeDTO.setUpdateBy(resolveOperatorName(userId, userName));
                     insertCurrencyType(currencyTypeDTO);
                     insertedCount++;
                 }
             }
 
             CurrencySyncResponse response = new CurrencySyncResponse(
-                    currencySyncExcelUrl,
+                    source,
                     totalRows,
                     insertedCount,
                     skippedCurrencies.size(),
@@ -256,15 +272,12 @@ public class CurrencyTypeManagementServiceImpl implements CurrencyTypeManagement
         }
     }
 
-    private String resolveOperatorName(CurrencyTypeRequest currencyTypeRequest) {
-        if (currencyTypeRequest == null) {
-            return "system";
+    private String resolveOperatorName(String userId, String userName) {
+        if (userName != null && !userName.trim().isEmpty()) {
+            return userName.trim();
         }
-        if (currencyTypeRequest.getUserName() != null && !currencyTypeRequest.getUserName().trim().isEmpty()) {
-            return currencyTypeRequest.getUserName().trim();
-        }
-        if (currencyTypeRequest.getUserId() != null && !currencyTypeRequest.getUserId().trim().isEmpty()) {
-            return currencyTypeRequest.getUserId().trim();
+        if (userId != null && !userId.trim().isEmpty()) {
+            return userId.trim();
         }
         return "system";
     }
