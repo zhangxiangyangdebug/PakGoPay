@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.BankCodeDictMapper">
+
+    <resultMap id="BankCodeDictResultMap" type="com.pakgopay.mapper.dto.BankCodeDictDto">
+        <id column="id" property="id" javaType="java.lang.Long"/>
+        <result column="bank_name" property="bankName" javaType="java.lang.String"/>
+        <result column="bank_code" property="bankCode" javaType="java.lang.String"/>
+        <result column="country" property="country" javaType="java.lang.String"/>
+        <result column="currency_name" property="currencyName" javaType="java.lang.String"/>
+        <result column="currency_code" property="currencyCode" javaType="java.lang.String"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
+    </resultMap>
+
+    <resultMap id="PaymentBankCodeResultMap" type="com.pakgopay.mapper.dto.PaymentBankCodeDto"
+               extends="BankCodeDictResultMap">
+        <result column="selected" property="selected" javaType="java.lang.Boolean"/>
+        <result column="status" property="status" javaType="java.lang.Integer"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        id,
+        bank_name,
+        bank_code,
+        country,
+        currency_name,
+        currency_code,
+        create_time,
+        update_time
+    </sql>
+
+    <insert id="insert" parameterType="com.pakgopay.mapper.dto.BankCodeDictDto">
+        INSERT INTO bank_code_dict (
+            id,
+            bank_name,
+            bank_code,
+            country,
+            currency_name,
+            currency_code,
+            create_time,
+            update_time
+        ) VALUES (
+            #{id},
+            #{bankName},
+            #{bankCode},
+            #{country},
+            #{currencyName},
+            #{currencyCode},
+            #{createTime},
+            #{updateTime}
+        )
+    </insert>
+
+    <update id="updateById" parameterType="com.pakgopay.mapper.dto.BankCodeDictDto">
+        UPDATE bank_code_dict
+        <set>
+            <if test="bankName != null">bank_name = #{bankName},</if>
+            <if test="bankCode != null">bank_code = #{bankCode},</if>
+            <if test="country != null">country = #{country},</if>
+            <if test="currencyName != null">currency_name = #{currencyName},</if>
+            <if test="currencyCode != null">currency_code = #{currencyCode},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM bank_code_dict
+        WHERE id = #{id}
+    </delete>
+
+    <select id="findById" resultMap="BankCodeDictResultMap">
+        SELECT
+            <include refid="BaseColumns"/>
+        FROM bank_code_dict
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <select id="listByCurrencyCode" resultMap="BankCodeDictResultMap">
+        SELECT
+            <include refid="BaseColumns"/>
+        FROM bank_code_dict
+        WHERE currency_code = #{currencyCode}
+        ORDER BY bank_code ASC
+    </select>
+
+    <select id="listByCurrencyCountry" resultMap="BankCodeDictResultMap">
+        SELECT
+            <include refid="BaseColumns"/>
+        FROM bank_code_dict
+        WHERE currency_code = #{currencyCode}
+          AND country = #{country}
+        ORDER BY bank_code ASC
+    </select>
+
+    <select id="listByQuery"
+            parameterType="com.pakgopay.data.reqeust.bankCode.BankCodeQueryRequest"
+            resultMap="BankCodeDictResultMap">
+        SELECT
+            <include refid="BaseColumns"/>
+        FROM bank_code_dict
+        <where>
+            <if test="bankName != null and bankName != ''">
+                AND bank_name LIKE CONCAT('%', #{bankName}, '%')
+            </if>
+            <if test="bankCode != null and bankCode != ''">
+                AND bank_code = #{bankCode}
+            </if>
+            <if test="currencyCode != null and currencyCode != ''">
+                AND currency_code = #{currencyCode}
+            </if>
+        </where>
+        ORDER BY bank_code ASC
+    </select>
+
+    <sql id="BankCodeQueryWhere">
+        <where>
+            <if test="bankName != null and bankName != ''">
+                AND bank_name LIKE CONCAT('%', #{bankName}, '%')
+            </if>
+            <if test="bankCode != null and bankCode != ''">
+                AND bank_code = #{bankCode}
+            </if>
+            <if test="currencyCode != null and currencyCode != ''">
+                AND currency_code = #{currencyCode}
+            </if>
+        </where>
+    </sql>
+
+    <select id="countByQuery"
+            parameterType="com.pakgopay.data.reqeust.bankCode.BankCodeQueryRequest"
+            resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM bank_code_dict
+        <include refid="BankCodeQueryWhere"/>
+    </select>
+
+    <select id="pageByQuery"
+            parameterType="com.pakgopay.data.reqeust.bankCode.BankCodeQueryRequest"
+            resultMap="BankCodeDictResultMap">
+        SELECT
+            <include refid="BaseColumns"/>
+        FROM bank_code_dict
+        <include refid="BankCodeQueryWhere"/>
+        ORDER BY bank_code ASC, id ASC
+        LIMIT #{pageSize} OFFSET #{offSet}
+    </select>
+
+    <select id="countByPaymentCurrency"
+            parameterType="com.pakgopay.data.reqeust.bankCode.PaymentBankCodeQueryRequest"
+            resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM bank_code_dict
+        WHERE currency_code = #{currencyCode}
+    </select>
+
+    <select id="pageByPaymentCurrency"
+            parameterType="com.pakgopay.data.reqeust.bankCode.PaymentBankCodeQueryRequest"
+            resultMap="PaymentBankCodeResultMap">
+        SELECT
+            b.id,
+            b.bank_name,
+            b.bank_code,
+            b.country,
+            b.currency_name,
+            b.currency_code,
+            b.create_time,
+            b.update_time,
+            CASE WHEN pcb.payment_id IS NOT NULL THEN TRUE ELSE FALSE END AS selected,
+            COALESCE(pcb.status, 0) AS status
+        FROM bank_code_dict b
+        LEFT JOIN payment_channel_bank pcb
+            ON pcb.payment_id = #{paymentId}
+           AND pcb.currency = #{currencyCode}
+           AND pcb.bank_code = b.bank_code
+        WHERE b.currency_code = #{currencyCode}
+        ORDER BY b.bank_code ASC, b.id ASC
+        LIMIT #{pageSize} OFFSET #{offSet}
+    </select>
+
+</mapper>

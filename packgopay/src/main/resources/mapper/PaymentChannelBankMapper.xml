@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.PaymentChannelBankMapper">
+
+    <resultMap id="PaymentChannelBankResultMap" type="com.pakgopay.mapper.dto.PaymentChannelBankDto">
+        <id column="payment_id" property="paymentId" javaType="java.lang.Long"/>
+        <id column="bank_code" property="bankCode" javaType="java.lang.String"/>
+        <id column="currency" property="currency" javaType="java.lang.String"/>
+        <id column="support_type" property="supportType" javaType="java.lang.Integer"/>
+        <result column="status" property="status" javaType="java.lang.Integer"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        payment_id,
+        bank_code,
+        currency,
+        support_type,
+        status,
+        create_time,
+        update_time
+    </sql>
+
+    <select id="listByPaymentCurrency" resultMap="PaymentChannelBankResultMap">
+        SELECT
+            <include refid="BaseColumns"/>
+        FROM payment_channel_bank
+        WHERE payment_id = #{paymentId}
+          AND currency = #{currency}
+    </select>
+
+    <delete id="batchDeleteByKeys">
+        DELETE FROM payment_channel_bank
+        WHERE payment_id = #{paymentId}
+          AND currency = #{currency}
+          AND (bank_code, support_type) IN
+          <foreach collection="items" item="item" open="(" separator="," close=")">
+              (#{item.bankCode}, #{item.supportType})
+          </foreach>
+    </delete>
+
+    <update id="batchUpdateStatusByKeys">
+        UPDATE payment_channel_bank pcb
+        SET status = vals.status,
+            update_time = #{updateTime}
+        FROM (
+            VALUES
+            <foreach collection="items" item="item" separator=",">
+                (#{item.bankCode}, #{item.supportType}, #{item.status})
+            </foreach>
+        ) AS vals(bank_code, support_type, status)
+        WHERE pcb.payment_id = #{paymentId}
+          AND pcb.currency = #{currency}
+          AND pcb.bank_code = vals.bank_code
+          AND pcb.support_type = vals.support_type
+    </update>
+
+    <insert id="batchInsert">
+        INSERT INTO payment_channel_bank (
+            payment_id,
+            bank_code,
+            currency,
+            support_type,
+            status,
+            create_time,
+            update_time
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.paymentId},
+            #{item.bankCode},
+            #{item.currency},
+            #{item.supportType},
+            #{item.status},
+            #{item.createTime},
+            #{item.updateTime}
+            )
+        </foreach>
+    </insert>
+
+</mapper>
