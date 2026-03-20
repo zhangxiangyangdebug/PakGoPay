@@ -161,10 +161,24 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     payOrderDto.getChannelId(),
                     payOrderDto.getPaymentMode());
 
-            // 8. query channel available balance before freeze/insert.
+            // 8. pre-check create handler support before freeze/insert.
+            if (!isTestWithoutExternal(payOrderDto.getOrderType())) {
+                String supportError = preCheckCreateHandlerSupport(
+                        payOrderDto.getPaymentMode(),
+                        payOrderDto.getCurrencyType(),
+                        payOrderDto.getPaymentNo(),
+                        "payout");
+                if (supportError != null) {
+                    return CommonResponse.fail(
+                            ResultCode.HTTP_REQUEST_ERROR,
+                            "payout channel not supported: " + supportError);
+                }
+            }
+
+            // 9. query channel available balance before freeze/insert.
             ensureChannelBalanceSufficient(payOrderDto, transactionInfo.getPaymentInfo(), flowSession);
 
-            // 9. freeze balance, persist processing order and publish timeout message
+            // 10. freeze balance, persist processing order and publish timeout message
             frozenAmount = CalcUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
             BigDecimal frozenAmountSnapshot = frozenAmount;
             transactionUtil.runInTransaction(() -> {
@@ -204,7 +218,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                         CommonResponse.success(responseBody));
             }
 
-            // 10. dispatch payout request to handler
+            // 11. dispatch payout request to handler
             PaymentHttpResponse handlerResponse = dispatchPayOutOrder(
                     payOrderDto,
                     payOrderRequest,
@@ -216,11 +230,12 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             if (handlerCode != null && !Integer.valueOf(0).equals(handlerCode)) {
                 markPayOrderFailedByDispatch(payOrderDto.getTransactionNo(),
                         "channel_request_failed_code_" + handlerCode);
+                String detail = handlerResponse == null ? "empty handler response" : handlerResponse.toString();
                 throw new PakGoPayException(ResultCode.HTTP_REQUEST_ERROR,
-                        "payout channel request failed, code=" + handlerCode);
+                        "payout channel request failed: code=" + handlerCode + ", detail=" + detail);
             }
 
-            // 11. build and return create response
+            // 12. build and return create response
             Map<String, Object> responseBody = buildPayOutResponse(payOrderDto, handlerResponse);
             log.info("{} success, transactionNo={}", scene, payOrderDto.getTransactionNo());
             createdSuccess = true;

@@ -159,7 +159,21 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                     collectionOrderDto.getChannelId(),
                     collectionOrderDto.getCollectionMode());
 
-            // 8. persist processing order and publish timeout message
+            // 8. pre-check create handler support before persisting order.
+            if (!isTestWithoutExternal(collectionOrderDto.getOrderType())) {
+                String supportError = preCheckCreateHandlerSupport(
+                        collectionOrderDto.getCollectionMode(),
+                        collectionOrderDto.getCurrencyType(),
+                        collectionOrderDto.getPaymentNo(),
+                        "collection");
+                if (supportError != null) {
+                    return CommonResponse.fail(
+                            ResultCode.HTTP_REQUEST_ERROR,
+                            "collection channel not supported: " + supportError);
+                }
+            }
+
+            // 9. persist processing order and publish timeout message
             try {
                 int ret = collectionOrderMapper.insert(collectionOrderDto);
                 if (ret <= 0) {
@@ -193,7 +207,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                         CommonResponse.success(responseBody));
             }
 
-            // 9. dispatch collection request to handler
+            // 10. dispatch collection request to handler
             PaymentHttpResponse handlerResponse = dispatchCollectionOrder(
                     collectionOrderDto,
                     transactionInfo.getPaymentInfo(),
@@ -205,13 +219,14 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             if (handlerCode != null && !Integer.valueOf(0).equals(handlerCode)) {
                 markCollectionOrderFailedByDispatch(collectionOrderDto.getTransactionNo(),
                         "channel_request_failed_code_" + handlerCode);
+                String detail = handlerResponse == null ? "empty handler response" : handlerResponse.toString();
                 return recordMerchantCreateResponse(
                         collectionOrderDto.getTransactionNo(),
                         CommonResponse.fail(ResultCode.HTTP_REQUEST_ERROR,
-                                "collection channel request failed, code=" + handlerCode));
+                                "collection channel request failed: code=" + handlerCode + ", detail=" + detail));
             }
 
-            // 10. build and return create response
+            // 11. build and return create response
             Map<String, Object> responseBody = buildCollectionResponse(collectionOrderDto, handlerResponse);
             log.info("createCollectionOrder success, transactionNo={}", collectionOrderDto.getTransactionNo());
             createdSuccess = true;
@@ -858,7 +873,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                     : OrderScope.SYSTEM;
             String channelCode = dto.getPaymentNo();
             OrderHandler handler = OrderHandlerFactory.get(
-                    scope, resolveCurrencyKey(dto.getCurrencyType(), channelCode), dto.getPaymentNo());
+                    scope, dto.getCurrencyType(), dto.getPaymentNo());
             CollectionCreateEntity entity = new CollectionCreateEntity();
             entity.setTransactionNo(dto.getTransactionNo());
             entity.setAmount(dto.getActualAmount() != null ? dto.getActualAmount() : new BigDecimal("1"));
@@ -883,13 +898,6 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             failedResponse.setMessage(e.getMessage() == null ? "dispatch_exception" : e.getMessage());
             return failedResponse;
         }
-    }
-
-    private String resolveCurrencyKey(String currency, String channelCode) {
-        if ("alipay".equalsIgnoreCase(channelCode)) {
-            return "ALIPAY";
-        }
-        return currency;
     }
 
     private BigDecimal resolveCollectionReverseMerchantDelta(CollectionOrderDto order) {

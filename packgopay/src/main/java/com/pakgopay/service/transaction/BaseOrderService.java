@@ -201,6 +201,27 @@ public abstract class BaseOrderService {
         return handlerResponse.getCode();
     }
 
+    /**
+     * Pre-check whether create-order handler exists for current scope/currency/channel.
+     * Returns null when supported; otherwise returns error detail.
+     */
+    protected String preCheckCreateHandlerSupport(
+            Integer mode,
+            String currencyType,
+            String paymentNo,
+            String scene) {
+        try {
+            OrderScope scope = Integer.valueOf(1).equals(mode) ? OrderScope.THIRD_PARTY : OrderScope.SYSTEM;
+            OrderHandlerFactory.get(scope, currencyType, paymentNo);
+            return null;
+        } catch (Exception e) {
+            String message = e.getMessage() == null ? "handler_not_found" : e.getMessage();
+            log.error("{} pre-check handler not supported, mode={}, currency={}, paymentNo={}, message={}",
+                    scene, mode, currencyType, paymentNo, message);
+            return message;
+        }
+    }
+
     protected void mergeIfPresent(Map<String, Object> target, Map<String, Object> source, String key) {
         if (source.containsKey(key) && source.get(key) != null) {
             target.put(key, source.get(key));
