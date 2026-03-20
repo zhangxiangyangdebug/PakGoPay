@@ -1,0 +1,10 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: thirdparty-demo
+
+logging:
+  level:
+    root: INFO

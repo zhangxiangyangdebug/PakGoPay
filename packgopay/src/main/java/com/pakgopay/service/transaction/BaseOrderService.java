@@ -14,6 +14,7 @@ import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.mapper.MerchantInfoMapper;
 import com.pakgopay.mapper.PaymentMapper;
+import com.pakgopay.mapper.AgentInfoMapper;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.*;
@@ -96,6 +97,9 @@ public abstract class BaseOrderService {
 
     @Autowired
     protected MerchantInfoMapper merchantInfoMapper;
+
+    @Autowired
+    protected AgentInfoMapper agentInfoMapper;
 
     @Autowired
     protected RedisUtil redisUtil;
@@ -312,6 +316,11 @@ public abstract class BaseOrderService {
                     merchantId, merchantInfoDto.getUserId());
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchantId does not match apiKey");
         }
+        if (merchantInfoDto.getParentId() == null || merchantInfoDto.getParentId().isBlank()) {
+            return merchantInfoDto;
+        }
+        merchantInfoDto.setAgentInfos(CommonUtil.safeList(
+                agentInfoMapper.findAncestorAgentsByDescendant(merchantInfoDto.getParentId())));
         return merchantInfoDto;
     }
 

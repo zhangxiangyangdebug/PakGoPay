@@ -12,7 +12,7 @@ In `--mode all`, if `--business-host` is not provided, it defaults to backend ho
 ## 1) Backend only
 
 ```bash
-bash /Users/xiaoyou_02/project/logging-deploy/scripts/deploy_unified.sh \
+bash logging-deploy/scripts/deploy_unified.sh \
   --mode backend
 ```
 
@@ -20,7 +20,7 @@ bash /Users/xiaoyou_02/project/logging-deploy/scripts/deploy_unified.sh \
 
 ```bash
 GRAFANA_ADMIN_PASSWORD='YourStrongPassword!' \
-bash /Users/xiaoyou_02/project/logging-deploy/scripts/deploy_unified.sh \
+bash logging-deploy/scripts/deploy_unified.sh \
   --mode log-server
 ```
 
@@ -31,7 +31,7 @@ Default ports:
 ## 3) Promtail only (business host -> standalone log server)
 
 ```bash
-bash /Users/xiaoyou_02/project/logging-deploy/scripts/deploy_unified.sh \
+bash logging-deploy/scripts/deploy_unified.sh \
   --mode promtail \
   --business-host 8.219.132.103
 ```
@@ -39,7 +39,7 @@ bash /Users/xiaoyou_02/project/logging-deploy/scripts/deploy_unified.sh \
 ## 4) All in one (backend + log server + promtail)
 
 ```bash
-bash /Users/xiaoyou_02/project/logging-deploy/scripts/deploy_unified.sh --mode all
+bash logging-deploy/scripts/deploy_unified.sh --mode all
 ```
 
 Notes:

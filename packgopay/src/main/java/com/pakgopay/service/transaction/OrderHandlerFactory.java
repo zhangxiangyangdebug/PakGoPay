@@ -3,9 +3,9 @@ package com.pakgopay.service.transaction;
 import com.pakgopay.common.enums.OrderScope;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.service.transaction.handler.ThirdPartyBankTransferTestHandler;
 import com.pakgopay.service.transaction.handler.ThirdPartyHhtradeHandler;
 import com.pakgopay.service.transaction.handler.ThirdPartyLuckyHandler;
-import com.pakgopay.service.transaction.handler.ThirdPartyBankTransferHandler;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
@@ -22,7 +22,7 @@ public class OrderHandlerFactory implements ApplicationContextAware {
     static {
         registerDefaultForCurrencies(
                 new String[]{"PKR", "US", "VND", "CNY"},
-                ThirdPartyBankTransferHandler.class);
+                ThirdPartyBankTransferTestHandler.class);
         registerExplicitMappings();
     }
 

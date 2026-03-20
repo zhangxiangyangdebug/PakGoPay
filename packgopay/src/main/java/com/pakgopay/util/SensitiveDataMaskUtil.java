@@ -100,7 +100,19 @@ public final class SensitiveDataMaskUtil {
             }
             return text;
         }
+        // Fallback: for bean-like objects, convert to JSON structure first, then sanitize recursively.
+        // This covers DTO/entity payloads such as CollectionCreateEntity/PayCreateEntity.
+        if (!(value instanceof Number)
+                && !(value instanceof Boolean)
+                && !(value instanceof Character)
+                && !(value instanceof Enum<?>)) {
+            try {
+                Object nested = JSON.parse(JSON.toJSONString(value));
+                return sanitize(nested, sensitiveKeywords);
+            } catch (Exception ignored) {
+                // keep original value when conversion fails
+            }
+        }
         return value;
     }
 }
-
