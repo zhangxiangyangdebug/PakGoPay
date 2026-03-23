@@ -5,7 +5,7 @@ Standalone Swing merchant demo. This project is isolated from `packgopay` backen
 ## Run
 
 ```bash
-cd /Users/xiaoyou_03/IdeaProjects/PakGoPay/merchant-demo
+cd /Users/xiaoyou_03/IdeaProjects/PakGoPay/demo/merchant-demo
 mvn -q -DskipTests package
 java -jar target/merchant-demo.jar
 ```

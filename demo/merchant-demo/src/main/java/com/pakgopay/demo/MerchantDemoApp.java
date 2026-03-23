@@ -7,6 +7,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import javax.swing.*;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import javax.swing.table.DefaultTableModel;
@@ -34,6 +37,17 @@ public class MerchantDemoApp {
     private static final Gson GSON = new GsonBuilder().serializeNulls().create();
     private static final Gson PRETTY_GSON = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
     private static final String HMAC_SHA256 = "HmacSHA256";
+    private static final Color COLOR_BG = new Color(246, 248, 252);
+    private static final Color COLOR_PANEL = new Color(255, 255, 255);
+    private static final Color COLOR_BORDER = new Color(225, 231, 242);
+    private static final Color COLOR_TEXT = new Color(31, 41, 55);
+    private static final Color COLOR_TEXT_MUTED = new Color(100, 116, 139);
+    private static final Color COLOR_ACCENT = new Color(37, 99, 235);
+    private static final Color COLOR_ACCENT_DARK = new Color(29, 78, 216);
+    private static final Color COLOR_TAB_BG = new Color(238, 242, 255);
+    private static final Font FONT_NORMAL = new Font("SansSerif", Font.PLAIN, 13);
+    private static final Font FONT_TITLE = new Font("SansSerif", Font.BOLD, 13);
+    private static final Font FONT_MONO = new Font("Monospaced", Font.PLAIN, 13);
     private static final DateTimeFormatter MERCHANT_ORDER_NO_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy_MM_dd_HH:mm:ss");
 
@@ -83,6 +97,7 @@ public class MerchantDemoApp {
     }
 
     private void show() {
+        applyGlobalTheme();
         JFrame frame = new JFrame("Merchant Demo (Swing)");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(1320, 860);
@@ -91,6 +106,7 @@ public class MerchantDemoApp {
 
         JPanel root = new JPanel(new BorderLayout(8, 8));
         root.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        root.setBackground(COLOR_BG);
 
         root.add(buildConfigPanel(), BorderLayout.NORTH);
         root.add(buildCenterPanel(), BorderLayout.CENTER);
@@ -103,7 +119,8 @@ public class MerchantDemoApp {
 
     private JPanel buildConfigPanel() {
         configPanel = new JPanel(new GridBagLayout());
-        configPanel.setBorder(BorderFactory.createTitledBorder("Connection"));
+        setCardBorder(configPanel, "Connection");
+        configPanel.setBackground(COLOR_PANEL);
         GridBagConstraints c = new GridBagConstraints();
         c.insets = new Insets(4, 4, 4, 4);
         c.fill = GridBagConstraints.HORIZONTAL;
@@ -116,8 +133,12 @@ public class MerchantDemoApp {
         baseUrlCombo.setEditable(true);
         tokenField = new JTextField();
         signKeyField = new JTextField();
+        styleComboBox(baseUrlCombo);
+        styleField(tokenField);
+        styleField(signKeyField);
 
         languageCombo = new JComboBox<>(Language.values());
+        styleComboBox(languageCombo);
         languageCombo.addActionListener(e -> onLanguageChanged());
 
         c.gridx = 0;
@@ -140,6 +161,7 @@ public class MerchantDemoApp {
         configPanel.add(languageCombo, c);
 
         endpointCombo = new JComboBox<>(buildEndpoints());
+        styleComboBox(endpointCombo);
         endpointCombo.addActionListener(e -> onEndpointChanged());
         endpointLabel = new JLabel("API Endpoint");
         c.gridx = 0;
@@ -180,8 +202,12 @@ public class MerchantDemoApp {
         endpointCommentArea.setLineWrap(true);
         endpointCommentArea.setWrapStyleWord(true);
         endpointCommentArea.setEditable(false);
+        endpointCommentArea.setBackground(new Color(248, 251, 255));
+        endpointCommentArea.setForeground(COLOR_TEXT_MUTED);
+        endpointCommentArea.setFont(FONT_NORMAL);
         endpointCommentScroll = new JScrollPane(endpointCommentArea);
-        endpointCommentScroll.setBorder(BorderFactory.createTitledBorder("Endpoint Note"));
+        endpointCommentScroll.setBorder(buildCardBorder("Endpoint Note"));
+        endpointCommentScroll.getViewport().setBackground(new Color(248, 251, 255));
         c.gridx = 0;
         c.gridy = 3;
         c.gridwidth = 5;
@@ -194,7 +220,8 @@ public class MerchantDemoApp {
 
     private JSplitPane buildCenterPanel() {
         queryPanel = new WidthTrackingPanel(new GridBagLayout());
-        queryPanel.setBorder(BorderFactory.createTitledBorder("Order Query"));
+        setCardBorder(queryPanel, "Order Query");
+        queryPanel.setBackground(COLOR_PANEL);
 
         GridBagConstraints c = new GridBagConstraints();
         c.insets = new Insets(4, 4, 4, 4);
@@ -202,7 +229,8 @@ public class MerchantDemoApp {
         c.weightx = 1.0;
 
         dynamicParamPanel = new JPanel(new GridBagLayout());
-        dynamicParamPanel.setBorder(BorderFactory.createTitledBorder("Request Params"));
+        setCardBorder(dynamicParamPanel, "Request Params");
+        dynamicParamPanel.setBackground(COLOR_PANEL);
         c.gridx = 0;
         c.gridy = 0;
         c.gridwidth = 4;
@@ -218,6 +246,10 @@ public class MerchantDemoApp {
         buildBodyBtn.addActionListener(e -> buildQueryBodyToEditor());
         sendBtn = new JButton("Send");
         sendBtn.addActionListener(e -> sendRequest());
+        styleButton(loadBtn, false);
+        styleButton(saveBtn, false);
+        styleButton(buildBodyBtn, true);
+        styleButton(sendBtn, true);
         Dimension actionButtonSize = new Dimension(0, 56);
         loadBtn.setPreferredSize(actionButtonSize);
         saveBtn.setPreferredSize(actionButtonSize);
@@ -247,31 +279,38 @@ public class MerchantDemoApp {
         requestBodyArea = new JTextArea(10, 80);
         requestBodyArea.setLineWrap(true);
         requestBodyArea.setWrapStyleWord(true);
+        requestBodyArea.setFont(FONT_MONO);
+        requestBodyArea.setForeground(COLOR_TEXT);
         requestBodyScroll = new JScrollPane(requestBodyArea);
         requestBodyScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         requestBodyScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         requestBodyScroll.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
+        requestBodyScroll.getViewport().setBackground(new Color(251, 253, 255));
 
         responseArea = new JTextArea(10, 120);
         responseArea.setLineWrap(true);
         responseArea.setWrapStyleWord(true);
+        responseArea.setFont(FONT_MONO);
+        responseArea.setForeground(COLOR_TEXT);
         responseScroll = new JScrollPane(responseArea);
         responseScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         responseScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         responseScroll.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
+        responseScroll.getViewport().setBackground(new Color(251, 253, 255));
 
         requestResponseTabs = new JTabbedPane();
         requestResponseTabs.setTabPlacement(JTabbedPane.TOP);
         requestResponseTabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
-        requestResponseTabs.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
+        requestResponseTabs.setBorder(new LineBorder(COLOR_BORDER, 1, true));
         requestResponseTabs.setOpaque(true);
-        requestResponseTabs.setBackground(new Color(242, 242, 242));
+        requestResponseTabs.setBackground(COLOR_TAB_BG);
+        requestResponseTabs.setFont(FONT_NORMAL);
         requestResponseTabs.setUI(new BasicTabbedPaneUI() {
             @Override
             protected void paintTabBackground(
                     Graphics g, int tabPlacement, int tabIndex,
                     int x, int y, int w, int h, boolean isSelected) {
-                g.setColor(isSelected ? new Color(250, 250, 250) : new Color(236, 236, 236));
+                g.setColor(isSelected ? COLOR_PANEL : COLOR_TAB_BG);
                 g.fillRect(x, y, w, h);
             }
 
@@ -279,7 +318,7 @@ public class MerchantDemoApp {
             protected void paintTabBorder(
                     Graphics g, int tabPlacement, int tabIndex,
                     int x, int y, int w, int h, boolean isSelected) {
-                g.setColor(new Color(210, 210, 210));
+                g.setColor(COLOR_BORDER);
                 g.drawRect(x, y, w, h);
             }
 
@@ -318,19 +357,28 @@ public class MerchantDemoApp {
 
         tableModel = new DefaultTableModel(new Object[]{"key", "value"}, 0);
         JTable table = new JTable(tableModel);
+        table.setRowHeight(24);
+        table.setGridColor(new Color(233, 238, 247));
+        table.setFont(FONT_NORMAL);
+        table.getTableHeader().setFont(FONT_TITLE);
+        table.getTableHeader().setBackground(new Color(241, 246, 255));
+        table.getTableHeader().setForeground(COLOR_TEXT);
         parsedResultScroll = new JScrollPane(table);
-        parsedResultScroll.setBorder(BorderFactory.createTitledBorder("Parsed Result"));
+        parsedResultScroll.setBorder(buildCardBorder("Parsed Result"));
+        parsedResultScroll.getViewport().setBackground(COLOR_PANEL);
 
         queryPanelScroll = new JScrollPane(queryPanel);
         queryPanelScroll.setBorder(null);
         queryPanelScroll.getVerticalScrollBar().setUnitIncrement(16);
         queryPanelScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         queryPanelScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        queryPanelScroll.getViewport().setBackground(COLOR_BG);
         installNestedScrollBridge(requestBodyScroll, queryPanelScroll);
         installNestedScrollBridge(responseScroll, queryPanelScroll);
 
         centerSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, queryPanelScroll, parsedResultScroll);
         centerSplitPane.setResizeWeight(1.0);
+        centerSplitPane.setBorder(BorderFactory.createEmptyBorder());
         toggleParsedResult(false);
         return centerSplitPane;
     }
@@ -700,7 +748,9 @@ public class MerchantDemoApp {
 
     private void addSingleField(ParamField field, int row, GridBagConstraints c) {
         JLabel label = new JLabel(currentLanguage == Language.ZH ? field.labelZh : field.labelEn);
+        label.setForeground(COLOR_TEXT);
         JTextField input = new JTextField(field.defaultValue == null ? "" : field.defaultValue);
+        styleField(input);
         boolean showAutoGenBtn = "merchantOrderNo".equals(field.key)
                 && ("/pakGoPay/api/server/v1/createCollectionOrder".equals(currentEndpointPath)
                 || "/pakGoPay/api/server/v1/createPayOutOrder".equals(currentEndpointPath));
@@ -717,6 +767,7 @@ public class MerchantDemoApp {
 
         if (showAutoGenBtn) {
             JButton autoGenBtn = new JButton(currentLanguage == Language.ZH ? "自动生成" : "Auto Gen");
+            styleButton(autoGenBtn, false);
             autoGenBtn.addActionListener(e -> input.setText(generateMerchantOrderNo()));
             c.gridx = 3;
             c.gridy = row;
@@ -892,8 +943,68 @@ public class MerchantDemoApp {
         }
         if (component.getBorder() instanceof TitledBorder border) {
             border.setTitle(title);
+            border.setTitleFont(FONT_TITLE);
+            border.setTitleColor(COLOR_TEXT);
             component.repaint();
         }
+    }
+
+    private void applyGlobalTheme() {
+        UIManager.put("Label.font", FONT_NORMAL);
+        UIManager.put("Label.foreground", COLOR_TEXT);
+        UIManager.put("TextField.font", FONT_NORMAL);
+        UIManager.put("TextArea.font", FONT_NORMAL);
+        UIManager.put("ComboBox.font", FONT_NORMAL);
+        UIManager.put("Button.font", FONT_NORMAL);
+        UIManager.put("Panel.background", COLOR_PANEL);
+        UIManager.put("Table.font", FONT_NORMAL);
+    }
+
+    private void styleField(JTextField field) {
+        field.setFont(FONT_NORMAL);
+        field.setForeground(COLOR_TEXT);
+        field.setBackground(COLOR_PANEL);
+        field.setCaretColor(COLOR_TEXT);
+        field.setBorder(new CompoundBorder(
+                new LineBorder(COLOR_BORDER, 1, true),
+                new EmptyBorder(6, 8, 6, 8)));
+    }
+
+    private void styleComboBox(JComboBox<?> comboBox) {
+        comboBox.setFont(FONT_NORMAL);
+        comboBox.setBackground(COLOR_PANEL);
+        comboBox.setForeground(COLOR_TEXT);
+        comboBox.setBorder(new LineBorder(COLOR_BORDER, 1, true));
+    }
+
+    private void styleButton(JButton button, boolean primary) {
+        button.setFont(FONT_TITLE);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        button.setOpaque(true);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        if (primary) {
+            button.setBackground(COLOR_ACCENT);
+            button.setForeground(Color.WHITE);
+        } else {
+            button.setBackground(new Color(232, 239, 251));
+            button.setForeground(COLOR_ACCENT_DARK);
+        }
+    }
+
+    private void setCardBorder(JComponent component, String title) {
+        component.setBorder(buildCardBorder(title));
+    }
+
+    private TitledBorder buildCardBorder(String title) {
+        TitledBorder border = BorderFactory.createTitledBorder(
+                new CompoundBorder(
+                        new LineBorder(COLOR_BORDER, 1, true),
+                        new EmptyBorder(6, 8, 8, 8)),
+                title);
+        border.setTitleColor(COLOR_TEXT);
+        border.setTitleFont(FONT_TITLE);
+        return border;
     }
 
     private void fillTableFromResponse(String responseText) {

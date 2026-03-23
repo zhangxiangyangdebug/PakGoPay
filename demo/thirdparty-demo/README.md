@@ -5,7 +5,7 @@ Mock third-party service for `ThirdPartyBankTransferTestHandler`.
 ## Run
 
 ```bash
-cd thirdparty-demo
+cd demo/thirdparty-demo
 ./run.sh
 ```
 
@@ -45,14 +45,14 @@ Signature algorithm:
 One-click deploy (no args, using built-in defaults):
 
 ```bash
-cd thirdparty-demo
+cd demo/thirdparty-demo
 bash scripts/deploy_thirdparty_demo.sh
 ```
 
 Override target/options:
 
 ```bash
-cd thirdparty-demo
+cd demo/thirdparty-demo
 bash scripts/deploy_thirdparty_demo.sh --host 8.219.132.103 --user root --port 8092
 ```
 
