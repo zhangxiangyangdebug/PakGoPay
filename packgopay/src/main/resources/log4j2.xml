@@ -38,6 +38,34 @@
                 </Delete>
             </DefaultRolloverStrategy>
         </RollingFile>
+
+        <RollingFile name="TimerFile" fileName="${LOG_DIR}/timer.log" filePattern="${LOG_DIR}/timer-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy>
+                <Delete basePath="${LOG_DIR}" maxDepth="1">
+                    <IfFileName glob="timer-*.log.gz"/>
+                    <IfLastModified age="30d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+
+        <RollingFile name="DmqFile" fileName="${LOG_DIR}/dmq.log" filePattern="${LOG_DIR}/dmq-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy>
+                <Delete basePath="${LOG_DIR}" maxDepth="1">
+                    <IfFileName glob="dmq-*.log.gz"/>
+                    <IfLastModified age="30d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
     </Appenders>
 
     <loggers>
@@ -50,6 +78,18 @@
         </logger>
         <logger name="balance-change" level="INFO" additivity="false">
             <AppenderRef ref="BalanceFile"/>
+        </logger>
+        <logger name="com.pakgopay.timer" level="INFO" additivity="false">
+            <AppenderRef ref="TimerFile"/>
+        </logger>
+        <logger name="com.pakgopay.mq" level="INFO" additivity="false">
+            <AppenderRef ref="DmqFile"/>
+        </logger>
+        <logger name="com.pakgopay.service.common.SendDmqMessage" level="INFO" additivity="false">
+            <AppenderRef ref="DmqFile"/>
+        </logger>
+        <logger name="com.pakgopay.thirdUtil.RabbitmqUtil" level="INFO" additivity="false">
+            <AppenderRef ref="DmqFile"/>
         </logger>
     </loggers>
 </Configuration>
