@@ -178,6 +178,7 @@ public class LoginServiceImpl implements LoginService {
         loginResponse.setUserName(user.getLoginName());
         loginResponse.setUserId(userId);
         loginResponse.setRoleName(user.getRoleName());
+        loginResponse.setLastLoginTime(now);
         // 清除失败次数
         //redisUtil.remove(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName);
         redisUtil.remove(CommonConstant.USER_PASSWORD_ERROR_TIMES + userName);

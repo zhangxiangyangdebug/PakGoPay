@@ -11,6 +11,7 @@ public class LoginResponse extends CommonResponse {
     private String userName;
     private String userId;
     private String roleName;
+    private Long lastLoginTime;
 
     public LoginResponse() {}
 
