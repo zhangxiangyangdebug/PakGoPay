@@ -153,6 +153,7 @@ public class LoginServiceImpl implements LoginService {
 
     private CommonResponse loginSuccess(UserDTO user, String userName, String ip, String userAgent) {
         String userId = user.getUserId();
+        Long previousLastLoginTime = user.getLastLoginTime();
         String token = authorizationService.createAccessIdToken(user.getUserId(), userName, ip, userAgent);
         String refreshToken = authorizationService.createRefreshToken(userId, userName, ip, userAgent);
         AuthorizationService.TokenClaims accessClaims = AuthorizationService.verifyTokenClaims(token);
@@ -178,7 +179,8 @@ public class LoginServiceImpl implements LoginService {
         loginResponse.setUserName(user.getLoginName());
         loginResponse.setUserId(userId);
         loginResponse.setRoleName(user.getRoleName());
-        loginResponse.setLastLoginTime(now);
+        // Return previous login time to frontend; DB has been updated to "now" above.
+        loginResponse.setLastLoginTime(previousLastLoginTime);
         // 清除失败次数
         //redisUtil.remove(CommonConstant.USER_NO_KEY_LOGIN_TIMES + userName);
         redisUtil.remove(CommonConstant.USER_PASSWORD_ERROR_TIMES + userName);
