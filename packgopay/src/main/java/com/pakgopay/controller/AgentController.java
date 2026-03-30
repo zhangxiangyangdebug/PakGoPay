@@ -3,6 +3,7 @@ package com.pakgopay.controller;
 import com.pakgopay.common.enums.OperateInterfaceEnum;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.common.log.LogLevelPolicy;
 import com.pakgopay.data.reqeust.account.AccountAddRequest;
 import com.pakgopay.data.reqeust.account.AccountEditRequest;
 import com.pakgopay.data.reqeust.account.AccountQueryRequest;
@@ -38,7 +39,7 @@ public class AgentController {
         try {
             return agentService.queryAgents(agentQueryRequest);
         } catch (PakGoPayException e) {
-            log.error("queryAgent failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            LogLevelPolicy.logBizException(log, "queryAgent failed", e);
             return CommonResponse.fail(e.getCode(), "queryAgent failed: " + e.getMessage());
         }
     }
@@ -49,7 +50,7 @@ public class AgentController {
         try {
             agentService.exportAgents(agentQueryRequest, response);
         } catch (PakGoPayException e) {
-            log.error("exportAgent failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            LogLevelPolicy.logBizException(log, "exportAgent failed", e);
             ExportFileUtils.writeJsonError(response, e.getCode(), "exportAgent failed: " + e.getMessage());
         } catch (IOException e) {
             log.error("exportAgent failed, IOException message: {}", e.getMessage());
@@ -65,7 +66,7 @@ public class AgentController {
             operateLogService.write(OperateInterfaceEnum.EDIT_AGENT, agentEditRequest.getUserId(), agentEditRequest);
             return response;
         } catch (PakGoPayException e) {
-            log.error("editAgent failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            LogLevelPolicy.logBizException(log, "editAgent failed", e);
             return CommonResponse.fail(e.getCode(), "editAgent failed: " + e.getMessage());
         }
     }
@@ -77,7 +78,7 @@ public class AgentController {
             operateLogService.write(OperateInterfaceEnum.ADD_AGENT, agentAddRequest.getUserId(), agentAddRequest);
             return response;
         } catch (PakGoPayException e) {
-            log.error("addAgent failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            LogLevelPolicy.logBizException(log, "addAgent failed", e);
             return CommonResponse.fail(e.getCode(), "addAgent failed: " + e.getMessage());
         }
     }
@@ -87,7 +88,7 @@ public class AgentController {
         try {
             return agentService.queryAgentAccounts(agentQueryRequest);
         } catch (PakGoPayException e) {
-            log.error("queryAgentAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            LogLevelPolicy.logBizException(log, "queryAgentAccount failed", e);
             return CommonResponse.fail(e.getCode(), "queryAgentAccount failed: " + e.getMessage());
         }
     }
@@ -98,7 +99,7 @@ public class AgentController {
         try {
             agentService.exportAgentAccounts(agentQueryRequest, response);
         } catch (PakGoPayException e) {
-            log.error("exportAgentAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            LogLevelPolicy.logBizException(log, "exportAgentAccount failed", e);
             ExportFileUtils.writeJsonError(response, e.getCode(), "exportAgentAccount failed: " + e.getMessage());
         } catch (IOException e) {
             log.error("exportAgentAccount failed, IOException message: {}", e.getMessage());
@@ -114,7 +115,7 @@ public class AgentController {
             operateLogService.write(OperateInterfaceEnum.EDIT_AGENT_ACCOUNT, accountEditRequest.getUserId(), accountEditRequest);
             return response;
         } catch (PakGoPayException e) {
-            log.error("editAgentAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            LogLevelPolicy.logBizException(log, "editAgentAccount failed", e);
             return CommonResponse.fail(e.getCode(), "editAgentAccount failed: " + e.getMessage());
         }
     }
@@ -126,7 +127,7 @@ public class AgentController {
             operateLogService.write(OperateInterfaceEnum.ADD_AGENT_ACCOUNT, accountAddRequest.getUserId(), accountAddRequest);
             return response;
         } catch (PakGoPayException e) {
-            log.error("addAgentAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            LogLevelPolicy.logBizException(log, "addAgentAccount failed", e);
             return CommonResponse.fail(e.getCode(), "addAgentAccount failed: " + e.getMessage());
         }
     }

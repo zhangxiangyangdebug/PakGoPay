@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.common.log.LogLevelPolicy;
 import com.pakgopay.data.entity.account.AccountInfoEntity;
 import com.pakgopay.data.entity.agent.AgentInfoEntity;
 import com.pakgopay.data.reqeust.CreateUserRequest;
@@ -19,9 +20,11 @@ import com.pakgopay.data.response.account.WithdrawalAccountResponse;
 import com.pakgopay.data.response.agent.AgentResponse;
 import com.pakgopay.mapper.AgentInfoMapper;
 import com.pakgopay.mapper.ChannelMapper;
+import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.WithdrawalAccountsMapper;
 import com.pakgopay.mapper.dto.AgentInfoDto;
 import com.pakgopay.mapper.dto.ChannelDto;
+import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.mapper.dto.WithdrawalAccountsDto;
 import com.pakgopay.service.AgentService;
 import com.pakgopay.service.BalanceService;
@@ -53,6 +56,9 @@ public class AgentServiceImpl implements AgentService {
 
     @Autowired
     private WithdrawalAccountsMapper withdrawalAccountsMapper;
+
+    @Autowired
+    private UserMapper userMapper;
 
     @Autowired
     private UserService userService;
@@ -353,6 +359,7 @@ public class AgentServiceImpl implements AgentService {
             if (ret <= 0) {
                 return CommonResponse.fail(ResultCode.FAIL, "agent not found or no rows updated");
             }
+            syncUserProfileForAgentEdit(agentEditRequest);
         } catch (Exception e) {
             log.error("editAgent updateByChannelId failed, agentName={}", agentEditRequest.getAgentName(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -388,6 +395,36 @@ public class AgentServiceImpl implements AgentService {
                 .str(agentEditRequest::getUserName, dto::setUpdateBy)
 
                 .throwIfNoUpdate(new PakGoPayException(ResultCode.INVALID_PARAMS, "no data need to update"));
+    }
+
+    private void syncUserProfileForAgentEdit(AgentEditRequest agentEditRequest) throws PakGoPayException {
+        Long agentNo = PatchBuilderUtil.parseRequiredLong(agentEditRequest.getAgentNo(), "agentNo");
+        AgentInfoDto targetAgent = agentInfoMapper.findByAgentNo(agentNo);
+        if (targetAgent == null || targetAgent.getUserId() == null || targetAgent.getUserId().isBlank()) {
+            throw new PakGoPayException(ResultCode.FAIL, "agent user not found");
+        }
+
+        UserDTO currentUser = userMapper.getOneUserByUserId(targetAgent.getUserId());
+        if (currentUser == null) {
+            throw new PakGoPayException(ResultCode.FAIL, "user profile not found");
+        }
+
+        UserDTO updateUser = new UserDTO();
+        updateUser.setUserId(currentUser.getUserId());
+        updateUser.setLoginName(currentUser.getLoginName());
+        updateUser.setPassword(currentUser.getPassword());
+        updateUser.setRoleId(currentUser.getRoleId());
+        updateUser.setStatus(agentEditRequest.getStatus() != null ? agentEditRequest.getStatus() : currentUser.getStatus());
+        updateUser.setLoginIps(agentEditRequest.getLoginIps() != null ? agentEditRequest.getLoginIps() : currentUser.getLoginIps());
+        updateUser.setWithdrawalIps(agentEditRequest.getWithdrawalIps() != null ? agentEditRequest.getWithdrawalIps() : currentUser.getWithdrawalIps());
+        updateUser.setContactName(agentEditRequest.getContactName() != null ? agentEditRequest.getContactName() : currentUser.getContactName());
+        updateUser.setContactEmail(agentEditRequest.getContactEmail() != null ? agentEditRequest.getContactEmail() : currentUser.getContactEmail());
+        updateUser.setContactPhone(agentEditRequest.getContactPhone() != null ? agentEditRequest.getContactPhone() : currentUser.getContactPhone());
+
+        int updateRows = userMapper.updateUserByUserId(updateUser);
+        if (updateRows <= 0) {
+            throw new PakGoPayException(ResultCode.FAIL, "user profile update failed");
+        }
     }
 
     @Override
@@ -637,7 +674,7 @@ public class AgentServiceImpl implements AgentService {
             int ret = withdrawalAccountsMapper.insert(withdrawalAccountsDto);
             log.info("addAgentAccount insert done, ret={}", ret);
         } catch (PakGoPayException e) {
-            log.error("addAgentAccount failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
+            LogLevelPolicy.logBizException(log, "addAgentAccount failed", e);
             return CommonResponse.fail(e.getCode(), "addAgentAccount failed: " + e.getMessage());
         } catch (Exception e) {
             log.error("addAgentAccount insert failed", e);

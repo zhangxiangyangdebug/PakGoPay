@@ -55,4 +55,19 @@ public class AgentEditRequest extends BaseRequest {
 
     /** Payout min fee */
     private BigDecimal payMinFee;
+
+    /** Contact name */
+    private String contactName;
+
+    /** Contact email */
+    private String contactEmail;
+
+    /** Contact phone */
+    private String contactPhone;
+
+    /** Login white ips (comma separated) */
+    private String loginIps;
+
+    /** Withdrawal white ips (comma separated) */
+    private String withdrawalIps;
 }

@@ -15,6 +15,8 @@ public interface AgentInfoMapper {
     /** Query agent info by login userId */
     AgentInfoDto findByUserId(@Param("userId") String userId);
 
+    AgentInfoDto findByAgentNo(@Param("agentNo") Long agentNo);
+
     List<AgentInfoDto> findByUserIds(@Param("userIds") List<String> userIds);
 
     Optional<AgentInfoDto> findByAgentNameOrAccountName(@Param("agentName") String agentName,

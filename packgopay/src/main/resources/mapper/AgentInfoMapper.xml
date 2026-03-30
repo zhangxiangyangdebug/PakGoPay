@@ -185,6 +185,14 @@
         limit 1
     </select>
 
+    <select id="findByAgentNo" resultMap="AgentInfoResultMap">
+        select
+        <include refid="BaseColumns"/>
+        from agent_info
+        where agent_no = #{agentNo}
+        limit 1
+    </select>
+
     <select id="findByUserIds" resultMap="AgentInfoResultMap">
         SELECT
         <include refid="BaseColumns"/>
