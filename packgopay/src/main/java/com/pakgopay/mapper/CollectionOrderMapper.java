@@ -45,14 +45,14 @@ public interface CollectionOrderMapper {
                                             @Param("startTime") Long startTime,
                                             @Param("endTime") Long endTime);
 
-    /** Increase callback retry times */
-    int increaseCallbackTimes(@Param("transactionNo") String transactionNo,
-                              @Param("lastCallbackTime") Long lastCallbackTime,
-                              @Param("increment") Integer increment,
-                              @Param("callbackStatus") Integer callbackStatus,
-                              @Param("successCallbackTime") Long successCallbackTime,
-                              @Param("startTime") Long startTime,
-                              @Param("endTime") Long endTime);
+    /** Increase callback retry times when callback status is pending(0) */
+    int increaseCallbackTimesWhenPending(@Param("transactionNo") String transactionNo,
+                                         @Param("lastCallbackTime") Long lastCallbackTime,
+                                         @Param("increment") Integer increment,
+                                         @Param("callbackStatus") Integer callbackStatus,
+                                         @Param("successCallbackTime") Long successCallbackTime,
+                                         @Param("startTime") Long startTime,
+                                         @Param("endTime") Long endTime);
 
     /** Mark processing orders as timeout when notify not received within deadline */
     int markTimeoutOrders(@Param("processingStatus") String processingStatus,

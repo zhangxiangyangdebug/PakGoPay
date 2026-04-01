@@ -112,6 +112,20 @@
         WHERE channel_id = #{channelId}
     </update>
 
+    <update id="increaseCountersByChannelIdDelta">
+        UPDATE channel
+        SET total_count = COALESCE(total_count, 0) + #{totalInc},
+            fail_count = COALESCE(fail_count, 0) + #{failInc},
+            success_rate = CASE
+                               WHEN COALESCE(total_count, 0) + #{totalInc} &lt;= 0 THEN 0
+                               ELSE ROUND(
+                                       ((COALESCE(total_count, 0) + #{totalInc}) - (COALESCE(fail_count, 0) + #{failInc}))::numeric
+                                           / (COALESCE(total_count, 0) + #{totalInc})::numeric, 6)
+                END,
+            update_time = #{updateTime}
+        WHERE channel_id = #{channelId}
+    </update>
+
 
     <!-- deleteByChannelId -->
     <delete id="deleteByChannelId">

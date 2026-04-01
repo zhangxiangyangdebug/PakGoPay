@@ -10,6 +10,7 @@ import com.pakgopay.mapper.dto.CollectionOrderDto;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 
 public interface ChannelPaymentService {
     Long selectPaymentId(Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException;
@@ -35,4 +36,10 @@ public interface ChannelPaymentService {
     CommonResponse createChannel(ChannelAddRequest channelAddRequest) throws PakGoPayException;
 
     CommonResponse createPayment(PaymentAddRequest paymentAddRequest) throws PakGoPayException;
+
+    void recordCollectionAmountUsage(Long paymentId, BigDecimal amount, String transactionNo, Long createTime);
+
+    void reconcileCollectionAmountUsage();
+
+    void flushCounterDeltas();
 }

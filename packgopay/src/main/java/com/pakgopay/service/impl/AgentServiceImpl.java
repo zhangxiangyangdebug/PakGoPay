@@ -30,6 +30,7 @@ import com.pakgopay.service.AgentService;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.CommonService;
 import com.pakgopay.service.common.ExportReportDataColumns;
+import com.pakgopay.thirdUtil.RedisUtil;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.ExportFileUtils;
 import com.pakgopay.util.PatchBuilderUtil;
@@ -47,6 +48,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class AgentServiceImpl implements AgentService {
+    private static final String AGENT_CHAIN_CACHE_VERSION_KEY = "agent:chain:cache:version";
 
     @Autowired
     private AgentInfoMapper agentInfoMapper;
@@ -71,6 +73,9 @@ public class AgentServiceImpl implements AgentService {
 
     @Autowired
     private CommonService commonService;
+
+    @Autowired
+    private RedisUtil redisUtil;
 
     @Override
     public CommonResponse queryAgents(AgentQueryRequest agentQueryRequest) throws PakGoPayException {
@@ -445,8 +450,17 @@ public class AgentServiceImpl implements AgentService {
             }
             agentInfoMapper.insert(agentInfoDto);
         });
+        bumpAgentChainCacheVersion();
 
         return CommonResponse.success(ResultCode.SUCCESS);
+    }
+
+    private void bumpAgentChainCacheVersion() {
+        try {
+            redisUtil.increment(AGENT_CHAIN_CACHE_VERSION_KEY);
+        } catch (Exception e) {
+            log.warn("bumpAgentChainCacheVersion failed, message={}", e.getMessage());
+        }
     }
 
     private void validateAgentFeeAboveParent(String parentId, Object request) throws PakGoPayException {
@@ -647,6 +661,7 @@ public class AgentServiceImpl implements AgentService {
             if (ret <= 0) {
                 return CommonResponse.fail(ResultCode.FAIL, "agent not found or no rows updated");
             }
+            bumpAgentChainCacheVersion();
         } catch (Exception e) {
             log.error("editAgentAccount updateByChannelId failed, withdrawalId={}", accountEditRequest.getId(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);

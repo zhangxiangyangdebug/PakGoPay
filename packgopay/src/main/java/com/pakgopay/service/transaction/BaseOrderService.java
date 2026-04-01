@@ -36,6 +36,7 @@ import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
@@ -72,6 +73,19 @@ public abstract class BaseOrderService {
     private static final int DEFAULT_ORDER_TIMEOUT_SECONDS = 10 * 60;
     private static final String MERCHANT_SIGN_KEY_CACHE_PREFIX = "merchant:signkey:";
     private static final int MERCHANT_SIGN_KEY_CACHE_TTL_SECONDS = 300;
+    private static final String MERCHANT_USER_ID_BY_API_KEY_CACHE_PREFIX = "merchant:userId:byApiKey:";
+    private static final String MERCHANT_INFO_BY_USER_ID_CACHE_PREFIX = "merchant:info:byUserId:";
+    private static final String MERCHANT_INFO_CACHE_VERSION_KEY = "merchant:info:cache:version";
+    private static final int MERCHANT_INFO_CACHE_TTL_SECONDS = 24 * 60 * 60;
+    private static final int MERCHANT_INFO_CACHE_JITTER_SECONDS = 60 * 60;
+    private static final String AGENT_CHAIN_BY_DESCENDANT_CACHE_PREFIX = "agent:chain:descendant:";
+    private static final String AGENT_CHAIN_CACHE_VERSION_KEY = "agent:chain:cache:version";
+    private static final int AGENT_CHAIN_CACHE_TTL_SECONDS = 24 * 60 * 60;
+    private static final int AGENT_CHAIN_CACHE_JITTER_SECONDS = 60 * 60;
+    private static final String PAYMENT_BY_ID_CACHE_PREFIX = "payment:byId:";
+    private static final String PAYMENT_CACHE_VERSION_KEY = "payment:enableInfo:cache:version";
+    private static final int PAYMENT_BY_ID_CACHE_TTL_SECONDS = 10 * 60;
+    private static final int PAYMENT_BY_ID_CACHE_JITTER_SECONDS = 2 * 60;
     private static final String FIELD_MERCHANT_USER_ID = "merchantUserId";
     private static final String FIELD_TRANSACTION_NO = "transactionNo";
     private static final String FIELD_MERCHANT_ORDER_NO = "merchantOrderNo";
@@ -123,8 +137,8 @@ public abstract class BaseOrderService {
     protected SystemConfigGroupService systemConfigGroupService;
 
     @Autowired
-    @Qualifier("pakGoPayExecutor")
-    private ThreadPoolTaskExecutor pakGoPayExecutor;
+    @Qualifier("orderBgExecutor")
+    private ThreadPoolTaskExecutor orderBgExecutor;
 
     // ----------------------------- status / notify parse -----------------------------
 
@@ -288,7 +302,7 @@ public abstract class BaseOrderService {
             log.warn("fetchPaymentById failed: paymentId is null");
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "paymentId is null");
         }
-        PaymentDto paymentDto = paymentMapper.findByPaymentId(paymentId);
+        PaymentDto paymentDto = loadPaymentByIdWithCache(paymentId);
         if (paymentDto == null) {
             log.warn("fetchPaymentById failed: payment not found, paymentId={}", paymentId);
             throw new PakGoPayException(ResultCode.INVALID_PARAMS,
@@ -297,13 +311,55 @@ public abstract class BaseOrderService {
         return paymentDto;
     }
 
+    private PaymentDto loadPaymentByIdWithCache(Long paymentId) {
+        String cacheKey = buildPaymentByIdCacheKey(paymentId);
+        try {
+            String cacheVal = redisUtil.getValue(cacheKey);
+            if (cacheVal != null && !cacheVal.isBlank()) {
+                return JSON.parseObject(cacheVal, PaymentDto.class);
+            }
+        } catch (Exception e) {
+            log.warn("loadPaymentByIdWithCache cache read failed, paymentId={}, message={}",
+                    paymentId, e.getMessage());
+        }
+
+        PaymentDto paymentDto = paymentMapper.findByPaymentId(paymentId);
+        if (paymentDto == null) {
+            return null;
+        }
+        try {
+            int ttl = PAYMENT_BY_ID_CACHE_TTL_SECONDS
+                    + ThreadLocalRandom.current().nextInt(PAYMENT_BY_ID_CACHE_JITTER_SECONDS + 1);
+            redisUtil.setWithSecondExpire(cacheKey, JSON.toJSONString(paymentDto), ttl);
+        } catch (Exception e) {
+            log.warn("loadPaymentByIdWithCache cache write failed, paymentId={}, message={}",
+                    paymentId, e.getMessage());
+        }
+        return paymentDto;
+    }
+
+    private String buildPaymentByIdCacheKey(Long paymentId) {
+        String version = resolvePaymentCacheVersion();
+        return PAYMENT_BY_ID_CACHE_PREFIX + version + ":" + paymentId;
+    }
+
+    private String resolvePaymentCacheVersion() {
+        try {
+            String version = redisUtil.getValue(PAYMENT_CACHE_VERSION_KEY);
+            return (version == null || version.isBlank()) ? "1" : version;
+        } catch (Exception e) {
+            log.warn("resolvePaymentCacheVersion failed, message={}", e.getMessage());
+            return "1";
+        }
+    }
+
     protected MerchantInfoDto validateApiKeyAndMerchant(String merchantId, String authorization) {
         if (merchantId == null || merchantId.isBlank()) {
             log.warn("validateApiKeyAndMerchant failed: merchantId is empty");
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchantId is empty");
         }
         String apiKey = extractApiKey(authorization);
-        MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByApiKey(apiKey);
+        MerchantInfoDto merchantInfoDto = loadMerchantAuthByApiKey(apiKey);
         if (merchantInfoDto == null) {
             log.warn(
                     "validateApiKeyAndMerchant failed: apiKey not found, merchantId={}",
@@ -319,9 +375,122 @@ public abstract class BaseOrderService {
         if (merchantInfoDto.getParentId() == null || merchantInfoDto.getParentId().isBlank()) {
             return merchantInfoDto;
         }
-        merchantInfoDto.setAgentInfos(CommonUtil.safeList(
-                agentInfoMapper.findAncestorAgentsByDescendant(merchantInfoDto.getParentId())));
+        merchantInfoDto.setAgentInfos(loadAgentChainByDescendantWithCache(merchantInfoDto.getParentId()));
         return merchantInfoDto;
+    }
+
+    private MerchantInfoDto loadMerchantAuthByApiKey(String apiKey) {
+        String userIdCacheKey = buildMerchantUserIdByApiKeyCacheKey(apiKey);
+        try {
+            String cachedUserId = redisUtil.getValue(userIdCacheKey);
+            if (cachedUserId != null && !cachedUserId.isBlank()) {
+                MerchantInfoDto cachedMerchant = loadMerchantByUserIdWithCache(cachedUserId);
+                if (cachedMerchant != null) {
+                    return cachedMerchant;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("loadMerchantAuthByApiKey userId index read failed, message={}", e.getMessage());
+        }
+
+        MerchantInfoDto authDto = merchantInfoMapper.findAuthInfoByApiKey(apiKey);
+        if (authDto == null || authDto.getUserId() == null || authDto.getUserId().isBlank()) {
+            return null;
+        }
+
+        try {
+            int ttl = MERCHANT_INFO_CACHE_TTL_SECONDS
+                    + ThreadLocalRandom.current().nextInt(MERCHANT_INFO_CACHE_JITTER_SECONDS + 1);
+            redisUtil.setWithSecondExpire(userIdCacheKey, authDto.getUserId(), ttl);
+        } catch (Exception e) {
+            log.warn("loadMerchantAuthByApiKey userId index write failed, message={}", e.getMessage());
+        }
+
+        MerchantInfoDto merchantInfo = loadMerchantByUserIdWithCache(authDto.getUserId());
+        return merchantInfo == null ? authDto : merchantInfo;
+    }
+
+    private MerchantInfoDto loadMerchantByUserIdWithCache(String userId) {
+        String cacheKey = buildMerchantInfoByUserIdCacheKey(userId);
+        try {
+            String cacheVal = redisUtil.getValue(cacheKey);
+            if (cacheVal != null && !cacheVal.isBlank()) {
+                return JSON.parseObject(cacheVal, MerchantInfoDto.class);
+            }
+        } catch (Exception e) {
+            log.warn("loadMerchantByUserIdWithCache read failed, userId={}, message={}", userId, e.getMessage());
+        }
+
+        MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
+        if (merchantInfoDto == null) {
+            return null;
+        }
+        try {
+            int ttl = MERCHANT_INFO_CACHE_TTL_SECONDS
+                    + ThreadLocalRandom.current().nextInt(MERCHANT_INFO_CACHE_JITTER_SECONDS + 1);
+            redisUtil.setWithSecondExpire(cacheKey, JSON.toJSONString(merchantInfoDto), ttl);
+        } catch (Exception e) {
+            log.warn("loadMerchantByUserIdWithCache write failed, userId={}, message={}", userId, e.getMessage());
+        }
+        return merchantInfoDto;
+    }
+
+    private String buildMerchantUserIdByApiKeyCacheKey(String apiKey) {
+        return MERCHANT_USER_ID_BY_API_KEY_CACHE_PREFIX + resolveMerchantInfoCacheVersion() + ":" + apiKey;
+    }
+
+    private String buildMerchantInfoByUserIdCacheKey(String userId) {
+        return MERCHANT_INFO_BY_USER_ID_CACHE_PREFIX + resolveMerchantInfoCacheVersion() + ":" + userId;
+    }
+
+    private String resolveMerchantInfoCacheVersion() {
+        try {
+            String version = redisUtil.getValue(MERCHANT_INFO_CACHE_VERSION_KEY);
+            return (version == null || version.isBlank()) ? "1" : version;
+        } catch (Exception e) {
+            log.warn("resolveMerchantInfoCacheVersion failed, message={}", e.getMessage());
+            return "1";
+        }
+    }
+
+    private List<AgentInfoDto> loadAgentChainByDescendantWithCache(String descendantUserId) {
+        String cacheKey = buildAgentChainByDescendantCacheKey(descendantUserId);
+        try {
+            String cacheVal = redisUtil.getValue(cacheKey);
+            if (cacheVal != null && !cacheVal.isBlank()) {
+                return CommonUtil.safeList(JSON.parseArray(cacheVal, AgentInfoDto.class));
+            }
+        } catch (Exception e) {
+            log.warn("loadAgentChainByDescendantWithCache cache read failed, descendantUserId={}, message={}",
+                    descendantUserId, e.getMessage());
+        }
+
+        List<AgentInfoDto> chain = CommonUtil.safeList(
+                agentInfoMapper.findAncestorAgentsByDescendant(descendantUserId));
+        try {
+            int ttl = AGENT_CHAIN_CACHE_TTL_SECONDS
+                    + ThreadLocalRandom.current().nextInt(AGENT_CHAIN_CACHE_JITTER_SECONDS + 1);
+            redisUtil.setWithSecondExpire(cacheKey, JSON.toJSONString(chain), ttl);
+        } catch (Exception e) {
+            log.warn("loadAgentChainByDescendantWithCache cache write failed, descendantUserId={}, message={}",
+                    descendantUserId, e.getMessage());
+        }
+        return chain;
+    }
+
+    private String buildAgentChainByDescendantCacheKey(String descendantUserId) {
+        String version = resolveAgentChainCacheVersion();
+        return AGENT_CHAIN_BY_DESCENDANT_CACHE_PREFIX + version + ":" + descendantUserId;
+    }
+
+    private String resolveAgentChainCacheVersion() {
+        try {
+            String version = redisUtil.getValue(AGENT_CHAIN_CACHE_VERSION_KEY);
+            return (version == null || version.isBlank()) ? "1" : version;
+        } catch (Exception e) {
+            log.warn("resolveAgentChainCacheVersion failed, message={}", e.getMessage());
+            return "1";
+        }
     }
 
     /**
@@ -348,7 +517,7 @@ public abstract class BaseOrderService {
         if (expected == null || !expected.equals(sign)) {
             log.warn("validateRequestSign failed: sign mismatch, scene={}, merchantId={}",
                     scene, merchantInfoDto.getUserId());
-            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "sign is invalid");
+            throw new PakGoPayException(ResultCode.INVALID_PARAMS, "sign is invalid: " + expected);
         }
         log.info("validateRequestSign success, scene={}, merchantId={}",
                 scene, merchantInfoDto.getUserId());
@@ -366,7 +535,8 @@ public abstract class BaseOrderService {
             return storedSignKey;
         }
         try {
-            return CryptoUtil.decryptSignKey(storedSignKey);
+            String plainSignKey = CryptoUtil.decryptSignKey(storedSignKey);
+            return plainSignKey;
         } catch (Exception e) {
             log.warn("resolveMerchantSignKey failed: decrypt signKey error, merchantId={}, message={}",
                     merchantId, e.getMessage());
@@ -502,8 +672,10 @@ public abstract class BaseOrderService {
         // 1) Capture balance snapshot before change.
         BalanceDto before = balanceService.loadOrCreateBalanceSnapshot(userId, currency);
         // 2) Apply delta on balance.
-        CommonUtil.withBalanceLogContext("order.reverse", transactionNo, () ->
-                balanceService.adjustBalance(userId, currency, deltaAmount));
+        CommonUtil.withBalanceLogContext("order.reverse", transactionNo, () -> {
+            int bucketNo = CommonUtil.resolveBalanceBucketNo(transactionNo, 16);
+            balanceService.adjustBalance(userId, currency, deltaAmount, bucketNo);
+        });
         // 3) Capture balance snapshot after change.
         BalanceDto after = balanceService.loadOrCreateBalanceSnapshot(userId, currency);
         // 4) Persist account statement row for audit trail.
@@ -588,22 +760,25 @@ public abstract class BaseOrderService {
             SystemConfigGroupEnum orderTypeGroup,
             String transactionNo,
             Long createTime) {
-        long delayMillis = resolveOrderTimeoutDelayMillis(orderTypeGroup);
-        try {
-            OrderTimeoutMessage message = new OrderTimeoutMessage();
-            message.setTransactionNo(transactionNo);
-            message.setCreateTime(createTime);
-            message.setSendTime(System.currentTimeMillis() / 1000);
-            sendDmqMessage.sendToDelayQueue(
-                    routingKey,
-                    JSON.toJSONString(message),
-                    delayMillis);
-            log.info("order timeout message sent, type={}, transactionNo={}, delayMillis={}",
-                    orderTypeGroup == null ? null : orderTypeGroup.getGroup(), transactionNo, delayMillis);
-        } catch (Exception e) {
-            log.error("order timeout message send failed, type={}, transactionNo={}, message={}",
-                    orderTypeGroup == null ? null : orderTypeGroup.getGroup(), transactionNo, e.getMessage());
-        }
+        // Send timeout message asynchronously to avoid blocking create-order main path.
+        CompletableFuture.runAsync(() -> {
+            try {
+                long delayMillis = resolveOrderTimeoutDelayMillis(orderTypeGroup);
+                OrderTimeoutMessage message = new OrderTimeoutMessage();
+                message.setTransactionNo(transactionNo);
+                message.setCreateTime(createTime);
+                message.setSendTime(System.currentTimeMillis() / 1000);
+                sendDmqMessage.sendToDelayQueue(
+                        routingKey,
+                        JSON.toJSONString(message),
+                        delayMillis);
+                log.info("order timeout message sent, type={}, transactionNo={}",
+                        orderTypeGroup == null ? null : orderTypeGroup.getGroup(), transactionNo);
+            } catch (Exception e) {
+                log.error("order timeout message send failed, type={}, transactionNo={}, message={}",
+                        orderTypeGroup == null ? null : orderTypeGroup.getGroup(), transactionNo, e.getMessage());
+            }
+        }, orderBgExecutor);
     }
 
     private long resolveOrderTimeoutDelayMillis(SystemConfigGroupEnum orderTypeGroup) {
@@ -722,8 +897,11 @@ public abstract class BaseOrderService {
         }
         for (AgentInfoDto agent : agentInfos) {
             if (agent != null && targetLevel.equals(agent.getLevel())) {
-                CommonUtil.withBalanceLogContext("agent.fee", null, () -> {
-                    balanceService.creditBalance(agent.getUserId(), currency, fee);
+                String routeKey = "AGENT_FEE_" + agent.getUserId() + "_" + currency + "_"
+                        + System.currentTimeMillis() / 1000;
+                CommonUtil.withBalanceLogContext("agent.fee", routeKey, () -> {
+                    int bucketNo = CommonUtil.resolveBalanceBucketNo(routeKey, 16);
+                    balanceService.creditBalance(agent.getUserId(), currency, fee, bucketNo);
                 });
                 log.info("agent fee credited, agentUserId={}, level={}, amount={}",
                         agent.getUserId(), targetLevel, fee);
@@ -761,6 +939,6 @@ public abstract class BaseOrderService {
                 log.error("{} callback async task failed, transactionNo={}, message={}",
                         scene, transactionNo, e.getMessage());
             }
-        }, pakGoPayExecutor);
+        }, orderBgExecutor);
     }
 }

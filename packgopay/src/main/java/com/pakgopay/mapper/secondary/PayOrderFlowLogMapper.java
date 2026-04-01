@@ -9,7 +9,7 @@ public interface PayOrderFlowLogMapper {
 
     int insert(OrderFlowLogDto dto);
 
-    int insertBatch(List<OrderFlowLogDto> list);
+    int insertBatch(@Param("tableName") String tableName, @Param("list") List<OrderFlowLogDto> list);
 
     List<OrderFlowLogDto> listByTransactionNo(
             @Param("transactionNo") String transactionNo,

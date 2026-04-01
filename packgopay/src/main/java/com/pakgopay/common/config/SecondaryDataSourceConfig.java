@@ -1,5 +1,11 @@
 package com.pakgopay.common.config;
 
+import com.pakgopay.mapper.secondary.BalanceChangeLogMapper;
+import com.pakgopay.mapper.secondary.CollectionOrderFlowLogMapper;
+import com.pakgopay.mapper.secondary.LoginLogMapper;
+import com.pakgopay.mapper.secondary.OperateLogMapper;
+import com.pakgopay.mapper.secondary.PayOrderFlowLogMapper;
+import com.zaxxer.hikari.HikariDataSource;
 import javax.sql.DataSource;
 
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -27,11 +33,19 @@ public class SecondaryDataSourceConfig {
         return new DataSourceProperties();
     }
 
-    @Bean(name = "secondaryDataSource")
+    @Bean(name = "secondaryHikariDataSource")
     @ConfigurationProperties("pakgopay.datasource.secondary.hikari")
-    public DataSource secondaryDataSource(
+    public HikariDataSource secondaryHikariDataSource(
             @Qualifier("secondaryDataSourceProperties") DataSourceProperties dataSourceProperties) {
-        return dataSourceProperties.initializeDataSourceBuilder().build();
+        return dataSourceProperties.initializeDataSourceBuilder()
+                .type(HikariDataSource.class)
+                .build();
+    }
+
+    @Bean(name = "secondaryDataSource")
+    public DataSource secondaryDataSource(
+            @Qualifier("secondaryHikariDataSource") HikariDataSource secondaryHikariDataSource) {
+        return new TimingDataSource(secondaryHikariDataSource, "secondary");
     }
 
     @Bean(name = "secondarySqlSessionFactory")
@@ -62,37 +76,46 @@ public class SecondaryDataSourceConfig {
     }
 
     @Bean
-    public MapperFactoryBean<com.pakgopay.mapper.secondary.LoginLogMapper> secondaryLoginLogMapper(
+    public MapperFactoryBean<LoginLogMapper> secondaryLoginLogMapper(
             @Qualifier("secondarySqlSessionFactory") SqlSessionFactory secondarySqlSessionFactory) {
-        MapperFactoryBean<com.pakgopay.mapper.secondary.LoginLogMapper> factoryBean =
-                new MapperFactoryBean<>(com.pakgopay.mapper.secondary.LoginLogMapper.class);
+        MapperFactoryBean<LoginLogMapper> factoryBean =
+                new MapperFactoryBean<>(LoginLogMapper.class);
         factoryBean.setSqlSessionFactory(secondarySqlSessionFactory);
         return factoryBean;
     }
 
     @Bean
-    public MapperFactoryBean<com.pakgopay.mapper.secondary.OperateLogMapper> secondaryOperateLogMapper(
+    public MapperFactoryBean<OperateLogMapper> secondaryOperateLogMapper(
             @Qualifier("secondarySqlSessionFactory") SqlSessionFactory secondarySqlSessionFactory) {
-        MapperFactoryBean<com.pakgopay.mapper.secondary.OperateLogMapper> factoryBean =
-                new MapperFactoryBean<>(com.pakgopay.mapper.secondary.OperateLogMapper.class);
+        MapperFactoryBean<OperateLogMapper> factoryBean =
+                new MapperFactoryBean<>(OperateLogMapper.class);
         factoryBean.setSqlSessionFactory(secondarySqlSessionFactory);
         return factoryBean;
     }
 
     @Bean
-    public MapperFactoryBean<com.pakgopay.mapper.secondary.CollectionOrderFlowLogMapper> secondaryCollectionOrderFlowLogMapper(
+    public MapperFactoryBean<CollectionOrderFlowLogMapper> secondaryCollectionOrderFlowLogMapper(
             @Qualifier("secondarySqlSessionFactory") SqlSessionFactory secondarySqlSessionFactory) {
-        MapperFactoryBean<com.pakgopay.mapper.secondary.CollectionOrderFlowLogMapper> factoryBean =
-                new MapperFactoryBean<>(com.pakgopay.mapper.secondary.CollectionOrderFlowLogMapper.class);
+        MapperFactoryBean<CollectionOrderFlowLogMapper> factoryBean =
+                new MapperFactoryBean<>(CollectionOrderFlowLogMapper.class);
         factoryBean.setSqlSessionFactory(secondarySqlSessionFactory);
         return factoryBean;
     }
 
     @Bean
-    public MapperFactoryBean<com.pakgopay.mapper.secondary.PayOrderFlowLogMapper> secondaryPayOrderFlowLogMapper(
+    public MapperFactoryBean<PayOrderFlowLogMapper> secondaryPayOrderFlowLogMapper(
             @Qualifier("secondarySqlSessionFactory") SqlSessionFactory secondarySqlSessionFactory) {
-        MapperFactoryBean<com.pakgopay.mapper.secondary.PayOrderFlowLogMapper> factoryBean =
-                new MapperFactoryBean<>(com.pakgopay.mapper.secondary.PayOrderFlowLogMapper.class);
+        MapperFactoryBean<PayOrderFlowLogMapper> factoryBean =
+                new MapperFactoryBean<>(PayOrderFlowLogMapper.class);
+        factoryBean.setSqlSessionFactory(secondarySqlSessionFactory);
+        return factoryBean;
+    }
+
+    @Bean
+    public MapperFactoryBean<BalanceChangeLogMapper> secondaryBalanceChangeLogMapper(
+            @Qualifier("secondarySqlSessionFactory") SqlSessionFactory secondarySqlSessionFactory) {
+        MapperFactoryBean<BalanceChangeLogMapper> factoryBean =
+                new MapperFactoryBean<>(BalanceChangeLogMapper.class);
         factoryBean.setSqlSessionFactory(secondarySqlSessionFactory);
         return factoryBean;
     }

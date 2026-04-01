@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import javax.sql.DataSource;
 
@@ -19,12 +20,18 @@ public class PrimaryDataSourceConfig {
         return new DataSourceProperties();
     }
 
-    @Bean(name = "dataSource")
-    @Primary
+    @Bean(name = "primaryHikariDataSource")
     @ConfigurationProperties("spring.datasource.hikari")
-    public DataSource dataSource(DataSourceProperties primaryDataSourceProperties) {
+    public HikariDataSource primaryHikariDataSource(
+            @Qualifier("primaryDataSourceProperties") DataSourceProperties primaryDataSourceProperties) {
         return primaryDataSourceProperties.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
+    }
+
+    @Bean(name = "dataSource")
+    @Primary
+    public DataSource dataSource(@Qualifier("primaryHikariDataSource") HikariDataSource primaryHikariDataSource) {
+        return new TimingDataSource(primaryHikariDataSource, "primary");
     }
 }

@@ -1,6 +1,11 @@
 spring:
   profiles:
     active: local
+  task:
+    scheduling:
+      thread-name-prefix: schedule-
+      pool:
+        size: 8
 pakgopay:
   currency-sync:
     excel-url: https://raw.githubusercontent.com/zhangxiangyangdebug/PakGoPay/main/packgopay/src/main/resources/excel/currency-types.xlsx

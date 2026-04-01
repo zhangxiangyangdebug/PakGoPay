@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 
 public class CommonUtil {
 
+    private static final String BALANCE_TRANSACTION_NO_KEY = "balanceTransactionNo";
+
     /**
      * Safe empty list fallback.
      *
@@ -119,7 +121,7 @@ public class CommonUtil {
             return;
         }
         String prevSource = MDC.get("balanceSource");
-        String prevTransactionNo = MDC.get("balanceTransactionNo");
+        String prevTransactionNo = MDC.get(BALANCE_TRANSACTION_NO_KEY);
         boolean setSource = false;
         boolean setTransactionNo = false;
         if (prevSource == null && source != null && !source.isBlank()) {
@@ -127,7 +129,7 @@ public class CommonUtil {
             setSource = true;
         }
         if (prevTransactionNo == null && transactionNo != null && !transactionNo.isBlank()) {
-            MDC.put("balanceTransactionNo", transactionNo);
+            MDC.put(BALANCE_TRANSACTION_NO_KEY, transactionNo);
             setTransactionNo = true;
         }
         try {
@@ -137,9 +139,34 @@ public class CommonUtil {
                 MDC.remove("balanceSource");
             }
             if (setTransactionNo) {
-                MDC.remove("balanceTransactionNo");
+                MDC.remove(BALANCE_TRANSACTION_NO_KEY);
             }
         }
+    }
+
+    public static String resolveBalanceRouteKey() {
+        return MDC.get(BALANCE_TRANSACTION_NO_KEY);
+    }
+
+    public static int resolveBalanceBucketNo(String routeKey, int bucketCount) {
+        if (bucketCount <= 0) {
+            throw new IllegalArgumentException("bucketCount must be positive");
+        }
+        if (routeKey == null || routeKey.isBlank()) {
+            return 0;
+        }
+        return Math.floorMod(routeKey.hashCode(), bucketCount);
+    }
+
+    public static String resolveBalanceRouteKeyFromBizNo(String bizNo) {
+        if (bizNo == null || bizNo.isBlank()) {
+            return bizNo;
+        }
+        int separatorIndex = bizNo.indexOf(':');
+        if (separatorIndex <= 0) {
+            return bizNo;
+        }
+        return bizNo.substring(0, separatorIndex);
     }
 
     public static boolean supportsCollection(Integer supportType) {

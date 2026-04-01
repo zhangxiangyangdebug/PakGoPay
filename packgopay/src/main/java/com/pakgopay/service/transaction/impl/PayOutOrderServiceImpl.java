@@ -18,6 +18,9 @@ import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.MerchantService;
+import com.pakgopay.service.common.AccountEventService;
+import com.pakgopay.service.common.MerchantNotifyRetryService;
+import com.pakgopay.service.common.OrderBalanceSerializeExecutor;
 import com.pakgopay.service.common.OrderFlowLogSession;
 import com.pakgopay.service.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.*;
@@ -53,6 +56,15 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
     @Autowired
     private SnowflakeIdService snowflakeIdService;
+
+    @Autowired
+    private MerchantNotifyRetryService merchantNotifyRetryService;
+
+    @Autowired
+    private AccountEventService accountEventService;
+
+    @Autowired
+    private OrderBalanceSerializeExecutor orderBalanceSerializeExecutor;
 
     @Override
     public CommonResponse createPayOutOrder(
@@ -182,12 +194,19 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             frozenAmount = CalcUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
             BigDecimal frozenAmountSnapshot = frozenAmount;
             transactionUtil.runInTransaction(() -> {
-                CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
-                    balanceService.freezeBalance(
-                            frozenAmountSnapshot,
-                            payOrderRequest.getMerchantId(),
-                            payOrderRequest.getCurrency());
-                });
+                String serializeKey = buildOrderBalanceSerializeKey(
+                        payOrderRequest.getMerchantId(),
+                        payOrderRequest.getCurrency(),
+                        transactionInfo.getTransactionNo());
+                orderBalanceSerializeExecutor.run(serializeKey, () ->
+                        CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
+                            int bucketNo = CommonUtil.resolveBalanceBucketNo(transactionInfo.getTransactionNo(), 16);
+                            balanceService.freezeBalance(
+                                    frozenAmountSnapshot,
+                                    payOrderRequest.getMerchantId(),
+                                    payOrderRequest.getCurrency(),
+                                    bucketNo);
+                        }));
 
                 int ret = payOrderMapper.insert(payOrderDto);
                 if (ret <= 0) {
@@ -247,10 +266,12 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 try {
                     BigDecimal frozenAmountSnapshot = frozenAmount;
                     CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
+                        int bucketNo = CommonUtil.resolveBalanceBucketNo(transactionInfo.getTransactionNo(), 16);
                         balanceService.releaseFrozenBalance(
                                 payOrderRequest.getMerchantId(),
                                 payOrderRequest.getCurrency(),
-                                frozenAmountSnapshot);
+                                frozenAmountSnapshot,
+                                bucketNo);
                     });
                 } catch (Exception ex) {
                     log.error("releaseFrozenBalance failed, message {}", ex.getMessage());
@@ -269,6 +290,11 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             CommonResponse<Void> failResponse = CommonResponse.fail(pe.getCode(), pe.getMessage());
             return recordMerchantCreateResponse(transactionInfo.getTransactionNo(), failResponse);
         }
+    }
+
+    private String buildOrderBalanceSerializeKey(String userId, String currency, String transactionNo) {
+        int bucketNo = CommonUtil.resolveBalanceBucketNo(transactionNo, 16);
+        return userId + ":" + currency + ":" + bucketNo;
     }
 
     @Override
@@ -532,22 +558,24 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
         // Callback result only affects callback metadata, not order final status.
         // Execute callback side-effects asynchronously to avoid blocking API response.
-        if (handler != null && payOrderDto.getCallbackUrl() != null && !payOrderDto.getCallbackUrl().isBlank()) {
+        if (payOrderDto.getCallbackUrl() != null && !payOrderDto.getCallbackUrl().isBlank()) {
+            // Only trigger first callback attempt here; retry is handled by MQ consumer.
             runCallbackAsync(scene, payOrderDto.getTransactionNo(), () -> {
                 try {
-                    OrderHandler.NotifyResult notifyResult = handler.sendNotifyToMerchant(
-                            buildPayNotifyBody(payOrderDto, targetStatus),
-                            payOrderDto.getCallbackUrl());
-                    updateNotifyCallbackMeta(payOrderDto, notifyResult);
+                    log.info("{} merchant callback first attempt scheduled, transactionNo={}, callbackUrl={}",
+                            scene, payOrderDto.getTransactionNo(), payOrderDto.getCallbackUrl());
+                    merchantNotifyRetryService.notifyPayoutFirstAttempt(
+                            payOrderDto.getTransactionNo(),
+                            payOrderDto.getCallbackUrl(),
+                            buildPayNotifyBody(payOrderDto, targetStatus));
                 } catch (Exception e) {
                     log.error("{} merchant callback execution failed, transactionNo={}, message={}",
                             scene, payOrderDto.getTransactionNo(), e.getMessage());
                 }
             });
         } else {
-            log.info("{} skip merchant callback, handlerNull={}, callbackUrlEmpty={}, transactionNo={}",
+            log.info("{} skip merchant callback, callbackUrlEmpty={}, transactionNo={}",
                     scene,
-                    handler == null,
                     payOrderDto.getCallbackUrl() == null || payOrderDto.getCallbackUrl().isBlank(),
                     payOrderDto.getTransactionNo());
         }
@@ -559,30 +587,6 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
         } else {
             log.info("{} skip report refresh, transactionNo={}, updated={}",
                     scene, payOrderDto.getTransactionNo(), updated);
-        }
-    }
-
-    private void updateNotifyCallbackMeta(PayOrderDto orderDto, OrderHandler.NotifyResult notifyResult) {
-        long now = System.currentTimeMillis() / 1000;
-        boolean success = notifyResult != null && notifyResult.isSuccess();
-        int callbackStatus = success ? 2 : 1;
-        int failedAttempts = notifyResult == null ? 1 : Math.max(notifyResult.getFailedAttempts(), 0);
-        int totalAttempts = failedAttempts + (success ? 1 : 0);
-        try {
-            long[] range = resolveTransactionNoTimeRange(orderDto.getTransactionNo());
-            payOrderMapper.increaseCallbackTimes(
-                    orderDto.getTransactionNo(),
-                    now,
-                    totalAttempts,
-                    callbackStatus,
-                    success ? now : null,
-                    range[0],
-                    range[1]);
-            log.info("merchant notify callback meta updated, transactionNo={}, totalAttempts={}, success={}, callbackStatus={}",
-                    orderDto.getTransactionNo(), totalAttempts, success, callbackStatus);
-        } catch (Exception e) {
-            log.error("update notify callback meta failed, transactionNo={}, message={}",
-                    orderDto.getTransactionNo(), e.getMessage());
         }
     }
 
@@ -738,28 +742,10 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             BigDecimal frozenAmount = CalcUtil.safeAdd(payoutAmount, merchantFee);
 
             if (TransactionStatus.SUCCESS.equals(targetStatus)) {
-                CommonUtil.withBalanceLogContext("payout.handleNotify", payOrderDto.getTransactionNo(), () -> {
-                    balanceService.confirmPayoutBalance(
-                            payOrderDto.getMerchantUserId(),
-                            payOrderDto.getCurrencyType(),
-                            frozenAmount);
-                });
-                log.info("balance payout confirmed, transactionNo={}, frozenAmount={}",
-                        payOrderDto.getTransactionNo(), frozenAmount);
-                updateAgentFeeBalance(balanceService, merchantInfo, payOrderDto.getCurrencyType(),
-                        payOrderDto.getAgent1Fee(),
-                        payOrderDto.getAgent2Fee(),
-                        payOrderDto.getAgent3Fee());
+                accountEventService.appendPayoutSuccessEvents(payOrderDto, merchantInfo, frozenAmount);
             }
             if (TransactionStatus.FAILED.equals(targetStatus)) {
-                CommonUtil.withBalanceLogContext("payout.handleNotify", payOrderDto.getTransactionNo(), () -> {
-                    balanceService.releaseFrozenBalance(
-                            payOrderDto.getMerchantUserId(),
-                            payOrderDto.getCurrencyType(),
-                            frozenAmount);
-                });
-                log.info("balance payout released, transactionNo={}, frozenAmount={}",
-                        payOrderDto.getTransactionNo(), frozenAmount);
+                accountEventService.appendPayoutFailedEvents(payOrderDto, frozenAmount);
             }
         });
         log.info("payout applyNotifyUpdate end, transactionNo={}, stateUpdated={}",

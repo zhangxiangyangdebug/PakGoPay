@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.BalanceBucketMapper">
+
+    <resultMap id="BalanceBucketResultMap" type="com.pakgopay.mapper.dto.BalanceDto">
+        <id column="user_id" property="userId" javaType="java.lang.String"/>
+        <id column="currency" property="currency" javaType="java.lang.String"/>
+        <id column="bucket_no" property="bucketNo" javaType="java.lang.Integer"/>
+        <result column="available_balance" property="availableBalance" javaType="java.math.BigDecimal"/>
+        <result column="frozen_balance" property="frozenBalance" javaType="java.math.BigDecimal"/>
+        <result column="total_balance" property="totalBalance" javaType="java.math.BigDecimal"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
+        <result column="remark" property="remark" javaType="java.lang.String"/>
+    </resultMap>
+
+    <insert id="insertZeroBuckets">
+        INSERT INTO balance_bucket (
+            user_id,
+            currency,
+            bucket_no,
+            available_balance,
+            frozen_balance,
+            total_balance,
+            create_time,
+            update_time,
+            remark
+        )
+        SELECT
+            #{userId},
+            #{currency},
+            gs.bucket_no,
+            0,
+            0,
+            0,
+            #{createTime},
+            #{updateTime},
+            NULL
+        FROM generate_series(0, 15) AS gs(bucket_no)
+        ON CONFLICT (user_id, currency, bucket_no) DO NOTHING
+    </insert>
+
+    <select id="listBucketsForUpdate" resultMap="BalanceBucketResultMap">
+        SELECT
+            user_id,
+            currency,
+            bucket_no,
+            available_balance,
+            frozen_balance,
+            total_balance,
+            create_time,
+            update_time,
+            remark
+        FROM balance_bucket
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+        ORDER BY bucket_no ASC
+        FOR UPDATE
+    </select>
+
+    <update id="freezeBalance">
+        UPDATE balance_bucket
+        SET
+            available_balance = available_balance - #{amount},
+            frozen_balance = frozen_balance + #{amount},
+            update_time = #{updateTime}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND bucket_no = #{bucketNo}
+          AND available_balance >= #{amount}
+    </update>
+
+    <update id="upsertCreditBalance">
+        INSERT INTO balance_bucket (
+            user_id,
+            currency,
+            bucket_no,
+            available_balance,
+            frozen_balance,
+            total_balance,
+            create_time,
+            update_time,
+            remark
+        ) VALUES (
+            #{userId},
+            #{currency},
+            #{bucketNo},
+            #{amount},
+            0,
+            #{amount},
+            #{now},
+            #{now},
+            NULL
+        )
+        ON CONFLICT (user_id, currency, bucket_no)
+        DO UPDATE SET
+            available_balance = COALESCE(balance_bucket.available_balance, 0) + EXCLUDED.available_balance,
+            total_balance = COALESCE(balance_bucket.total_balance, 0) + EXCLUDED.total_balance,
+            update_time = EXCLUDED.update_time
+    </update>
+
+    <update id="releaseFrozenBalance">
+        UPDATE balance_bucket
+        SET
+            frozen_balance = COALESCE(frozen_balance, 0) - #{amount},
+            available_balance = COALESCE(available_balance, 0) + #{amount},
+            update_time = #{updateTime}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND bucket_no = #{bucketNo}
+          AND frozen_balance &gt;= #{amount}
+    </update>
+
+    <update id="adjustBalance">
+        UPDATE balance_bucket
+        SET
+            available_balance = available_balance + #{amount},
+            total_balance = total_balance + #{amount},
+            update_time = #{now}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND bucket_no = #{bucketNo}
+          AND (#{amount} &gt;= 0 OR available_balance &gt;= -#{amount})
+    </update>
+
+    <update id="freezeForWithdraw">
+        UPDATE balance_bucket
+        SET
+            available_balance = available_balance - #{amount},
+            frozen_balance = frozen_balance + #{amount},
+            update_time = #{now}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND bucket_no = #{bucketNo}
+          AND available_balance >= #{amount}
+    </update>
+
+    <update id="confirmWithdraw">
+        UPDATE balance_bucket
+        SET
+            frozen_balance = frozen_balance - #{amount},
+            update_time = #{now}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND bucket_no = #{bucketNo}
+          AND frozen_balance >= #{amount}
+    </update>
+
+    <update id="cancelWithdraw">
+        UPDATE balance_bucket
+        SET
+            frozen_balance = frozen_balance - #{amount},
+            available_balance = available_balance + #{amount},
+            update_time = #{now}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND bucket_no = #{bucketNo}
+          AND frozen_balance >= #{amount}
+    </update>
+
+    <update id="confirmPayoutBalance">
+        UPDATE balance_bucket
+        SET
+            frozen_balance = frozen_balance - #{amount},
+            total_balance = total_balance - #{amount},
+            update_time = #{now}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND bucket_no = #{bucketNo}
+          AND frozen_balance >= #{amount}
+    </update>
+
+</mapper>

@@ -35,15 +35,15 @@
             #{stepName},
             #{stepSeq},
             #{success},
-            CAST(#{payload,jdbcType=VARCHAR} AS jsonb),
+            #{payload,jdbcType=VARCHAR},
             #{traceId},
             #{eventTime},
             #{createTime}
         )
     </insert>
 
-    <insert id="insertBatch" parameterType="java.util.List">
-        INSERT INTO pay_order_flow_log (
+    <insert id="insertBatch">
+        INSERT INTO ${tableName} (
             transaction_no,
             step_code,
             step_name,
@@ -61,7 +61,7 @@
                 #{item.stepName},
                 #{item.stepSeq},
                 #{item.success},
-                CAST(#{item.payload,jdbcType=VARCHAR} AS jsonb),
+                #{item.payload,jdbcType=VARCHAR},
                 #{item.traceId},
                 #{item.eventTime},
                 #{item.createTime}
@@ -77,7 +77,7 @@
             step_name,
             step_seq,
             success,
-            payload::text AS payload,
+            payload,
             trace_id,
             event_time,
             create_time

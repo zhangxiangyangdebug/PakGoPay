@@ -46,19 +46,22 @@ public class TransactionUtil {
         TransactionTemplate template = new TransactionTemplate(transactionManager);
         template.setPropagationBehavior(propagationBehavior);
 
+        log.info("transaction start, propagation={}", propagationBehavior);
         template.executeWithoutResult(status -> {
-            log.info("transaction start, propagation={}", propagationBehavior);
             try {
+                log.info("transaction callback enter, propagation={}, stepCount={}", propagationBehavior, steps == null ? 0 : steps.length);
                 for (TransactionStep step : steps) {
                     step.execute();
                 }
-                log.info("transaction committed, propagation={}", propagationBehavior);
+                log.info("transaction callback exit, propagation={}", propagationBehavior);
             } catch (Exception e) {
                 status.setRollbackOnly();
                 log.error("transaction rollback", e);
                 throw wrapAsRuntime(e);
             }
         });
+        // This log is emitted after TransactionTemplate returns, i.e. after DB commit completed.
+        log.info("transaction committed, propagation={}", propagationBehavior);
     }
 
     /**
@@ -75,18 +78,22 @@ public class TransactionUtil {
         TransactionTemplate template = new TransactionTemplate(transactionManager);
         template.setPropagationBehavior(propagationBehavior);
 
-        return template.execute(status -> {
-            log.info("transaction start, propagation={}", propagationBehavior);
+        log.info("transaction start, propagation={}", propagationBehavior);
+        T result = template.execute(status -> {
             try {
-                T result = callback.execute();
-                log.info("transaction committed, propagation={}", propagationBehavior);
-                return result;
+                log.info("transaction callback enter, propagation={}, callbackType=with_result", propagationBehavior);
+                T callbackResult = callback.execute();
+                log.info("transaction callback exit, propagation={}, callbackType=with_result", propagationBehavior);
+                return callbackResult;
             } catch (Exception e) {
                 status.setRollbackOnly();
                 log.error("transaction rollback", e);
                 throw wrapAsRuntime(e);
             }
         });
+        // This log is emitted after TransactionTemplate returns, i.e. after DB commit completed.
+        log.info("transaction committed, propagation={}", propagationBehavior);
+        return result;
     }
 
     private RuntimeException wrapAsRuntime(Exception e) {

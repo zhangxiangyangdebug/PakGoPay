@@ -16,6 +16,8 @@ public class RabbitConfig {
     public static final String DELAY_EXCHANGE = "task.delay.exchange";
     public static final String TASK_COLLECTING_QUEUE = "task.collecting.queue";
     public static final String TASK_PAYING_QUEUE = "task.paying.queue";
+    public static final String MERCHANT_NOTIFY_COLLECTION_QUEUE = "merchant.notify.collection.queue";
+    public static final String MERCHANT_NOTIFY_PAYING_QUEUE = "merchant.notify.paying.queue";
     public static final String ORDER_TIMEOUT_COLLECTION_QUEUE = "order.timeout.collection.queue";
     public static final String ORDER_TIMEOUT_PAYING_QUEUE = "order.timeout.paying.queue";
 
@@ -97,6 +99,16 @@ public class RabbitConfig {
     }
 
     @Bean
+    public Queue merchantNotifyCollectionQueue() {
+        return new Queue(MERCHANT_NOTIFY_COLLECTION_QUEUE, true);
+    }
+
+    @Bean
+    public Queue merchantNotifyPayingQueue() {
+        return new Queue(MERCHANT_NOTIFY_PAYING_QUEUE, true);
+    }
+
+    @Bean
     public Binding collectingDelayBinding(Queue collectingQueue, CustomExchange delayedExchange) {
         return BindingBuilder.bind(collectingQueue).to(delayedExchange).with(TASK_COLLECTING_QUEUE).noargs();
     }
@@ -123,6 +135,26 @@ public class RabbitConfig {
         return BindingBuilder.bind(orderTimeoutPayingQueue)
                 .to(delayedExchange)
                 .with(ORDER_TIMEOUT_PAYING_QUEUE)
+                .noargs();
+    }
+
+    @Bean
+    public Binding merchantNotifyCollectionDelayBinding(
+            Queue merchantNotifyCollectionQueue,
+            CustomExchange delayedExchange) {
+        return BindingBuilder.bind(merchantNotifyCollectionQueue)
+                .to(delayedExchange)
+                .with(MERCHANT_NOTIFY_COLLECTION_QUEUE)
+                .noargs();
+    }
+
+    @Bean
+    public Binding merchantNotifyPayingDelayBinding(
+            Queue merchantNotifyPayingQueue,
+            CustomExchange delayedExchange) {
+        return BindingBuilder.bind(merchantNotifyPayingQueue)
+                .to(delayedExchange)
+                .with(MERCHANT_NOTIFY_PAYING_QUEUE)
                 .noargs();
     }
 

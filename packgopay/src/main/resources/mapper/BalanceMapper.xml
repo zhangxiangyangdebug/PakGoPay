@@ -109,6 +109,35 @@
             AND (#{delta} &gt;= 0 OR available_balance &gt;= -#{delta})
     </update>
 
+    <update id="upsertCreditBalance">
+        INSERT INTO balance (
+            user_id,
+            currency,
+            available_balance,
+            frozen_balance,
+            withdraw_amount,
+            total_balance,
+            create_time,
+            update_time,
+            remark
+        ) VALUES (
+            #{userId},
+            #{currency},
+            #{amount},
+            0,
+            0,
+            #{amount},
+            #{now},
+            #{now},
+            NULL
+        )
+        ON CONFLICT (user_id, currency)
+        DO UPDATE SET
+            available_balance = COALESCE(balance.available_balance, 0) + EXCLUDED.available_balance,
+            total_balance = COALESCE(balance.total_balance, 0) + EXCLUDED.total_balance,
+            update_time = EXCLUDED.update_time
+    </update>
+
     <!-- Atomic add frozen balance (usually total_balance unchanged; adjust if your business differs) -->
     <update id="addFrozenBalance">
         UPDATE balance

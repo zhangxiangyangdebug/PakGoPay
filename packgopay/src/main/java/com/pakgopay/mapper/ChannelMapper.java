@@ -18,6 +18,11 @@ public interface ChannelMapper {
 
     int updateByChannelId(ChannelDto dto);
 
+    int increaseCountersByChannelIdDelta(@Param("channelId") Long channelId,
+                                         @Param("totalInc") long totalInc,
+                                         @Param("failInc") long failInc,
+                                         @Param("updateTime") long updateTime);
+
     int deleteByChannelId(@Param("channelId") Long channelId);
 
     List<ChannelDto> getPaymentIdsByChannelIds(@Param("channelIds") List<Long> channelIds, @Param("status") Integer status);
