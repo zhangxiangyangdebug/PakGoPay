@@ -4,17 +4,19 @@ import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.response.BalanceUserInfo;
 import com.pakgopay.data.response.CommonResponse;
+import com.pakgopay.mapper.BalanceBucketMapper;
 import com.pakgopay.mapper.BalanceMapper;
 import com.pakgopay.mapper.dto.BalanceDto;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.util.TransactionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,12 @@ public class BalanceServiceImpl implements BalanceService {
 
     @Autowired
     private BalanceMapper balanceMapper;
+
+    @Autowired
+    private BalanceBucketMapper balanceBucketMapper;
+
+    @Autowired
+    private TransactionUtil transactionUtil;
 
     @Override
     public CommonResponse fetchMerchantAvailableBalance(String userId, String authorization) throws PakGoPayException {
@@ -56,171 +64,98 @@ public class BalanceServiceImpl implements BalanceService {
 
     @Override
     public void freezeBalance(BigDecimal freezeFee, String userId, String currency) throws PakGoPayException {
-        BalanceDto before = fetchBalanceSnapshot(userId, currency);
-        try {
-            long now = System.currentTimeMillis() / 1000;
-            int ret = balanceMapper.freezeBalance(userId, freezeFee, currency, now);
-            if (ret <= 0) {
-                log.warn("insufficient available balance, userId: {} currency: {}", userId, currency);
-                throw new PakGoPayException(ResultCode.MERCHANT_BALANCE_NOT_ENOUGH);
-            }
-        } catch (PakGoPayException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("balance freezeBalance failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
-        BalanceDto after = fetchBalanceSnapshot(userId, currency);
-        logBalanceChange("freezeBalance", before, after, freezeFee, userId, currency);
+        executeWithAggregateUpdate(userId, currency, freezeFee, null, BucketOperation.ORDER_FREEZE);
+    }
+
+    @Override
+    public void freezeBalance(BigDecimal freezeFee, String userId, String currency, int bucketNo) throws PakGoPayException {
+        executeWithAggregateUpdate(userId, currency, freezeFee, bucketNo, BucketOperation.ORDER_FREEZE);
     }
 
     @Override
     public void releaseFrozenBalance(String userId, String currency, BigDecimal amount) {
-        if (!checkParams(userId, currency, amount)) {
-            return;
-        }
-        BalanceDto before = fetchBalanceSnapshot(userId, currency);
-        try {
-            long now = System.currentTimeMillis() / 1000;
-            int ret = balanceMapper.releaseFrozenBalance(userId, amount, currency, now);
-            if (ret <= 0) {
-                throw new PakGoPayException(ResultCode.MERCHANT_BALANCE_NOT_ENOUGH, "frozen balance is not enough");
-            }
-        } catch (Exception e) {
-            log.error("releaseFrozenBalance failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
-        BalanceDto after = fetchBalanceSnapshot(userId, currency);
-        logBalanceChange("releaseFrozenBalance", before, after, amount, userId, currency);
+        executeWithAggregateUpdate(userId, currency, amount, null, BucketOperation.RELEASE_FROZEN);
+    }
+
+    @Override
+    public void releaseFrozenBalance(String userId, String currency, BigDecimal amount, int bucketNo) {
+        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.RELEASE_FROZEN);
     }
 
     @Override
     public void creditBalance(String userId, String currency, BigDecimal amount) {
-        if (!checkParams(userId, currency, amount)) {
-            return;
-        }
-        if (amount.compareTo(BigDecimal.ZERO) < 0) {
-            log.warn("amount is negative, userId: {} currency: {}", userId, currency);
-            return;
-        }
+        executeWithAggregateUpdate(userId, currency, amount, null, BucketOperation.CREDIT);
+    }
 
-        try {
-            long now = System.currentTimeMillis() / 1000;
-            BalanceDto before = fetchBalanceSnapshot(userId, currency);
-            upsertCreditBalance(userId, currency, amount, now);
-            BalanceDto after = fetchBalanceSnapshot(userId, currency);
-            logBalanceChange("creditBalance", before, after, amount, userId, currency);
-        } catch (Exception e) {
-            log.error("creditBalance failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
+    @Override
+    public void creditBalance(String userId, String currency, BigDecimal amount, int bucketNo) {
+        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.CREDIT);
     }
 
     private void upsertCreditBalance(String userId, String currency, BigDecimal amount, long now) {
-        int updated = balanceMapper.addAvailableBalance(userId, amount, currency, now);
-        if (updated > 0) {
-            return;
+        int updated = balanceMapper.upsertCreditBalance(userId, currency, amount, now);
+        if (updated <= 0) {
+            throw new PakGoPayException(ResultCode.FAIL, "upsert credit balance failed");
         }
+    }
 
-        BalanceDto dto = new BalanceDto();
-        dto.setUserId(userId);
-        dto.setCurrency(currency);
-        dto.setAvailableBalance(amount);
-        dto.setFrozenBalance(BigDecimal.ZERO);
-        dto.setWithdrawAmount(BigDecimal.ZERO);
-        dto.setTotalBalance(amount);
-        dto.setCreateTime(now);
-        dto.setUpdateTime(now);
-
-        try {
-            int insert = balanceMapper.insert(dto);
-            if (insert <= 0) {
-                throw new PakGoPayException(ResultCode.FAIL, "insert balance failed");
-            }
-        } catch (Exception e) {
-            // If another thread inserted, retry update.
-            int retry = balanceMapper.addAvailableBalance(userId, amount, currency, now);
-            if (retry <= 0) {
-                throw e;
-            }
+    private void upsertCreditBalanceBucket(String userId, String currency, BigDecimal amount, int bucketNo, long now) {
+        int updated = balanceBucketMapper.upsertCreditBalance(userId, currency, bucketNo, amount, now);
+        if (updated <= 0) {
+            throw new PakGoPayException(ResultCode.FAIL, "upsert credit balance bucket failed");
         }
     }
 
     @Override
     public void applyWithdrawalOperation(String userId, String currency, BigDecimal amount, Integer oper) {
-        if (!checkParams(userId, currency, amount)) {
-            return;
-        }
-
-        int ret = 0;
-        try {
-            long now = System.currentTimeMillis() / 1000;
-            BalanceDto before = fetchBalanceSnapshot(userId, currency);
-            if (oper == 0) {
-                // freeze
-                ret = balanceMapper.freezeForWithdraw(userId, amount, currency, now);
-            } else if (oper == 1) {
-                // confirm
-                ret = balanceMapper.confirmWithdraw(userId, amount, currency, now);
-            } else {
-                // cancel
-                ret = balanceMapper.cancelWithdraw(userId, amount, currency, now);
-            }
-            BalanceDto after = fetchBalanceSnapshot(userId, currency);
-            logBalanceChange("applyWithdrawalOperation(" + oper + ")", before, after, amount, userId, currency);
-        } catch (Exception e) {
-            log.error("applyWithdrawalOperation failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
-
-        if (ret <= 0) {
-            throw new PakGoPayException(ResultCode.FAIL, "withdrawBalance failed");
-        }
+        executeWithAggregateUpdate(userId, currency, amount, null, BucketOperation.fromWithdrawOper(oper));
     }
 
+    @Override
+    public void applyWithdrawalOperation(String userId, String currency, BigDecimal amount, Integer oper, int bucketNo) {
+        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.fromWithdrawOper(oper));
+    }
+
+    @Override
     public void confirmPayoutBalance(String userId, String currency, BigDecimal amount) {
-        if (!checkParams(userId, currency, amount)) {
-            return;
-        }
-        int ret = 0;
-        try {
-            long now = System.currentTimeMillis() / 1000;
-            BalanceDto before = fetchBalanceSnapshot(userId, currency);
-            ret = balanceMapper.confirmPayoutBalance(userId, amount, currency, now);
-            BalanceDto after = fetchBalanceSnapshot(userId, currency);
-            logBalanceChange("confirmPayoutBalance", before, after, amount, userId, currency);
-        } catch (Exception e) {
-            log.error("confirmPayoutBalance failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
-        if (ret <= 0) {
-            throw new PakGoPayException(ResultCode.FAIL, "confirmPayoutBalance failed");
-        }
+        executeWithAggregateUpdate(userId, currency, amount, null, BucketOperation.CONFIRM_PAYOUT);
+    }
+
+    @Override
+    public void confirmPayoutBalance(String userId, String currency, BigDecimal amount, int bucketNo) {
+        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.CONFIRM_PAYOUT);
     }
 
     @Override
     public void adjustBalance(String userId, String currency, BigDecimal amount) {
+        executeWithAggregateUpdate(userId, currency, amount, null, BucketOperation.ADJUST);
+    }
+
+    @Override
+    public void adjustBalance(String userId, String currency, BigDecimal amount, int bucketNo) {
+        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.ADJUST);
+    }
+
+    private void executeWithAggregateUpdate(
+            String userId, String currency, BigDecimal amount, Integer bucketNo, BucketOperation operation) {
         if (!checkParams(userId, currency, amount)) {
             return;
         }
-
-        int ret = 0;
         try {
-            long now = System.currentTimeMillis() / 1000;
-            BalanceDto before = fetchBalanceSnapshot(userId, currency);
-            ret = balanceMapper.adjustBalance(userId, amount, currency, now);
-            BalanceDto after = fetchBalanceSnapshot(userId, currency);
-            logBalanceChange("adjustBalance", before, after, amount, userId, currency);
+            transactionUtil.runInTransaction(() -> {
+                long now = System.currentTimeMillis() / 1000;
+                ensureZeroBuckets(userId, currency, now);
+                applyBucketOperation(userId, currency, amount, bucketNo, now, operation);
+                applyAggregateOperation(userId, currency, amount, now, operation);
+                BALANCE_LOG.info(
+                        "action={} userId={} currency={} amount={} bucketNo={} ts={}",
+                        operation.name(), userId, currency, amount, bucketNo, now);
+            });
+        } catch (PakGoPayException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("adjustBalance failed, message {}", e.getMessage());
+            log.error("{} failed, message {}", operation.name(), e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
-
-        if (ret <= 0) {
-            if (amount.compareTo(BigDecimal.ZERO) < 0) {
-                throw new PakGoPayException(ResultCode.MERCHANT_BALANCE_NOT_ENOUGH);
-            }
-            throw new PakGoPayException(ResultCode.FAIL, "adjustBalance failed");
         }
     }
 
@@ -293,7 +228,6 @@ public class BalanceServiceImpl implements BalanceService {
     @Override
     public void createBalanceRecord(String userId, String currency) {
         try {
-            BalanceDto before = fetchBalanceSnapshot(userId, currency);
             BalanceDto dto = new BalanceDto();
             dto.setUserId(userId);
             dto.setCurrency(currency);
@@ -305,8 +239,12 @@ public class BalanceServiceImpl implements BalanceService {
             dto.setUpdateTime(now);
 
             int ret = balanceMapper.insert(dto);
-            BalanceDto after = fetchBalanceSnapshot(userId, currency);
-            logBalanceChange("createBalanceRecord", before, after, BigDecimal.ZERO, userId, currency);
+            ensureZeroBuckets(userId, currency, now);
+            if (ret > 0) {
+                BALANCE_LOG.info(
+                        "action=createBalanceRecord userId={} currency={} amount={} ts={}",
+                        userId, currency, BigDecimal.ZERO, now);
+            }
         } catch (Exception e) {
             log.error("createBalanceRecord failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -347,40 +285,185 @@ public class BalanceServiceImpl implements BalanceService {
         }
     }
 
-    private void logBalanceChange(String operation,
-                                  BalanceDto before,
-                                  BalanceDto after,
-                                  BigDecimal amount,
-                                  String userId,
-                                  String currency) {
-        String source = MDC.get("balanceSource");
-        String transactionNo = MDC.get("balanceTransactionNo");
-        String op = operation;
-        if (source != null && !source.isBlank()) {
-            op = source + ":" + operation;
-        }
-        BigDecimal beforeAvailable = before == null ? BigDecimal.ZERO : amountDefaultValue(before.getAvailableBalance());
-        BigDecimal beforeFrozen = before == null ? BigDecimal.ZERO : amountDefaultValue(before.getFrozenBalance());
-        BigDecimal beforeTotal = before == null ? BigDecimal.ZERO : amountDefaultValue(before.getTotalBalance());
-        BigDecimal beforeWithdraw = before == null ? BigDecimal.ZERO : amountDefaultValue(before.getWithdrawAmount());
-
-        BigDecimal afterAvailable = after == null ? BigDecimal.ZERO : amountDefaultValue(after.getAvailableBalance());
-        BigDecimal afterFrozen = after == null ? BigDecimal.ZERO : amountDefaultValue(after.getFrozenBalance());
-        BigDecimal afterTotal = after == null ? BigDecimal.ZERO : amountDefaultValue(after.getTotalBalance());
-        BigDecimal afterWithdraw = after == null ? BigDecimal.ZERO : amountDefaultValue(after.getWithdrawAmount());
-
-        BigDecimal deltaAvailable = afterAvailable.subtract(beforeAvailable);
-        BigDecimal deltaFrozen = afterFrozen.subtract(beforeFrozen);
-        BigDecimal deltaTotal = afterTotal.subtract(beforeTotal);
-        BigDecimal deltaWithdraw = afterWithdraw.subtract(beforeWithdraw);
-
-        BALANCE_LOG.info("balance op={}, source={}, transactionNo={}, userId={}, currency={}, amount={}\n" +
-                        "before[available={}, frozen={}, total={}, withdraw={}]\n" +
-                        "after[available={}, frozen={}, total={}, withdraw={}]\n" +
-                        "delta[available={}, frozen={}, total={}, withdraw={}]",
-                op, source, transactionNo, userId, currency, amountDefaultValue(amount),
-                beforeAvailable, beforeFrozen, beforeTotal, beforeWithdraw,
-                afterAvailable, afterFrozen, afterTotal, afterWithdraw,
-                deltaAvailable, deltaFrozen, deltaTotal, deltaWithdraw);
+    private void ensureZeroBuckets(String userId, String currency, long now) {
+        balanceBucketMapper.insertZeroBuckets(userId, currency, now, now);
     }
+
+    private void applyBucketOperation(
+            String userId, String currency, BigDecimal amount, Integer bucketNo, long now, BucketOperation operation) {
+        if (bucketNo != null) {
+            applySingleBucketOperation(userId, currency, amount, bucketNo, now, operation);
+            return;
+        }
+        applyCrossBucketOperation(userId, currency, amount, now, operation);
+    }
+
+    private void applyAggregateOperation(
+            String userId, String currency, BigDecimal amount, long now, BucketOperation operation) {
+        int ret;
+        switch (operation) {
+            case ORDER_FREEZE:
+                ret = balanceMapper.freezeBalance(userId, amount, currency, now);
+                break;
+            case RELEASE_FROZEN:
+                ret = balanceMapper.releaseFrozenBalance(userId, amount, currency, now);
+                break;
+            case CREDIT:
+                upsertCreditBalance(userId, currency, amount, now);
+                return;
+            case ADJUST:
+                ret = balanceMapper.adjustBalance(userId, amount, currency, now);
+                break;
+            case WITHDRAW_FREEZE:
+                ret = balanceMapper.freezeForWithdraw(userId, amount, currency, now);
+                break;
+            case WITHDRAW_CONFIRM:
+                ret = balanceMapper.confirmWithdraw(userId, amount, currency, now);
+                break;
+            case WITHDRAW_CANCEL:
+                ret = balanceMapper.cancelWithdraw(userId, amount, currency, now);
+                break;
+            case CONFIRM_PAYOUT:
+                ret = balanceMapper.confirmPayoutBalance(userId, amount, currency, now);
+                break;
+            default:
+                throw new PakGoPayException(ResultCode.FAIL, "unsupported aggregate operation");
+        }
+        if (ret <= 0) {
+            throw buildInsufficientException(operation);
+        }
+    }
+
+    private void applySingleBucketOperation(
+            String userId, String currency, BigDecimal amount, int bucketNo, long now, BucketOperation operation) {
+        int bucketRet;
+        switch (operation) {
+            case ORDER_FREEZE:
+                bucketRet = balanceBucketMapper.freezeBalance(userId, amount, currency, bucketNo, now);
+                break;
+            case RELEASE_FROZEN:
+                bucketRet = balanceBucketMapper.releaseFrozenBalance(userId, amount, currency, bucketNo, now);
+                break;
+            case CREDIT:
+                upsertCreditBalanceBucket(userId, currency, amount, bucketNo, now);
+                return;
+            case ADJUST:
+                bucketRet = balanceBucketMapper.adjustBalance(userId, amount, currency, bucketNo, now);
+                break;
+            case WITHDRAW_FREEZE:
+                bucketRet = balanceBucketMapper.freezeForWithdraw(userId, amount, currency, bucketNo, now);
+                break;
+            case WITHDRAW_CONFIRM:
+                bucketRet = balanceBucketMapper.confirmWithdraw(userId, amount, currency, bucketNo, now);
+                break;
+            case WITHDRAW_CANCEL:
+                bucketRet = balanceBucketMapper.cancelWithdraw(userId, amount, currency, bucketNo, now);
+                break;
+            case CONFIRM_PAYOUT:
+                bucketRet = balanceBucketMapper.confirmPayoutBalance(userId, amount, currency, bucketNo, now);
+                break;
+            default:
+                throw new PakGoPayException(ResultCode.FAIL, "unsupported bucket operation");
+        }
+        if (bucketRet <= 0) {
+            throw buildInsufficientException(operation);
+        }
+    }
+
+    private void applyCrossBucketOperation(
+            String userId, String currency, BigDecimal amount, long now, BucketOperation operation) {
+        List<BalanceDto> buckets = balanceBucketMapper.listBucketsForUpdate(userId, currency);
+        if (buckets == null || buckets.isEmpty()) {
+            throw new PakGoPayException(ResultCode.FAIL, "balance bucket not found");
+        }
+        if (operation == BucketOperation.CREDIT || (operation == BucketOperation.ADJUST && amount.compareTo(BigDecimal.ZERO) > 0)) {
+            int targetBucketNo = buckets.stream()
+                    .min(Comparator.comparing(bucket -> amountDefaultValue(bucket.getTotalBalance())))
+                    .map(BalanceDto::getBucketNo)
+                    .orElse(0);
+            if (operation == BucketOperation.CREDIT) {
+                upsertCreditBalanceBucket(userId, currency, amount, targetBucketNo, now);
+            } else {
+                int updated = balanceBucketMapper.adjustBalance(userId, amount, currency, targetBucketNo, now);
+                if (updated <= 0) {
+                    throw buildInsufficientException(operation);
+                }
+            }
+            return;
+        }
+
+        BigDecimal remaining = amount;
+        List<BalanceDto> orderedBuckets = switch (operation) {
+            case ORDER_FREEZE, WITHDRAW_FREEZE, ADJUST ->
+                    buckets.stream()
+                            .sorted(Comparator.comparing((BalanceDto bucket) -> amountDefaultValue(bucket.getAvailableBalance()))
+                                    .reversed())
+                            .toList();
+            case RELEASE_FROZEN, WITHDRAW_CANCEL, WITHDRAW_CONFIRM, CONFIRM_PAYOUT ->
+                    buckets.stream()
+                            .sorted(Comparator.comparing((BalanceDto bucket) -> amountDefaultValue(bucket.getFrozenBalance()))
+                                    .reversed())
+                            .toList();
+            default -> buckets;
+        };
+        for (BalanceDto bucket : orderedBuckets) {
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+            BigDecimal capacity = switch (operation) {
+                case ORDER_FREEZE, WITHDRAW_FREEZE ->
+                        amountDefaultValue(bucket.getAvailableBalance());
+                case ADJUST ->
+                        amount.compareTo(BigDecimal.ZERO) < 0
+                                ? amountDefaultValue(bucket.getAvailableBalance())
+                                : BigDecimal.ZERO;
+                case RELEASE_FROZEN, WITHDRAW_CANCEL, WITHDRAW_CONFIRM, CONFIRM_PAYOUT ->
+                        amountDefaultValue(bucket.getFrozenBalance());
+                default -> BigDecimal.ZERO;
+            };
+            if (capacity.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            BigDecimal applyAmount = remaining.min(capacity);
+            applySingleBucketOperation(userId, currency, applyAmount, bucket.getBucketNo(), now, operation);
+            remaining = remaining.subtract(applyAmount);
+        }
+        if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+            throw buildInsufficientException(operation);
+        }
+    }
+
+    private PakGoPayException buildInsufficientException(BucketOperation operation) {
+        if (operation == BucketOperation.ORDER_FREEZE
+                || operation == BucketOperation.WITHDRAW_FREEZE
+                || operation == BucketOperation.ADJUST) {
+            return new PakGoPayException(ResultCode.MERCHANT_BALANCE_NOT_ENOUGH);
+        }
+        return new PakGoPayException(ResultCode.FAIL, operation.name() + " failed");
+    }
+
+    private enum BucketOperation {
+        ORDER_FREEZE,
+        RELEASE_FROZEN,
+        CREDIT,
+        ADJUST,
+        WITHDRAW_FREEZE,
+        WITHDRAW_CONFIRM,
+        WITHDRAW_CANCEL,
+        CONFIRM_PAYOUT;
+
+        static BucketOperation fromWithdrawOper(Integer oper) {
+            if (oper == null) {
+                throw new PakGoPayException(ResultCode.FAIL, "withdraw oper is null");
+            }
+            if (oper == 0) {
+                return WITHDRAW_FREEZE;
+            }
+            if (oper == 1) {
+                return WITHDRAW_CONFIRM;
+            }
+            return WITHDRAW_CANCEL;
+        }
+    }
+
 }

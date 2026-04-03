@@ -255,6 +255,14 @@
         WHERE payment_id = #{paymentId}
     </update>
 
+    <update id="increaseCountersByPaymentIdDelta">
+        UPDATE payment
+        SET order_quantity = COALESCE(order_quantity, 0) + #{orderInc},
+            success_quantity = COALESCE(success_quantity, 0) + #{successInc},
+            update_time = #{updateTime}
+        WHERE payment_id = #{paymentId}
+    </update>
+
     <!-- deleteByPaymentId -->
     <delete id="deleteByPaymentId">
         delete from payment

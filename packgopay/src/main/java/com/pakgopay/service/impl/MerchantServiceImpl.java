@@ -1,5 +1,8 @@
 package com.pakgopay.service.impl;
 
+import com.alibaba.fastjson.JSON;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
@@ -24,14 +27,7 @@ import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.common.ExportReportDataColumns;
 import com.pakgopay.thirdUtil.RedisUtil;
-import com.pakgopay.util.CommonUtil;
-import com.pakgopay.util.CloudflareIpWhitelistUtil;
-import com.pakgopay.util.CryptoUtil;
-import com.pakgopay.util.ExportFileUtils;
-import com.pakgopay.util.KeySignManager;
-import com.pakgopay.util.PatchBuilderUtil;
-import com.pakgopay.util.SensitiveDataMaskUtil;
-import com.pakgopay.util.TransactionUtil;
+import com.pakgopay.util.*;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,7 +43,17 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class MerchantServiceImpl implements MerchantService {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final TypeReference<List<AgentInfoDto>> AGENT_LIST_TYPE = new TypeReference<>() {};
     private static final String MERCHANT_SIGN_KEY_CACHE_PREFIX = "merchant:signkey:";
+    private static final String MERCHANT_INFO_BY_USER_ID_CACHE_PREFIX = "merchant:info:byUserId:";
+    private static final String MERCHANT_INFO_CACHE_VERSION_KEY = "merchant:info:cache:version";
+    private static final int MERCHANT_INFO_CACHE_TTL_SECONDS = 24 * 60 * 60;
+    private static final int MERCHANT_INFO_CACHE_JITTER_SECONDS = 60 * 60;
+    private static final String AGENT_CHAIN_BY_DESCENDANT_CACHE_PREFIX = "agent:chain:descendant:";
+    private static final String AGENT_CHAIN_CACHE_VERSION_KEY = "agent:chain:cache:version";
+    private static final int AGENT_CHAIN_CACHE_TTL_SECONDS = 24 * 60 * 60;
+    private static final int AGENT_CHAIN_CACHE_JITTER_SECONDS = 60 * 60;
 
 
     @Autowired
@@ -85,18 +91,17 @@ public class MerchantServiceImpl implements MerchantService {
     @Override
     public MerchantInfoDto fetchMerchantInfo(String userId) throws PakGoPayException {
         try {
-            MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
+            MerchantInfoDto merchantInfoDto = loadMerchantByUserIdWithCache(userId);
             if (merchantInfoDto == null) {
                 return null;
             }
             if (StringUtils.hasText(merchantInfoDto.getParentId())) {
-                List<AgentInfoDto> agentChain = CommonUtil.safeList(
-                        agentInfoMapper.findAncestorAgentsByDescendant(merchantInfoDto.getParentId()));
+                List<AgentInfoDto> agentChain = resolveAgentChainByDescendantUserId(merchantInfoDto.getParentId());
                 merchantInfoDto.setAgentInfos(agentChain);
             }
             return merchantInfoDto;
         } catch (Exception e) {
-            log.error("merchantInfoMapper findByUserId failed, message: {}", e.getMessage());
+            log.error("merchantInfoMapper findByUserId failed, userId={}", userId, e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
         }
     }
@@ -145,6 +150,7 @@ public class MerchantServiceImpl implements MerchantService {
         // Refresh sign-key cache after key rotation.
         try {
             redisUtil.remove(buildMerchantSignKeyCacheKey(targetMerchantUserId));
+            bumpMerchantInfoCacheVersion();
         } catch (Exception e) {
             log.warn("resetMerchantSignKey cache refresh failed, merchantUserId={}, message={}",
                     targetMerchantUserId, e.getMessage());
@@ -190,6 +196,53 @@ public class MerchantServiceImpl implements MerchantService {
 
     private String buildMerchantSignKeyCacheKey(String merchantUserId) {
         return MERCHANT_SIGN_KEY_CACHE_PREFIX + merchantUserId;
+    }
+
+    private String buildMerchantInfoByUserIdCacheKey(String userId) {
+        String version = resolveMerchantInfoCacheVersion();
+        return MERCHANT_INFO_BY_USER_ID_CACHE_PREFIX + version + ":" + userId;
+    }
+
+    private String resolveMerchantInfoCacheVersion() {
+        try {
+            String version = redisUtil.getValue(MERCHANT_INFO_CACHE_VERSION_KEY);
+            return StringUtils.hasText(version) ? version : "1";
+        } catch (Exception e) {
+            log.warn("resolveMerchantInfoCacheVersion failed, message={}", e.getMessage());
+            return "1";
+        }
+    }
+
+    private void bumpMerchantInfoCacheVersion() {
+        try {
+            redisUtil.increment(MERCHANT_INFO_CACHE_VERSION_KEY);
+        } catch (Exception e) {
+            log.warn("bumpMerchantInfoCacheVersion failed, message={}", e.getMessage());
+        }
+    }
+
+    private MerchantInfoDto loadMerchantByUserIdWithCache(String userId) {
+        String cacheKey = buildMerchantInfoByUserIdCacheKey(userId);
+        try {
+            String cacheVal = redisUtil.getValue(cacheKey);
+            if (StringUtils.hasText(cacheVal)) {
+                return JSON.parseObject(cacheVal, MerchantInfoDto.class);
+            }
+        } catch (Exception e) {
+            log.warn("loadMerchantByUserIdWithCache read failed, userId={}, message={}", userId, e.getMessage());
+        }
+
+        MerchantInfoDto merchantInfoDto = merchantInfoMapper.findByUserId(userId);
+        if (merchantInfoDto == null) {
+            return null;
+        }
+        try {
+            int ttl = MERCHANT_INFO_CACHE_TTL_SECONDS + new Random().nextInt(MERCHANT_INFO_CACHE_JITTER_SECONDS + 1);
+            redisUtil.setWithSecondExpire(cacheKey, JSON.toJSONString(merchantInfoDto), ttl);
+        } catch (Exception e) {
+            log.warn("loadMerchantByUserIdWithCache write failed, userId={}, message={}", userId, e.getMessage());
+        }
+        return merchantInfoDto;
     }
 
     private MerchantResponse fetchMerchantPage(MerchantQueryRequest merchantQueryRequest) throws PakGoPayException {
@@ -379,7 +432,44 @@ public class MerchantServiceImpl implements MerchantService {
     }
 
     private List<AgentInfoDto> resolveAgentChainByDescendantUserId(String descendantUserId) {
-        return CommonUtil.safeList(agentInfoMapper.findAncestorAgentsByDescendant(descendantUserId));
+        if (!StringUtils.hasText(descendantUserId)) {
+            return Collections.emptyList();
+        }
+        String cacheKey = buildAgentChainByDescendantCacheKey(descendantUserId);
+        try {
+            String cacheVal = redisUtil.getValue(cacheKey);
+            if (StringUtils.hasText(cacheVal)) {
+                return CommonUtil.safeList(OBJECT_MAPPER.readValue(cacheVal, AGENT_LIST_TYPE));
+            }
+        } catch (Exception e) {
+            log.warn("resolveAgentChainByDescendantUserId cache read failed, descendantUserId={}, message={}",
+                    descendantUserId, e.getMessage());
+        }
+
+        List<AgentInfoDto> chain = CommonUtil.safeList(agentInfoMapper.findAncestorAgentsByDescendant(descendantUserId));
+        try {
+            int ttl = AGENT_CHAIN_CACHE_TTL_SECONDS + new Random().nextInt(AGENT_CHAIN_CACHE_JITTER_SECONDS + 1);
+            redisUtil.setWithSecondExpire(cacheKey, OBJECT_MAPPER.writeValueAsString(chain), ttl);
+        } catch (Exception e) {
+            log.warn("resolveAgentChainByDescendantUserId cache write failed, descendantUserId={}, message={}",
+                    descendantUserId, e.getMessage());
+        }
+        return chain;
+    }
+
+    private String buildAgentChainByDescendantCacheKey(String descendantUserId) {
+        String version = resolveAgentChainCacheVersion();
+        return AGENT_CHAIN_BY_DESCENDANT_CACHE_PREFIX + version + ":" + descendantUserId;
+    }
+
+    private String resolveAgentChainCacheVersion() {
+        try {
+            String version = redisUtil.getValue(AGENT_CHAIN_CACHE_VERSION_KEY);
+            return StringUtils.hasText(version) ? version : "1";
+        } catch (Exception e) {
+            log.warn("resolveAgentChainCacheVersion failed, message={}", e.getMessage());
+            return "1";
+        }
     }
 
     /**
@@ -434,6 +524,7 @@ public class MerchantServiceImpl implements MerchantService {
                     merchantEditRequest.getColWhiteIps(),
                     merchantEditRequest.getPayWhiteIps(),
                     "merchant-edit");
+            bumpMerchantInfoCacheVersion();
         } catch (Exception e) {
             log.error("editMerchant updateByChannelId failed, merchantUserId={}", merchantEditRequest.getMerchantUserId(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -497,6 +588,7 @@ public class MerchantServiceImpl implements MerchantService {
             merchantInfoDto.setUserId(userId.toString());
             merchantInfoMapper.insert(merchantInfoDto);
         });
+        bumpMerchantInfoCacheVersion();
 
         syncMerchantWhitelistToCloudflare(
                 createdUserIdRef[0],

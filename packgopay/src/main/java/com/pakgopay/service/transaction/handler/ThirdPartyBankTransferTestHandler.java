@@ -10,6 +10,7 @@ import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.response.http.PaymentHttpResponse;
 import com.pakgopay.service.common.OrderFlowLogSession;
 import com.pakgopay.util.IpAddressUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Component
+@Slf4j
 public class ThirdPartyBankTransferTestHandler extends AbstractThirdPartySignedHandler {
     private static final String CHANNEL_CODE = "bank_transfer_test";
     private static final String FIELD_MID = "mid";
@@ -44,7 +46,8 @@ public class ThirdPartyBankTransferTestHandler extends AbstractThirdPartySignedH
                 request.getCollectionInterfaceParam(), "collection", payload);
         validateRequiredFields(payload, Arrays.asList(
                 FIELD_MID, FIELD_AMOUNT, FIELD_ORDER_NO, FIELD_GATEWAY, FIELD_IP, FIELD_NOTIFY_URL, FIELD_SIGN));
-        return postForCreate(entity, resolveDirectUrl(request), getClass().getSimpleName(), request.getChannelCode());
+        PaymentHttpResponse response = postForCreate(entity, resolveDirectUrl(request), getClass().getSimpleName(), request.getChannelCode());
+        return response;
     }
 
     @Override

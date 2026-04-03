@@ -25,13 +25,37 @@ public class CustomCorsConfig implements WebMvcConfigurer {
         registration.addPathPatterns("/**");
     }
 
-    @Bean(name = "pakGoPayExecutor")
-    public ThreadPoolTaskExecutor mvcIoExecutor() {
+    @Bean(name = "createOrderApiAsyncExecutor")
+    public ThreadPoolTaskExecutor createOrderApiAsyncExecutor() {
         ThreadPoolTaskExecutor ex = new ThreadPoolTaskExecutor();
         ex.setCorePoolSize(50);
         ex.setMaxPoolSize(200);
         ex.setQueueCapacity(1000);
-        ex.setThreadNamePrefix("mvc-io-");
+        ex.setThreadNamePrefix("create-api-async-");
+        ex.setTaskDecorator(new MdcTaskDecorator());
+        ex.initialize();
+        return ex;
+    }
+
+    @Bean(name = "notifyApiAsyncExecutor")
+    public ThreadPoolTaskExecutor notifyApiAsyncExecutor() {
+        ThreadPoolTaskExecutor ex = new ThreadPoolTaskExecutor();
+        ex.setCorePoolSize(16);
+        ex.setMaxPoolSize(32);
+        ex.setQueueCapacity(1000);
+        ex.setThreadNamePrefix("notify-api-async-");
+        ex.setTaskDecorator(new MdcTaskDecorator());
+        ex.initialize();
+        return ex;
+    }
+
+    @Bean(name = "orderBgExecutor")
+    public ThreadPoolTaskExecutor orderBgExecutor() {
+        ThreadPoolTaskExecutor ex = new ThreadPoolTaskExecutor();
+        ex.setCorePoolSize(8);
+        ex.setMaxPoolSize(32);
+        ex.setQueueCapacity(2000);
+        ex.setThreadNamePrefix("order-bg-");
         ex.setTaskDecorator(new MdcTaskDecorator());
         ex.initialize();
         return ex;
@@ -39,7 +63,7 @@ public class CustomCorsConfig implements WebMvcConfigurer {
 
     @Override
     public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
-        configurer.setTaskExecutor(mvcIoExecutor());
+        configurer.setTaskExecutor(createOrderApiAsyncExecutor());
         configurer.setDefaultTimeout(320000L);
     }
 }

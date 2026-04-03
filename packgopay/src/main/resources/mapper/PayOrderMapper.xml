@@ -216,8 +216,8 @@
         <if test="dto.updateTime != null">update_time = #{dto.updateTime},</if>
     </sql>
 
-    <!-- Increase callback retry times (atomic) -->
-    <update id="increaseCallbackTimes">
+    <!-- Increase callback retry times when callback status is pending(0) -->
+    <update id="increaseCallbackTimesWhenPending">
         UPDATE pay_order
         SET
             callback_times = COALESCE(callback_times, 0) + #{increment},
@@ -228,6 +228,7 @@
         WHERE transaction_no = #{transactionNo}
           AND create_time &gt;= #{startTime}
           AND create_time &lt; #{endTime}
+          AND COALESCE(callback_status, 0) = 0
     </update>
 
     <update id="markTimeoutOrders">

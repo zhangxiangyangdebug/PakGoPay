@@ -64,6 +64,27 @@ public class RedisUtil {
         return redisTemplate.delete(key);
     }
 
+    public Long increment(String key) {
+        return redisTemplate.opsForValue().increment(key);
+    }
+
+    public Long incrementBy(String key, long delta) {
+        return redisTemplate.opsForValue().increment(key, delta);
+    }
+
+    public Boolean expire(String key, int expireTimeSeconds) {
+        return redisTemplate.expire(key, expireTimeSeconds, TimeUnit.SECONDS);
+    }
+
+    public Long addSetMember(String key, String member) {
+        return redisTemplate.opsForSet().add(key, member);
+    }
+
+    public Set<String> getSetMembers(String key) {
+        Set<String> members = redisTemplate.opsForSet().members(key);
+        return members == null ? Collections.emptySet() : members;
+    }
+
     public void saveMessage(Message msg) {
         String userKey = USER_ZSET_PREFIX + msg.getUserId();
         String bodyKey = buildBodyKey(msg.getUserId(), msg.getId());

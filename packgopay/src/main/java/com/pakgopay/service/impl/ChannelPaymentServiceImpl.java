@@ -19,16 +19,23 @@ import com.pakgopay.mapper.*;
 import com.pakgopay.mapper.dto.*;
 import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.common.ExportReportDataColumns;
+import com.pakgopay.thirdUtil.RedisUtil;
 import com.pakgopay.util.*;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -41,7 +48,41 @@ import java.util.stream.Collectors;
 public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
+    private static final TypeReference<List<ChannelDto>> CHANNEL_LIST_TYPE = new TypeReference<>() {};
     private static final Set<String> INTERFACE_PARAM_MASK_KEYWORDS = Set.of("key");
+    private static final String CHANNEL_PAYMENT_IDS_CACHE_PREFIX = "channel:paymentIds:byChannelIds:";
+    private static final String CHANNEL_PAYMENT_IDS_CACHE_VERSION_KEY = "channel:paymentIds:cache:version";
+    private static final int CHANNEL_PAYMENT_IDS_CACHE_TTL_SECONDS = 24 * 60 * 60;
+    private static final int CHANNEL_PAYMENT_IDS_CACHE_JITTER_SECONDS = 60 * 60;
+    private static final String ENABLE_PAYMENT_INFO_CACHE_PREFIX = "payment:enableInfo:byNoAndIds:";
+    private static final String ENABLE_PAYMENT_INFO_CACHE_VERSION_KEY = "payment:enableInfo:cache:version";
+    private static final int ENABLE_PAYMENT_INFO_CACHE_TTL_SECONDS = 24 * 60 * 60;
+    private static final int ENABLE_PAYMENT_INFO_CACHE_JITTER_SECONDS = 60 * 60;
+    private static final String AGENT_BY_USER_ID_CACHE_PREFIX = "agent:byUserId:";
+    private static final String AGENT_CACHE_VERSION_KEY = "agent:chain:cache:version";
+    private static final int AGENT_BY_USER_ID_CACHE_TTL_SECONDS = 24 * 60 * 60;
+    private static final int AGENT_BY_USER_ID_CACHE_JITTER_SECONDS = 60 * 60;
+    private static final String COUNTER_CHANNEL_HASH_KEY_PREFIX = "counter:{v1}:channel:";
+    private static final String COUNTER_PAYMENT_HASH_KEY_PREFIX = "counter:{v1}:payment:";
+    private static final String COUNTER_CHANNEL_ACTIVE_SET_KEY = "counter:{v1}:channel:active";
+    private static final String COUNTER_PAYMENT_ACTIVE_SET_KEY = "counter:{v1}:payment:active";
+    private static final int COUNTER_ACTIVE_SET_TTL_SECONDS = 3 * 24 * 60 * 60;
+    private static final String COUNTER_FIELD_TOTAL = "total";
+    private static final String COUNTER_FIELD_FAIL = "fail";
+    private static final String COUNTER_FIELD_ORDER = "order";
+    private static final String COUNTER_FIELD_SUCCESS = "success";
+    private static final String COLLECTION_LIMIT_DAY_KEY_PREFIX = "collection:limit:{v1}:day:";
+    private static final String COLLECTION_LIMIT_MONTH_KEY_PREFIX = "collection:limit:{v1}:month:";
+    private static final String COLLECTION_LIMIT_TX_GUARD_KEY_PREFIX = "collection:limit:{v1}:tx:";
+    private static final String COLLECTION_LIMIT_ACTIVE_PAYMENT_SET_KEY = "collection:limit:{v1}:activePayments";
+    private static final int COLLECTION_LIMIT_TX_GUARD_TTL_SECONDS = 40 * 24 * 60 * 60;
+    private static final int COLLECTION_LIMIT_DAY_KEY_GRACE_SECONDS = 2 * 60 * 60;
+    private static final int COLLECTION_LIMIT_MONTH_KEY_GRACE_SECONDS = 2 * 60 * 60;
+    private static final BigDecimal AMOUNT_SCALE = new BigDecimal("100");
+    private static final RedisScript<List> COLLECTION_LIMIT_INCREMENT_SCRIPT = buildCollectionLimitIncrementScript();
+
+    @Value("${biz.collection.limit.redis-enabled:true}")
+    private boolean collectionLimitRedisEnabled;
 
     @Autowired
     private PaymentMapper paymentMapper;
@@ -61,6 +102,12 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     @Autowired
     private MerchantInfoMapper merchantInfoMapper;
 
+    @Autowired
+    private RedisUtil redisUtil;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
     // =====================
     // Payment selection
     // =====================
@@ -74,6 +121,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      */
     @Override
     public Long selectPaymentId(Integer supportType, TransactionInfo transactionInfo) throws PakGoPayException {
+        long totalStart = System.currentTimeMillis();
+        long stepStart = totalStart;
         log.info("selectPaymentId start, get available payment id");
         String resolvedChannelIds = resolveChannelIdsForMerchant(transactionInfo);
         log.info("selectPaymentId resolvedChannelIds, supportType={}, channelIds={}",
@@ -83,18 +132,22 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         // key:payment_id value:channel_id
         Map<Long, ChannelDto> paymentMap = new HashMap<>();
         // 1. get payment info list through channel ids and payment no
+        stepStart = System.currentTimeMillis();
         List<PaymentDto> paymentDtoList = loadPaymentsByChannelIds(
                 transactionInfo.getPaymentNo(), resolvedChannelIds, supportType, paymentMap);
         log.info("selectPaymentId loaded payments, size={}", paymentDtoList.size());
 
         // 2. filter support currency payment
+        stepStart = System.currentTimeMillis();
         paymentDtoList = filterPaymentsByCurrency(paymentDtoList, transactionInfo.getCurrency());
         log.info("selectPaymentId currency filtered, currency={}, size={}", transactionInfo.getCurrency(), paymentDtoList.size());
 
         // 3. filter no limit payment infos
+        stepStart = System.currentTimeMillis();
         paymentDtoList = filterPaymentsByLimits(transactionInfo.getAmount(), paymentDtoList, supportType);
         log.info("selectPaymentId limit filtered, amount={}, size={}", transactionInfo.getAmount(), paymentDtoList.size());
 
+        stepStart = System.currentTimeMillis();
         PaymentDto paymentDto = selectPaymentByPerformance(paymentDtoList, supportType);
         log.info(
                 "merchant payment search success, paymentId={}, paymentName={}",
@@ -128,49 +181,159 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
         Long channelId = order.getChannelId();
         if (channelId != null) {
-            ChannelDto channel = channelMapper.findByChannelId(channelId);
-            if (channel != null) {
-                long totalCount = CommonUtil.defaultLong(channel.getTotalCount(), 0L) + 1L;
-                long failCount = CommonUtil.defaultLong(channel.getFailCount(), 0L) + (isFailure ? 1L : 0L);
-                ChannelDto update = new ChannelDto();
-                update.setChannelId(channelId);
-                update.setTotalCount(totalCount);
-                update.setFailCount(failCount);
-                update.setSuccessRate(calculateSuccessRate(totalCount, failCount));
-                update.setUpdateTime(System.currentTimeMillis() / 1000);
-                channelMapper.updateByChannelId(update);
-                log.info("channel stats updated, channelId={}, totalCount={}, failCount={}", channelId, totalCount, failCount);
-            } else {
-                log.warn("channel not found, channelId={}", channelId);
-            }
+            long failInc = isFailure ? 1L : 0L;
+            accumulateCounter(
+                    COUNTER_CHANNEL_HASH_KEY_PREFIX + channelId,
+                    COUNTER_CHANNEL_ACTIVE_SET_KEY,
+                    COUNTER_FIELD_TOTAL,
+                    1L,
+                    COUNTER_FIELD_FAIL,
+                    failInc);
+            log.info("channel stats accumulated, channelId={}, failInc={}", channelId, failInc);
         }
 
         Long paymentId = order.getPaymentId();
         if (paymentId != null) {
-            PaymentDto payment = paymentMapper.findByPaymentId(paymentId);
-            if (payment != null) {
-                long orderQuantity = CommonUtil.defaultLong(payment.getOrderQuantity(), 0L) + 1L;
-                long successQuantity = CommonUtil.defaultLong(payment.getSuccessQuantity(), 0L) + (isSuccess ? 1L : 0L);
-                PaymentDto update = new PaymentDto();
-                update.setPaymentId(paymentId);
-                update.setOrderQuantity(orderQuantity);
-                update.setSuccessQuantity(successQuantity);
-                update.setUpdateTime(System.currentTimeMillis() / 1000);
-                paymentMapper.updateByPaymentId(update);
-                log.info("payment stats updated, paymentId={}, orderQuantity={}, successQuantity={}", paymentId, orderQuantity, successQuantity);
-            } else {
-                log.warn("payment not found, paymentId={}", paymentId);
+            long successInc = isSuccess ? 1L : 0L;
+            accumulateCounter(
+                    COUNTER_PAYMENT_HASH_KEY_PREFIX + paymentId,
+                    COUNTER_PAYMENT_ACTIVE_SET_KEY,
+                    COUNTER_FIELD_ORDER,
+                    1L,
+                    COUNTER_FIELD_SUCCESS,
+                    successInc);
+            log.info("payment stats accumulated, paymentId={}, successInc={}", paymentId, successInc);
+        }
+    }
+
+    @Override
+    public void flushCounterDeltas() {
+        long now = System.currentTimeMillis() / 1000;
+        flushChannelCounterDeltas(now);
+        flushPaymentCounterDeltas(now);
+    }
+
+    private void flushChannelCounterDeltas(long now) {
+        Set<String> ids = stringRedisTemplate.opsForSet().members(COUNTER_CHANNEL_ACTIVE_SET_KEY);
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        for (String id : ids) {
+            Long channelId = safeParseLong(id);
+            if (channelId == null) {
+                stringRedisTemplate.opsForSet().remove(COUNTER_CHANNEL_ACTIVE_SET_KEY, id);
+                continue;
+            }
+            String hashKey = COUNTER_CHANNEL_HASH_KEY_PREFIX + channelId;
+            long totalInc = readHashLong(hashKey, COUNTER_FIELD_TOTAL);
+            long failInc = readHashLong(hashKey, COUNTER_FIELD_FAIL);
+            if (totalInc <= 0 && failInc <= 0) {
+                clearCounterHashIfEmpty(hashKey, COUNTER_FIELD_TOTAL, COUNTER_FIELD_FAIL);
+                stringRedisTemplate.opsForSet().remove(COUNTER_CHANNEL_ACTIVE_SET_KEY, id);
+                continue;
+            }
+            try {
+                int updated = channelMapper.increaseCountersByChannelIdDelta(channelId, totalInc, failInc, now);
+                if (updated > 0) {
+                    settleCounterDelta(hashKey, COUNTER_FIELD_TOTAL, totalInc, COUNTER_FIELD_FAIL, failInc);
+                    if (readHashLong(hashKey, COUNTER_FIELD_TOTAL) <= 0 && readHashLong(hashKey, COUNTER_FIELD_FAIL) <= 0) {
+                        stringRedisTemplate.delete(hashKey);
+                        stringRedisTemplate.opsForSet().remove(COUNTER_CHANNEL_ACTIVE_SET_KEY, id);
+                    }
+                } else {
+                    log.warn("flush channel counter delta skipped, channelId={}", channelId);
+                }
+            } catch (Exception e) {
+                log.warn("flush channel counter delta failed, channelId={}, message={}", channelId, e.getMessage());
             }
         }
     }
 
-    private BigDecimal calculateSuccessRate(long totalCount, long failCount) {
-        if (totalCount <= 0) {
-            return BigDecimal.ZERO;
+    private void flushPaymentCounterDeltas(long now) {
+        Set<String> ids = stringRedisTemplate.opsForSet().members(COUNTER_PAYMENT_ACTIVE_SET_KEY);
+        if (ids == null || ids.isEmpty()) {
+            return;
         }
-        long successCount = totalCount - failCount;
-        return BigDecimal.valueOf(successCount)
-                .divide(BigDecimal.valueOf(totalCount), 6, RoundingMode.HALF_UP);
+        for (String id : ids) {
+            Long paymentId = safeParseLong(id);
+            if (paymentId == null) {
+                stringRedisTemplate.opsForSet().remove(COUNTER_PAYMENT_ACTIVE_SET_KEY, id);
+                continue;
+            }
+            String hashKey = COUNTER_PAYMENT_HASH_KEY_PREFIX + paymentId;
+            long orderInc = readHashLong(hashKey, COUNTER_FIELD_ORDER);
+            long successInc = readHashLong(hashKey, COUNTER_FIELD_SUCCESS);
+            if (orderInc <= 0 && successInc <= 0) {
+                clearCounterHashIfEmpty(hashKey, COUNTER_FIELD_ORDER, COUNTER_FIELD_SUCCESS);
+                stringRedisTemplate.opsForSet().remove(COUNTER_PAYMENT_ACTIVE_SET_KEY, id);
+                continue;
+            }
+            try {
+                int updated = paymentMapper.increaseCountersByPaymentIdDelta(paymentId, orderInc, successInc, now);
+                if (updated > 0) {
+                    settleCounterDelta(hashKey, COUNTER_FIELD_ORDER, orderInc, COUNTER_FIELD_SUCCESS, successInc);
+                    if (readHashLong(hashKey, COUNTER_FIELD_ORDER) <= 0 && readHashLong(hashKey, COUNTER_FIELD_SUCCESS) <= 0) {
+                        stringRedisTemplate.delete(hashKey);
+                        stringRedisTemplate.opsForSet().remove(COUNTER_PAYMENT_ACTIVE_SET_KEY, id);
+                    }
+                } else {
+                    log.warn("flush payment counter delta skipped, paymentId={}", paymentId);
+                }
+            } catch (Exception e) {
+                log.warn("flush payment counter delta failed, paymentId={}, message={}", paymentId, e.getMessage());
+            }
+        }
+    }
+
+    private void accumulateCounter(
+            String hashKey,
+            String activeSetKey,
+            String field1,
+            long delta1,
+            String field2,
+            long delta2) {
+        if (delta1 != 0L) {
+            stringRedisTemplate.opsForHash().increment(hashKey, field1, delta1);
+        }
+        if (delta2 != 0L) {
+            stringRedisTemplate.opsForHash().increment(hashKey, field2, delta2);
+        }
+        stringRedisTemplate.expire(hashKey, COUNTER_ACTIVE_SET_TTL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+        String id = hashKey.substring(hashKey.lastIndexOf(':') + 1);
+        stringRedisTemplate.opsForSet().add(activeSetKey, id);
+        stringRedisTemplate.expire(activeSetKey, COUNTER_ACTIVE_SET_TTL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    private long readHashLong(String hashKey, String field) {
+        Object raw = stringRedisTemplate.opsForHash().get(hashKey, field);
+        if (raw == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(String.valueOf(raw));
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+    private void settleCounterDelta(
+            String hashKey,
+            String field1,
+            long consumed1,
+            String field2,
+            long consumed2) {
+        if (consumed1 > 0) {
+            stringRedisTemplate.opsForHash().increment(hashKey, field1, -consumed1);
+        }
+        if (consumed2 > 0) {
+            stringRedisTemplate.opsForHash().increment(hashKey, field2, -consumed2);
+        }
+    }
+
+    private void clearCounterHashIfEmpty(String hashKey, String field1, String field2) {
+        if (readHashLong(hashKey, field1) <= 0 && readHashLong(hashKey, field2) <= 0) {
+            stringRedisTemplate.delete(hashKey);
+        }
     }
 
     // =====================
@@ -311,12 +474,45 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      * @return agent info
      */
     private AgentInfoDto loadAgentByUserId(String agentId) {
+        if (!StringUtils.hasText(agentId)) {
+            return null;
+        }
+        String cacheKey = buildAgentByUserIdCacheKey(agentId);
         try {
-            return agentInfoMapper.findByUserId(agentId);
+            String cacheVal = redisUtil.getValue(cacheKey);
+            if (StringUtils.hasText(cacheVal)) {
+                return OBJECT_MAPPER.readValue(cacheVal, AgentInfoDto.class);
+            }
+        } catch (Exception e) {
+            log.warn("loadAgentByUserId cache read failed, agentId={}, message={}", agentId, e.getMessage());
+        }
+
+        try {
+            AgentInfoDto agentInfoDto = agentInfoMapper.findByUserId(agentId);
+            if (agentInfoDto == null) {
+                return null;
+            }
+            int ttl = AGENT_BY_USER_ID_CACHE_TTL_SECONDS + new Random().nextInt(AGENT_BY_USER_ID_CACHE_JITTER_SECONDS + 1);
+            redisUtil.setWithSecondExpire(cacheKey, OBJECT_MAPPER.writeValueAsString(agentInfoDto), ttl);
+            return agentInfoDto;
         } catch (Exception e) {
             log.error("agentInfoMapper findByUserId failed, agentId: {} message: {}", agentId, e.getMessage());
+            return null;
         }
-        return null;
+    }
+
+    private String buildAgentByUserIdCacheKey(String agentId) {
+        return AGENT_BY_USER_ID_CACHE_PREFIX + resolveAgentCacheVersion() + ":" + agentId;
+    }
+
+    private String resolveAgentCacheVersion() {
+        try {
+            String version = redisUtil.getValue(AGENT_CACHE_VERSION_KEY);
+            return StringUtils.hasText(version) ? version : "1";
+        } catch (Exception e) {
+            log.warn("resolveAgentCacheVersion failed, message={}", e.getMessage());
+            return "1";
+        }
     }
 
     // =====================
@@ -339,7 +535,8 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         if (topCandidates.size() == 1) {
             return topCandidates.getFirst();
         }
-        return topCandidates.get(new Random().nextInt(topCandidates.size()));
+        PaymentDto selected = topCandidates.get(new Random().nextInt(topCandidates.size()));
+        return selected;
     }
 
     private double computeSuccessRate(PaymentDto dto) {
@@ -399,6 +596,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     private List<PaymentDto> loadPaymentsByChannelIds(
             String paymentNo, String channelIds, Integer supportType, Map<Long, ChannelDto> paymentMap)
             throws PakGoPayException {
+        long stepStart = System.currentTimeMillis();
         log.info("loadPaymentsByChannelIds start, paymentNo={}, supportType={}, channelIds={}",
                 paymentNo, CommonUtil.resolveSupportTypeLabel(supportType), channelIds);
         // 1. obtain merchant's channel id list
@@ -413,16 +611,18 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         log.info("channelIds parsed, channelCount={}", channelIdList);
 
         // 2. obtain merchant's available payment ids by channel ids
+        stepStart = System.currentTimeMillis();
         Set<Long> paymentIdList = collectPaymentIdsByChannelIds(channelIdList, paymentMap);
         log.info("paymentIds resolved by channelIds, paymentCount={}", paymentIdList);
 
         // 3. obtain merchant's available payment infos by channel ids
-        List<PaymentDto> paymentDtoList = paymentMapper.
-                findEnableInfoByPaymentNos(supportType, paymentNo, paymentIdList);
+        stepStart = System.currentTimeMillis();
+        List<PaymentDto> paymentDtoList = loadEnablePaymentsByNoWithCache(supportType, paymentNo, paymentIdList);
         if (paymentDtoList == null || paymentDtoList.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "Merchants have no available matching payments");
         }
         log.info("payments loaded, paymentCount={}", paymentDtoList.size());
+        stepStart = System.currentTimeMillis();
         paymentDtoList = filterPaymentsByEnableTime(paymentDtoList);
         log.info("payments filtered by enable time, paymentCount={}", paymentDtoList.size());
         log.info("payments summary, supportType={}, channels={}, payments={}, currencies={}",
@@ -564,6 +764,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      * @throws PakGoPayException business Exception
      */
     private List<PaymentDto> filterPaymentsByLimits(BigDecimal amount, List<PaymentDto> paymentDtoList, Integer supportType) throws PakGoPayException {
+        long stepStart = System.currentTimeMillis();
         // Filter orders by amount that match the maximum and minimum range of the channel.
         paymentDtoList = paymentDtoList.stream().filter(dto ->
                         // check payment min amount
@@ -585,12 +786,14 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         }
 
         // get current day and month, used amount
+        stepStart = System.currentTimeMillis();
         List<Long> enAblePaymentIds = paymentDtoList.stream().map(PaymentDto::getPaymentId).toList();
         Map<Long, BigDecimal> currentDayAmountSum = new HashMap<>();
         Map<Long, BigDecimal> currentMonthAmountSum = new HashMap<>();
         loadCurrentAmountSums(enAblePaymentIds, supportType, currentDayAmountSum, currentMonthAmountSum);
 
         // filter no limit payment
+        stepStart = System.currentTimeMillis();
         List<PaymentDto> availablePayments = paymentDtoList.stream().filter(dto -> {
                     BigDecimal currentDaySum = CalcUtil.safeAdd(currentDayAmountSum.get(dto.getPaymentId()), amount);
                     BigDecimal currentMonthSum = CalcUtil.safeAdd(currentMonthAmountSum.get(dto.getPaymentId()), amount);
@@ -636,6 +839,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     private void loadCurrentAmountSums(
             List<Long> enAblePaymentIds, Integer supportType, Map<Long, BigDecimal> currentDayAmountSum,
             Map<Long, BigDecimal> currentMonthAmountSum) throws PakGoPayException {
+        long stepStart = System.currentTimeMillis();
         ZoneId zoneId = ZoneId.systemDefault();
         LocalDate today = LocalDate.now(zoneId);
         ZonedDateTime dayStart = today.atStartOfDay(zoneId);
@@ -647,17 +851,34 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
 
         List<PaymentAmountAggDto> amountAggList;
         if (CommonConstant.SUPPORT_TYPE_COLLECTION.equals(supportType)) {
-            // order type Collection: aggregate in DB to avoid loading monthly details to JVM.
-            try {
-                amountAggList = collectionOrderMapper.sumCollectionAmountByPaymentIds(
-                        enAblePaymentIds, monthStartTime, nextMonthStartTime, dayStartTime, nextDayStartTime);
-            } catch (Exception e) {
-                log.error("collectionOrderMapper sumCollectionAmountByPaymentIds failed, message {}", e.getMessage());
-                throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+            // Collection limit path: prefer Redis counters to reduce DB round-trips.
+            if (collectionLimitRedisEnabled) {
+                stepStart = System.currentTimeMillis();
+                loadCollectionAmountSumsFromRedis(
+                        enAblePaymentIds,
+                        currentDayAmountSum,
+                        currentMonthAmountSum,
+                        dayStartTime,
+                        nextDayStartTime,
+                        monthStartTime,
+                        nextMonthStartTime,
+                        zoneId,
+                        today);
+                return;
+            } else {
+                try {
+                    stepStart = System.currentTimeMillis();
+                    amountAggList = collectionOrderMapper.sumCollectionAmountByPaymentIds(
+                            enAblePaymentIds, monthStartTime, nextMonthStartTime, dayStartTime, nextDayStartTime);
+                } catch (Exception e) {
+                    log.error("collectionOrderMapper sumCollectionAmountByPaymentIds failed, message {}", e.getMessage());
+                    throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+                }
             }
         } else {
             // order type Payout: aggregate in DB to avoid loading monthly details to JVM.
             try {
+                stepStart = System.currentTimeMillis();
                 amountAggList = payOrderMapper.sumPayAmountByPaymentIds(
                         enAblePaymentIds, monthStartTime, nextMonthStartTime, dayStartTime, nextDayStartTime);
             } catch (Exception e) {
@@ -670,6 +891,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             return;
         }
 
+        stepStart = System.currentTimeMillis();
         accumulateAmountSums(amountAggList, currentDayAmountSum, currentMonthAmountSum);
 
     }
@@ -697,6 +919,299 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         }
     }
 
+    @Override
+    public void recordCollectionAmountUsage(Long paymentId, BigDecimal amount, String transactionNo, Long createTime) {
+        if (!collectionLimitRedisEnabled) {
+            return;
+        }
+        if (paymentId == null || amount == null || amount.compareTo(BigDecimal.ZERO) <= 0
+                || !StringUtils.hasText(transactionNo) || createTime == null) {
+            return;
+        }
+        try {
+            String guardKey = COLLECTION_LIMIT_TX_GUARD_KEY_PREFIX + transactionNo;
+            BigInteger amountCent = toCent(amount);
+            LocalDate orderDate = Instant.ofEpochSecond(createTime).atZone(ZoneId.systemDefault()).toLocalDate();
+            String dayKey = buildCollectionDayKey(paymentId, orderDate);
+            String monthKey = buildCollectionMonthKey(paymentId, orderDate);
+
+            boolean updated = executeCollectionLimitIncrementLua(
+                    guardKey,
+                    dayKey,
+                    monthKey,
+                    COLLECTION_LIMIT_TX_GUARD_TTL_SECONDS,
+                    amountCent.toString(),
+                    secondsUntilDayExpire(orderDate, ZoneId.systemDefault()),
+                    secondsUntilMonthExpire(orderDate, ZoneId.systemDefault()));
+            if (!updated) {
+                return;
+            }
+
+            stringRedisTemplate.opsForSet().add(COLLECTION_LIMIT_ACTIVE_PAYMENT_SET_KEY, String.valueOf(paymentId));
+            // Keep active set for reconcile worker.
+            stringRedisTemplate.expire(COLLECTION_LIMIT_ACTIVE_PAYMENT_SET_KEY, COLLECTION_LIMIT_TX_GUARD_TTL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("recordCollectionAmountUsage failed, paymentId={}, transactionNo={}, message={}",
+                    paymentId, transactionNo, e.getMessage());
+        }
+    }
+
+    @Override
+    public void reconcileCollectionAmountUsage() {
+        if (!collectionLimitRedisEnabled) {
+            return;
+        }
+        try {
+            Set<String> members = stringRedisTemplate.opsForSet().members(COLLECTION_LIMIT_ACTIVE_PAYMENT_SET_KEY);
+            if (members == null || members.isEmpty()) {
+                return;
+            }
+            List<Long> paymentIds = members.stream()
+                    .filter(StringUtils::hasText)
+                    .map(this::safeParseLong)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            if (paymentIds.isEmpty()) {
+                return;
+            }
+            ZoneId zoneId = ZoneId.systemDefault();
+            LocalDate today = LocalDate.now(zoneId);
+            long dayStartTime = today.atStartOfDay(zoneId).toEpochSecond();
+            long nextDayStartTime = today.plusDays(1).atStartOfDay(zoneId).toEpochSecond();
+            long monthStartTime = today.withDayOfMonth(1).atStartOfDay(zoneId).toEpochSecond();
+            long nextMonthStartTime = today.withDayOfMonth(1).plusMonths(1).atStartOfDay(zoneId).toEpochSecond();
+
+            List<PaymentAmountAggDto> aggList = collectionOrderMapper.sumCollectionAmountByPaymentIds(
+                    paymentIds, monthStartTime, nextMonthStartTime, dayStartTime, nextDayStartTime);
+            Map<Long, PaymentAmountAggDto> aggMap = new HashMap<>();
+            for (PaymentAmountAggDto dto : CommonUtil.safeList(aggList)) {
+                if (dto != null && dto.getPaymentId() != null) {
+                    aggMap.put(dto.getPaymentId(), dto);
+                }
+            }
+            for (Long paymentId : paymentIds) {
+                PaymentAmountAggDto dto = aggMap.get(paymentId);
+                BigDecimal dayAmount = dto == null ? BigDecimal.ZERO : CalcUtil.defaultBigDecimal(dto.getDayAmount());
+                BigDecimal monthAmount = dto == null ? BigDecimal.ZERO : CalcUtil.defaultBigDecimal(dto.getMonthAmount());
+                String dayKey = buildCollectionDayKey(paymentId, today);
+                String monthKey = buildCollectionMonthKey(paymentId, today);
+                stringRedisTemplate.opsForValue().set(dayKey, toCent(dayAmount).toString(),
+                        secondsUntilDayExpire(today, zoneId), java.util.concurrent.TimeUnit.SECONDS);
+                stringRedisTemplate.opsForValue().set(monthKey, toCent(monthAmount).toString(),
+                        secondsUntilMonthExpire(today, zoneId), java.util.concurrent.TimeUnit.SECONDS);
+            }
+            log.info("reconcileCollectionAmountUsage done, paymentCount={}", paymentIds.size());
+        } catch (Exception e) {
+            log.warn("reconcileCollectionAmountUsage failed, message={}", e.getMessage());
+        }
+    }
+
+    private void loadCollectionAmountSumsFromRedis(
+            List<Long> paymentIds,
+            Map<Long, BigDecimal> dayMap,
+            Map<Long, BigDecimal> monthMap,
+            long dayStartTime,
+            long nextDayStartTime,
+            long monthStartTime,
+            long nextMonthStartTime,
+            ZoneId zoneId,
+            LocalDate today) {
+        if (paymentIds == null || paymentIds.isEmpty()) {
+            return;
+        }
+        long stepStart = System.currentTimeMillis();
+        List<Long> missing = new ArrayList<>();
+        for (Long paymentId : paymentIds) {
+            if (paymentId == null) {
+                continue;
+            }
+            String dayVal = stringRedisTemplate.opsForValue().get(buildCollectionDayKey(paymentId, today));
+            String monthVal = stringRedisTemplate.opsForValue().get(buildCollectionMonthKey(paymentId, today));
+            if (StringUtils.hasText(dayVal) && StringUtils.hasText(monthVal)) {
+                dayMap.put(paymentId, fromCent(dayVal));
+                monthMap.put(paymentId, fromCent(monthVal));
+            } else {
+                log.info("loadCollectionAmountSumsFromRedis cache miss, paymentId={}, hasDay={}, hasMonth={}",
+                        paymentId, StringUtils.hasText(dayVal), StringUtils.hasText(monthVal));
+                missing.add(paymentId);
+            }
+        }
+        if (missing.isEmpty()) {
+            return;
+        }
+        List<PaymentAmountAggDto> aggList;
+        try {
+            stepStart = System.currentTimeMillis();
+            aggList = collectionOrderMapper.sumCollectionAmountByPaymentIds(
+                    missing, monthStartTime, nextMonthStartTime, dayStartTime, nextDayStartTime);
+        } catch (Exception e) {
+            log.error("collectionOrderMapper sumCollectionAmountByPaymentIds failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+        stepStart = System.currentTimeMillis();
+        Map<Long, PaymentAmountAggDto> aggMap = new HashMap<>();
+        for (PaymentAmountAggDto dto : CommonUtil.safeList(aggList)) {
+            if (dto != null && dto.getPaymentId() != null) {
+                aggMap.put(dto.getPaymentId(), dto);
+            }
+        }
+        stepStart = System.currentTimeMillis();
+        for (Long paymentId : missing) {
+            PaymentAmountAggDto dto = aggMap.get(paymentId);
+            BigDecimal dayAmount = dto == null ? BigDecimal.ZERO : CalcUtil.defaultBigDecimal(dto.getDayAmount());
+            BigDecimal monthAmount = dto == null ? BigDecimal.ZERO : CalcUtil.defaultBigDecimal(dto.getMonthAmount());
+            dayMap.put(paymentId, dayAmount);
+            monthMap.put(paymentId, monthAmount);
+            String dayKey = buildCollectionDayKey(paymentId, today);
+            String monthKey = buildCollectionMonthKey(paymentId, today);
+            stringRedisTemplate.opsForValue().set(dayKey, toCent(dayAmount).toString(),
+                    secondsUntilDayExpire(today, zoneId), java.util.concurrent.TimeUnit.SECONDS);
+            stringRedisTemplate.opsForValue().set(monthKey, toCent(monthAmount).toString(),
+                    secondsUntilMonthExpire(today, zoneId), java.util.concurrent.TimeUnit.SECONDS);
+            stringRedisTemplate.opsForSet().add(COLLECTION_LIMIT_ACTIVE_PAYMENT_SET_KEY, String.valueOf(paymentId));
+            stringRedisTemplate.expire(COLLECTION_LIMIT_ACTIVE_PAYMENT_SET_KEY, COLLECTION_LIMIT_TX_GUARD_TTL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+        }
+    }
+
+    private String buildCollectionDayKey(Long paymentId, LocalDate date) {
+        return COLLECTION_LIMIT_DAY_KEY_PREFIX + paymentId + ":" + date;
+    }
+
+    private String buildCollectionMonthKey(Long paymentId, LocalDate date) {
+        return COLLECTION_LIMIT_MONTH_KEY_PREFIX + paymentId + ":" + date.getYear() + String.format("%02d", date.getMonthValue());
+    }
+
+    private BigInteger toCent(BigDecimal amount) {
+        return amount.multiply(AMOUNT_SCALE).setScale(0, RoundingMode.HALF_UP).toBigIntegerExact();
+    }
+
+    private BigDecimal fromCent(String centValue) {
+        try {
+            return new BigDecimal(new BigInteger(centValue)).divide(AMOUNT_SCALE, 2, RoundingMode.HALF_UP);
+        } catch (Exception e) {
+            return BigDecimal.ZERO;
+        }
+    }
+
+    private boolean executeCollectionLimitIncrementLua(
+            String guardKey,
+            String dayKey,
+            String monthKey,
+            int txTtlSeconds,
+            String deltaCent,
+            int dayTtlSeconds,
+            int monthTtlSeconds) {
+        long stepStart = System.currentTimeMillis();
+        List<String> keys = Arrays.asList(guardKey, dayKey, monthKey);
+        stepStart = System.currentTimeMillis();
+        List result = stringRedisTemplate.execute(
+                COLLECTION_LIMIT_INCREMENT_SCRIPT,
+                keys,
+                String.valueOf(txTtlSeconds),
+                deltaCent,
+                String.valueOf(dayTtlSeconds),
+                String.valueOf(monthTtlSeconds));
+        if (result == null || result.isEmpty()) {
+            throw new PakGoPayException(ResultCode.FAIL, "collection limit lua returned empty result");
+        }
+        stepStart = System.currentTimeMillis();
+        Object first = result.getFirst();
+        long code = first instanceof Number ? ((Number) first).longValue() : Long.parseLong(String.valueOf(first));
+        if (code == 0L) {
+            return false;
+        }
+        return true;
+    }
+
+    private static RedisScript<List> buildCollectionLimitIncrementScript() {
+        String script = """
+                local function normalize_num(s)
+                    if s == false or s == nil then
+                        return "0"
+                    end
+                    s = tostring(s)
+                    s = string.gsub(s, '"', '')
+                    s = string.gsub(s, "^%s+", "")
+                    s = string.gsub(s, "%s+$", "")
+                    if s == "" then
+                        return "0"
+                    end
+                    return s
+                end
+                                
+                local function add_str_int(a, b)
+                    local i, j = #a, #b
+                    local carry = 0
+                    local out = {}
+                    while i > 0 or j > 0 or carry > 0 do
+                        local x = 0
+                        if i > 0 then
+                            x = string.byte(a, i) - 48
+                            i = i - 1
+                        end
+                        local y = 0
+                        if j > 0 then
+                            y = string.byte(b, j) - 48
+                            j = j - 1
+                        end
+                        local s = x + y + carry
+                        out[#out + 1] = string.char((s % 10) + 48)
+                        carry = math.floor(s / 10)
+                    end
+                    local r = string.reverse(table.concat(out))
+                    r = string.gsub(r, "^0+", "")
+                    if r == "" then
+                        r = "0"
+                    end
+                    return r
+                end
+                                
+                if redis.call('SETNX', KEYS[1], '1') == 0 then
+                    return {0, "DUPLICATE"}
+                end
+                                
+                redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
+                                
+                local delta = normalize_num(ARGV[2])
+                local day = normalize_num(redis.call('GET', KEYS[2]))
+                local month = normalize_num(redis.call('GET', KEYS[3]))
+                                
+                day = add_str_int(day, delta)
+                month = add_str_int(month, delta)
+                                
+                redis.call('SET', KEYS[2], day, 'EX', tonumber(ARGV[3]))
+                redis.call('SET', KEYS[3], month, 'EX', tonumber(ARGV[4]))
+                                
+                return {1, day, month}
+                """;
+        DefaultRedisScript<List> redisScript = new DefaultRedisScript<>();
+        redisScript.setScriptText(script);
+        redisScript.setResultType(List.class);
+        return redisScript;
+    }
+
+    private int secondsUntilDayExpire(LocalDate date, ZoneId zoneId) {
+        long now = ZonedDateTime.now(zoneId).toEpochSecond();
+        long expiry = date.plusDays(1).atStartOfDay(zoneId).toEpochSecond() + COLLECTION_LIMIT_DAY_KEY_GRACE_SECONDS;
+        return (int) Math.max(60, expiry - now);
+    }
+
+    private int secondsUntilMonthExpire(LocalDate date, ZoneId zoneId) {
+        long now = ZonedDateTime.now(zoneId).toEpochSecond();
+        long expiry = date.withDayOfMonth(1).plusMonths(1).atStartOfDay(zoneId).toEpochSecond()
+                + COLLECTION_LIMIT_MONTH_KEY_GRACE_SECONDS;
+        return (int) Math.max(60, expiry - now);
+    }
+
+    private Long safeParseLong(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     /**
      * get merchant's payment ids by channel isd
      *
@@ -706,8 +1221,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
      * @throws PakGoPayException business Exception
      */
     private Set<Long> collectPaymentIdsByChannelIds(List<Long> channelIdList, Map<Long, ChannelDto> paymentMap) throws PakGoPayException {
-        List<ChannelDto> channelInfos = channelMapper.
-                getPaymentIdsByChannelIds(channelIdList, CommonConstant.ENABLE_STATUS_ENABLE);
+        List<ChannelDto> channelInfos = loadChannelInfosByIdsWithCache(channelIdList, CommonConstant.ENABLE_STATUS_ENABLE);
         if (channelInfos.isEmpty()) {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not payment");
         }
@@ -727,6 +1241,115 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_AVAILABLE_CHANNEL, "merchant has not payment");
         }
         return paymentIdList;
+    }
+
+    private List<ChannelDto> loadChannelInfosByIdsWithCache(List<Long> channelIdList, Integer status) {
+        String cacheKey = buildChannelPaymentIdsCacheKey(channelIdList, status);
+        try {
+            String cached = redisUtil.getValue(cacheKey);
+            if (StringUtils.hasText(cached)) {
+                return OBJECT_MAPPER.readValue(cached, CHANNEL_LIST_TYPE);
+            }
+            log.info("loadChannelInfosByIdsWithCache cache miss, key={}, channelIds={}, status={}",
+                    cacheKey, channelIdList, status);
+        } catch (Exception e) {
+            log.warn("loadChannelInfosByIdsWithCache read failed, key={}, message={}", cacheKey, e.getMessage());
+        }
+
+        List<ChannelDto> channelInfos = channelMapper.getPaymentIdsByChannelIds(channelIdList, status);
+        if (channelInfos == null || channelInfos.isEmpty()) {
+            return Collections.emptyList();
+        }
+        try {
+            int ttl = CHANNEL_PAYMENT_IDS_CACHE_TTL_SECONDS + new Random().nextInt(CHANNEL_PAYMENT_IDS_CACHE_JITTER_SECONDS + 1);
+            redisUtil.setWithSecondExpire(cacheKey, OBJECT_MAPPER.writeValueAsString(channelInfos), ttl);
+        } catch (Exception e) {
+            log.warn("loadChannelInfosByIdsWithCache write failed, key={}, message={}", cacheKey, e.getMessage());
+        }
+        return channelInfos;
+    }
+
+    private String buildChannelPaymentIdsCacheKey(List<Long> channelIdList, Integer status) {
+        List<Long> normalized = CommonUtil.safeList(channelIdList).stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        String statusPart = status == null ? "null" : String.valueOf(status);
+        String version = resolveChannelPaymentIdsCacheVersion();
+        return CHANNEL_PAYMENT_IDS_CACHE_PREFIX + version + ":" + statusPart + ":" + normalized;
+    }
+
+    private String resolveChannelPaymentIdsCacheVersion() {
+        try {
+            String version = redisUtil.getValue(CHANNEL_PAYMENT_IDS_CACHE_VERSION_KEY);
+            return StringUtils.hasText(version) ? version : "1";
+        } catch (Exception e) {
+            log.warn("resolveChannelPaymentIdsCacheVersion failed, message={}", e.getMessage());
+            return "1";
+        }
+    }
+
+    private void bumpChannelPaymentIdsCacheVersion() {
+        try {
+            redisUtil.increment(CHANNEL_PAYMENT_IDS_CACHE_VERSION_KEY);
+        } catch (Exception e) {
+            log.warn("bumpChannelPaymentIdsCacheVersion failed, message={}", e.getMessage());
+        }
+    }
+
+    private List<PaymentDto> loadEnablePaymentsByNoWithCache(Integer supportType, String paymentNo, Set<Long> paymentIdList) {
+        String cacheKey = buildEnablePaymentInfoCacheKey(supportType, paymentNo, paymentIdList);
+        try {
+            String cached = redisUtil.getValue(cacheKey);
+            if (StringUtils.hasText(cached)) {
+                return OBJECT_MAPPER.readValue(cached, new TypeReference<List<PaymentDto>>() {});
+            }
+            log.info("loadEnablePaymentsByNoWithCache cache miss, key={}, supportType={}, paymentNo={}, paymentIds={}",
+                    cacheKey, supportType, paymentNo, paymentIdList);
+        } catch (Exception e) {
+            log.warn("loadEnablePaymentsByNoWithCache read failed, key={}, message={}", cacheKey, e.getMessage());
+        }
+
+        List<PaymentDto> paymentDtoList = paymentMapper.findEnableInfoByPaymentNos(supportType, paymentNo, paymentIdList);
+        if (paymentDtoList == null || paymentDtoList.isEmpty()) {
+            return Collections.emptyList();
+        }
+        try {
+            int ttl = ENABLE_PAYMENT_INFO_CACHE_TTL_SECONDS + new Random().nextInt(ENABLE_PAYMENT_INFO_CACHE_JITTER_SECONDS + 1);
+            redisUtil.setWithSecondExpire(cacheKey, OBJECT_MAPPER.writeValueAsString(paymentDtoList), ttl);
+        } catch (Exception e) {
+            log.warn("loadEnablePaymentsByNoWithCache write failed, key={}, message={}", cacheKey, e.getMessage());
+        }
+        return paymentDtoList;
+    }
+
+    private String buildEnablePaymentInfoCacheKey(Integer supportType, String paymentNo, Set<Long> paymentIdList) {
+        List<Long> normalized = CommonUtil.safeList(paymentIdList == null ? null : new ArrayList<>(paymentIdList)).stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        String version = resolveEnablePaymentInfoCacheVersion();
+        return ENABLE_PAYMENT_INFO_CACHE_PREFIX + version + ":" + supportType + ":" + paymentNo + ":" + normalized;
+    }
+
+    private String resolveEnablePaymentInfoCacheVersion() {
+        try {
+            String version = redisUtil.getValue(ENABLE_PAYMENT_INFO_CACHE_VERSION_KEY);
+            return StringUtils.hasText(version) ? version : "1";
+        } catch (Exception e) {
+            log.warn("resolveEnablePaymentInfoCacheVersion failed, message={}", e.getMessage());
+            return "1";
+        }
+    }
+
+    private void bumpEnablePaymentInfoCacheVersion() {
+        try {
+            redisUtil.increment(ENABLE_PAYMENT_INFO_CACHE_VERSION_KEY);
+        } catch (Exception e) {
+            log.warn("bumpEnablePaymentInfoCacheVersion failed, message={}", e.getMessage());
+        }
     }
 
     // =====================
@@ -955,6 +1578,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             if (ret <= 0) {
                 return CommonResponse.fail(ResultCode.FAIL, "channel not found or no rows updated");
             }
+            bumpChannelPaymentIdsCacheVersion();
         } catch (Exception e) {
             log.error("updateChannel updateByChannelId failed, channelId={}", channelEditRequest.getChannelId(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -986,6 +1610,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             if (ret <= 0) {
                 return CommonResponse.fail(ResultCode.FAIL, "payment not found or no rows updated");
             }
+            bumpEnablePaymentInfoCacheVersion();
         } catch (Exception e) {
             log.error("updatePayment updateByChannelId failed, channelId={}", paymentEditRequest.getPaymentId(), e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -1096,6 +1721,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         try {
             int ret = channelMapper.insert(channelDto);
             log.info("createChannel insert done, ret={}", ret);
+            bumpChannelPaymentIdsCacheVersion();
         } catch (Exception e) {
             log.error("createChannel insert failed", e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -1128,6 +1754,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         try {
             int ret = paymentMapper.insert(paymentDto);
             log.info("createPayment insert done, ret={}", ret);
+            bumpEnablePaymentInfoCacheVersion();
         } catch (Exception e) {
             log.error("createPayment insert failed", e);
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);

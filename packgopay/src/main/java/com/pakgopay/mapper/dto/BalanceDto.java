@@ -16,6 +16,9 @@ public class BalanceDto implements Serializable {
     /** Currency */
     private String currency;
 
+    /** Bucket number for balance_bucket rows */
+    private Integer bucketNo;
+
     /** Available balance */
     private BigDecimal availableBalance;
 
@@ -37,4 +40,3 @@ public class BalanceDto implements Serializable {
     /** Remark */
     private String remark;
 }
-

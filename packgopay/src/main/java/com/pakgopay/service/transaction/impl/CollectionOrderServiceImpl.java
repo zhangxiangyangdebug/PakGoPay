@@ -19,6 +19,8 @@ import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.MerchantService;
+import com.pakgopay.service.common.AccountEventService;
+import com.pakgopay.service.common.MerchantNotifyRetryService;
 import com.pakgopay.service.common.OrderFlowLogSession;
 import com.pakgopay.service.transaction.*;
 import com.pakgopay.util.*;
@@ -55,6 +57,12 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
 
     @Autowired
     private SnowflakeIdService snowflakeIdService;
+
+    @Autowired
+    private MerchantNotifyRetryService merchantNotifyRetryService;
+
+    @Autowired
+    private AccountEventService accountEventService;
 
     @Override
     public CommonResponse createCollectionOrder(
@@ -173,7 +181,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 }
             }
 
-            // 9. persist processing order and publish timeout message
+            // 9. persist processing order
             try {
                 int ret = collectionOrderMapper.insert(collectionOrderDto);
                 if (ret <= 0) {
@@ -181,16 +189,40 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                             collectionOrderDto.getTransactionNo(),
                             CommonResponse.fail(ResultCode.DATA_BASE_ERROR, "collection order insert failed"));
                 }
+            } catch (Exception e) {
+                log.error("collection order db insert failed, transactionNo={}, message={}",
+                        collectionOrderDto.getTransactionNo(), e.getMessage());
+                throw new PakGoPayException(ResultCode.DATA_BASE_ERROR, "collection order db insert failed");
+            }
+
+            try {
+                channelPaymentService.recordCollectionAmountUsage(
+                        collectionOrderDto.getPaymentId(),
+                        collectionOrderDto.getAmount(),
+                        collectionOrderDto.getTransactionNo(),
+                        collectionOrderDto.getCreateTime());
+            } catch (Exception e) {
+                log.warn("recordCollectionAmountUsage failed, transactionNo={}, message={}",
+                        collectionOrderDto.getTransactionNo(), e.getMessage());
+            }
+
+            // 10. best-effort post-persist tasks (must not block order creation success).
+            try {
                 flowSession.flush();
-                log.info("collection order inserted, transactionNo={}", collectionOrderDto.getTransactionNo());
+            } catch (Exception e) {
+                log.warn("collection flow log flush failed, transactionNo={}, message={}",
+                        collectionOrderDto.getTransactionNo(), e.getMessage());
+            }
+
+            try {
                 publishOrderTimeoutMessage(
                         RabbitConfig.ORDER_TIMEOUT_COLLECTION_QUEUE,
                         SystemConfigGroupEnum.COLLECTION,
                         collectionOrderDto.getTransactionNo(),
                         collectionOrderDto.getCreateTime());
             } catch (Exception e) {
-                log.error("collection order insert failed, message {}", e.getMessage());
-                throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+                log.error("publish collection timeout message failed, transactionNo={}, message={}",
+                        collectionOrderDto.getTransactionNo(), e.getMessage());
             }
 
             if (isTestWithoutExternal(collectionOrderDto.getOrderType())) {
@@ -207,7 +239,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                         CommonResponse.success(responseBody));
             }
 
-            // 10. dispatch collection request to handler
+            // 11. dispatch collection request to handler
             PaymentHttpResponse handlerResponse = dispatchCollectionOrder(
                     collectionOrderDto,
                     transactionInfo.getPaymentInfo(),
@@ -226,7 +258,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                                 "collection channel request failed: code=" + handlerCode + ", detail=" + detail));
             }
 
-            // 11. build and return create response
+            // 12. build and return create response
             Map<String, Object> responseBody = buildCollectionResponse(collectionOrderDto, handlerResponse);
             log.info("createCollectionOrder success, transactionNo={}", collectionOrderDto.getTransactionNo());
             createdSuccess = true;
@@ -394,14 +426,26 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 collectionOrderDto.getTransactionNo(),
                 collectionOrderDto.getOrderStatus());
 
-        OrderScope scope = Integer.valueOf(1).equals(collectionOrderDto.getCollectionMode())
-                ? OrderScope.THIRD_PARTY
-                : OrderScope.SYSTEM;
-        OrderHandler handler = OrderHandlerFactory.get(
-                scope, collectionOrderDto.getCurrencyType(), collectionOrderDto.getPaymentNo());
-
-        // Query payment config early for subsequent channel query.
-        PaymentDto paymentDto = fetchPaymentById(collectionOrderDto.getPaymentId());
+        OrderHandler handler;
+        PaymentDto paymentDto;
+        try {
+            OrderScope scope = Integer.valueOf(1).equals(collectionOrderDto.getCollectionMode())
+                    ? OrderScope.THIRD_PARTY
+                    : OrderScope.SYSTEM;
+            handler = OrderHandlerFactory.get(
+                    scope, collectionOrderDto.getCurrencyType(), collectionOrderDto.getPaymentNo());
+            // Query payment config early for subsequent channel query.
+            paymentDto = fetchPaymentById(collectionOrderDto.getPaymentId());
+        } catch (Exception e) {
+            log.error("handleNotify init failed, transactionNo={}, paymentId={}, paymentNo={}, currency={}, message={}",
+                    collectionOrderDto.getTransactionNo(),
+                    collectionOrderDto.getPaymentId(),
+                    collectionOrderDto.getPaymentNo(),
+                    collectionOrderDto.getCurrencyType(),
+                    e.getMessage());
+            processNotifyResult(collectionOrderDto, TransactionStatus.FAILED, null, NotifyFlow.AUTO, null);
+            return "ok";
+        }
 
         NotifyRequest response = null;
         TransactionStatus targetStatus = TransactionStatus.FAILED;
@@ -430,7 +474,13 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
             targetStatus = TransactionStatus.FAILED;
         }
 
-        processNotifyResult(collectionOrderDto, targetStatus, handler, NotifyFlow.AUTO, null);
+        try {
+            processNotifyResult(collectionOrderDto, targetStatus, handler, NotifyFlow.AUTO, null);
+        } catch (Exception e) {
+            log.error("handleNotify process failed, transactionNo={}, targetStatus={}, message={}",
+                    collectionOrderDto.getTransactionNo(), targetStatus, e.getMessage(), e);
+            return "ok";
+        }
 
         return handler.getNotifySuccessResponse();
     }
@@ -527,22 +577,24 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
 
         // Callback result only affects callback metadata, not order final status.
         // Execute callback side-effects asynchronously to avoid blocking API response.
-        if (handler != null && collectionOrderDto.getCallbackUrl() != null && !collectionOrderDto.getCallbackUrl().isBlank()) {
+        if (collectionOrderDto.getCallbackUrl() != null && !collectionOrderDto.getCallbackUrl().isBlank()) {
+            // Only trigger first callback attempt here; retry is handled by MQ consumer.
             runCallbackAsync(scene, collectionOrderDto.getTransactionNo(), () -> {
                 try {
-                    OrderHandler.NotifyResult notifyResult = handler.sendNotifyToMerchant(
-                            buildCollectionNotifyBody(collectionOrderDto, targetStatus),
-                            collectionOrderDto.getCallbackUrl());
-                    updateNotifyCallbackMeta(collectionOrderDto, notifyResult);
+                    log.info("{} merchant callback first attempt scheduled, transactionNo={}, callbackUrl={}",
+                            scene, collectionOrderDto.getTransactionNo(), collectionOrderDto.getCallbackUrl());
+                    merchantNotifyRetryService.notifyCollectionFirstAttempt(
+                            collectionOrderDto.getTransactionNo(),
+                            collectionOrderDto.getCallbackUrl(),
+                            buildCollectionNotifyBody(collectionOrderDto, targetStatus));
                 } catch (Exception e) {
                     log.error("{} merchant callback execution failed, transactionNo={}, message={}",
                             scene, collectionOrderDto.getTransactionNo(), e.getMessage());
                 }
             });
         } else {
-            log.info("{} skip merchant callback, handlerNull={}, callbackUrlEmpty={}, transactionNo={}",
+            log.info("{} skip merchant callback, callbackUrlEmpty={}, transactionNo={}",
                     scene,
-                    handler == null,
                     collectionOrderDto.getCallbackUrl() == null || collectionOrderDto.getCallbackUrl().isBlank(),
                     collectionOrderDto.getTransactionNo());
         }
@@ -554,30 +606,6 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
         } else {
             log.info("{} skip report refresh, transactionNo={}, updated={}",
                     scene, collectionOrderDto.getTransactionNo(), updated);
-        }
-    }
-
-    private void updateNotifyCallbackMeta(CollectionOrderDto orderDto, OrderHandler.NotifyResult notifyResult) {
-        long now = System.currentTimeMillis() / 1000;
-        boolean success = notifyResult != null && notifyResult.isSuccess();
-        int callbackStatus = success ? 2 : 1;
-        int failedAttempts = notifyResult == null ? 1 : Math.max(notifyResult.getFailedAttempts(), 0);
-        int totalAttempts = failedAttempts + (success ? 1 : 0);
-        try {
-            long[] range = resolveTransactionNoTimeRange(orderDto.getTransactionNo());
-            collectionOrderMapper.increaseCallbackTimes(
-                    orderDto.getTransactionNo(),
-                    now,
-                    totalAttempts,
-                    callbackStatus,
-                    success ? now : null,
-                    range[0],
-                    range[1]);
-            log.info("merchant notify callback meta updated, transactionNo={}, totalAttempts={}, success={}, callbackStatus={}",
-                    orderDto.getTransactionNo(), totalAttempts, success, callbackStatus);
-        } catch (Exception e) {
-            log.error("update notify callback meta failed, transactionNo={}, message={}",
-                    orderDto.getTransactionNo(), e.getMessage());
         }
     }
 
@@ -679,36 +707,29 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                 int updated = collectionOrderMapper.updateByTransactionNoWhenStatus(
                         update, currentStatus,
                         range[0], range[1]);
-                log.info("collection applyNotifyUpdate db update result, transactionNo={}, updatedRows={}, expectedCurrentStatus={}, targetStatus={}",
-                        collectionOrderDto.getTransactionNo(), updated, currentStatus, targetStatus.getCode());
                 if (updated <= 0) {
-                    log.info("collection notify skipped, order not processing, transactionNo={}, status={}",
-                            collectionOrderDto.getTransactionNo(), targetStatus.getCode());
                     return;
                 }
+                if (TransactionStatus.SUCCESS.equals(targetStatus)) {
+                    accountEventService.appendCollectionSuccessEvents(collectionOrderDto, merchantInfo);
+                }
                 stateUpdated.set(true);
-                channelPaymentService.updateChannelAndPaymentCounters(collectionOrderDto, targetStatus);
             } catch (Exception e) {
                 log.error("collection order updateByTransactionNo failed, message {}", e.getMessage());
                 throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
             }
-
-            if (TransactionStatus.SUCCESS.equals(targetStatus)) {
-                BigDecimal creditAmount = CalcUtil.safeSubtract(
-                        resolveOrderAmount(collectionOrderDto.getActualAmount(), collectionOrderDto.getAmount()),
-                        collectionOrderDto.getMerchantFee());
-                CommonUtil.withBalanceLogContext("collection.handleNotify", collectionOrderDto.getTransactionNo(), () -> {
-                    balanceService.creditBalance(
-                            collectionOrderDto.getMerchantUserId(),
-                            collectionOrderDto.getCurrencyType(),
-                            creditAmount);
-                });
-                updateAgentFeeBalance(balanceService, merchantInfo, collectionOrderDto.getCurrencyType(),
-                        collectionOrderDto.getAgent1Fee(),
-                        collectionOrderDto.getAgent2Fee(),
-                        collectionOrderDto.getAgent3Fee());
-            }
         });
+
+        // Counter update is non-transactional side effect (Redis). Do it after commit
+        // so transient Redis latency/failure will not hold or rollback the DB transaction.
+        if (stateUpdated.get()) {
+            try {
+                channelPaymentService.updateChannelAndPaymentCounters(collectionOrderDto, targetStatus);
+            } catch (Exception e) {
+                log.warn("collection counter update failed after commit, transactionNo={}, targetStatus={}, message={}",
+                        collectionOrderDto.getTransactionNo(), targetStatus, e.getMessage());
+            }
+        }
         log.info("collection applyNotifyUpdate end, transactionNo={}, stateUpdated={}",
                 collectionOrderDto.getTransactionNo(), stateUpdated.get());
         return stateUpdated.get();

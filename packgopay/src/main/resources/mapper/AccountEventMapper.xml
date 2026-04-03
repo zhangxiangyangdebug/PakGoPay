@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.AccountEventMapper">
+
+    <resultMap id="AccountEventResultMap" type="com.pakgopay.mapper.dto.AccountEventDto">
+        <id column="id" property="id" javaType="java.lang.Long"/>
+        <result column="event_type" property="eventType" javaType="java.lang.String"/>
+        <result column="biz_no" property="bizNo" javaType="java.lang.String"/>
+        <result column="user_id" property="userId" javaType="java.lang.String"/>
+        <result column="currency" property="currency" javaType="java.lang.String"/>
+        <result column="amount" property="amount" javaType="java.math.BigDecimal"/>
+        <result column="event_time" property="eventTime" javaType="java.lang.Long"/>
+        <result column="status" property="status" javaType="java.lang.Short"/>
+        <result column="retry_count" property="retryCount" javaType="java.lang.Integer"/>
+        <result column="batch_no" property="batchNo" javaType="java.lang.String"/>
+        <result column="last_error" property="lastError" javaType="java.lang.String"/>
+        <result column="created_at" property="createdAt" javaType="java.lang.Long"/>
+        <result column="updated_at" property="updatedAt" javaType="java.lang.Long"/>
+    </resultMap>
+
+    <insert id="insertEventBatch">
+        <!--
+            Batch append for account events:
+            1) build in-memory rows via VALUES
+            2) write directly into monthly partition table
+            3) rely on partition-local unique index (biz_no) for idempotency
+        -->
+        WITH input_rows (
+            event_type,
+            biz_no,
+            user_id,
+            currency,
+            amount,
+            event_time,
+            status,
+            retry_count,
+            created_at,
+            updated_at
+        ) AS (
+            VALUES
+            <foreach collection="list" item="item" separator=",">
+                (
+                    #{item.eventType},
+                    #{item.bizNo},
+                    #{item.userId},
+                    #{item.currency},
+                    #{item.amount},
+                    #{item.eventTime},
+                    #{item.status},
+                    #{item.retryCount},
+                    #{item.createdAt},
+                    #{item.updatedAt}
+                )
+            </foreach>
+        )
+        INSERT INTO ${tableName} (
+            event_type,
+            biz_no,
+            user_id,
+            currency,
+            amount,
+            event_time,
+            status,
+            retry_count,
+            created_at,
+            updated_at
+        )
+        SELECT
+            r.event_type,
+            r.biz_no,
+            r.user_id,
+            r.currency,
+            r.amount,
+            r.event_time,
+            r.status,
+            r.retry_count,
+            r.created_at,
+            r.updated_at
+        FROM input_rows r
+        ON CONFLICT (biz_no) DO NOTHING
+    </insert>
+
+    <select id="claimPendingEvents" resultMap="AccountEventResultMap">
+        <!--
+            Claim rows using FOR UPDATE SKIP LOCKED:
+            multiple workers can run concurrently without blocking each other.
+        -->
+        WITH cte AS (
+            SELECT id
+            FROM account_event
+            WHERE status IN (0, 3)
+              AND event_type IN
+                <foreach collection="eventTypes" item="eventType" open="(" close=")" separator=",">
+                    #{eventType}
+                </foreach>
+            ORDER BY event_time ASC, id ASC
+            LIMIT #{limitSize}
+            FOR UPDATE SKIP LOCKED
+        )
+        UPDATE account_event e
+        SET status = 1,
+            updated_at = #{now}
+        FROM cte
+        WHERE e.id = cte.id
+        RETURNING
+            e.id,
+            e.event_type,
+            e.biz_no,
+            e.user_id,
+            e.currency,
+            e.amount,
+            e.event_time,
+            e.status,
+            e.retry_count,
+            e.batch_no,
+            e.last_error,
+            e.created_at,
+            e.updated_at
+    </select>
+
+    <update id="markDoneByIds">
+        UPDATE account_event
+        SET status = 2,
+            batch_no = #{batchNo},
+            last_error = NULL,
+            updated_at = #{now}
+        WHERE status = 1
+          AND id IN
+            <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+    </update>
+
+    <update id="markFailedByIds">
+        UPDATE account_event
+        SET status = 3,
+            retry_count = retry_count + 1,
+            last_error = #{error},
+            updated_at = #{now}
+        WHERE status = 1
+          AND id IN
+            <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+    </update>
+
+</mapper>

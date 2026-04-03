@@ -1,5 +1,7 @@
 package com.pakgopay.common.config;
 
+import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.HikariPoolMXBean;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -83,5 +85,50 @@ public class DataSourceConnectionLogger {
         } catch (Exception e) {
             log.error("datasource check failed, label={}, message={}", label, e.getMessage());
         }
+    }
+
+    /**
+     * Log current hikari pool metrics for quick troubleshooting.
+     */
+    public void logHikariPoolStats(String scene) {
+        logHikariPoolStats("primary", primaryDataSource, scene);
+        DataSource secondaryDataSource = secondaryDataSourceProvider.getIfAvailable();
+        if (secondaryDataSource != null) {
+            logHikariPoolStats("secondary", secondaryDataSource, scene);
+        }
+    }
+
+    private void logHikariPoolStats(String label, DataSource dataSource, String scene) {
+        DataSource actual = unwrapDataSource(dataSource);
+        if (!(actual instanceof HikariDataSource hikariDataSource)) {
+            log.info("hikari pool stats skipped, label={}, scene={}, reason=not_hikari", label, scene);
+            return;
+        }
+        try {
+            HikariPoolMXBean mxBean = hikariDataSource.getHikariPoolMXBean();
+            if (mxBean == null) {
+                log.info("hikari pool stats skipped, label={}, scene={}, reason=mxbean_null", label, scene);
+                return;
+            }
+            log.info(
+                    "hikari pool stats, label={}, scene={}, poolName={}, active={}, idle={}, pending={}, total={}",
+                    label,
+                    scene,
+                    hikariDataSource.getPoolName(),
+                    mxBean.getActiveConnections(),
+                    mxBean.getIdleConnections(),
+                    mxBean.getThreadsAwaitingConnection(),
+                    mxBean.getTotalConnections());
+        } catch (Exception e) {
+            log.warn("hikari pool stats failed, label={}, scene={}, message={}", label, scene, e.getMessage());
+        }
+    }
+
+    private DataSource unwrapDataSource(DataSource dataSource) {
+        DataSource current = dataSource;
+        while (current instanceof TimingDataSource timingDataSource) {
+            current = timingDataSource.getDelegate();
+        }
+        return current;
     }
 }

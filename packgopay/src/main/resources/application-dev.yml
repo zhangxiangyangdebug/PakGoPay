@@ -4,13 +4,13 @@ spring:
   application:
     name: PakGoPay
   rabbitmq:
-    host: 47.237.209.29
+    host: 172.18.157.21
     port: 5672
     username: xiaoyou
     password: "ENC(IyYEbQuxanXY0fTveLB9SKrjo8Ulk8Swwrr8VbuP0fBW/q23FJIT501PxB+MJzr6)"
   data:
     redis:
-      host: 47.237.209.29
+      host: 172.18.157.21
       port: 6379
       password: "ENC(b5hhW1348eyAF5C2OK7IxiXMXpcMfdzX4IR1WjBI1itCZfl532XYCH0O3/IIZa88)"
   datasource:
@@ -21,11 +21,11 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       connection-test-query: SELECT 1
-      maximum-pool-size: 20
-      minimum-idle: 5
-      connection-timeout: 1000
+      maximum-pool-size: 200
+      minimum-idle: 60
+      connection-timeout: 3000
       idle-timeout: 60000
-      max-lifetime: 30000
+      max-lifetime: 1800000
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 jasypt:
@@ -58,11 +58,13 @@ pakgopay:
       driver-class-name: org.postgresql.Driver
       hikari:
         connection-test-query: SELECT 1
-        maximum-pool-size: 20
-        minimum-idle: 5
-        connection-timeout: 1000
+        maximum-pool-size: 40
+        minimum-idle: 10
+        connection-timeout: 3000
         idle-timeout: 60000
-        max-lifetime: 30000
+        max-lifetime: 1800000
+  order-flow-log:
+    enabled: true
   cloudflare:
     apiToken: ENC(uQnD8BqKnGKfVYhNyDHStCpmbTFxducJZSNRKYFpcqyN6IuaB8nJC/GLV4vnzIpBAemp2ciNQsiiU7atVtMFRwCQnflC5vFVnNzVP5RbiII=)
     zoneId: 1b5b29d8df1d0f084a28393d5c7032ed

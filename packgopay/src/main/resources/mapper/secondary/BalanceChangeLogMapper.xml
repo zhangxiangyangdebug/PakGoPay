@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.secondary.BalanceChangeLogMapper">
+
+    <insert id="insertIgnore" parameterType="com.pakgopay.mapper.dto.BalanceChangeLogDto">
+        INSERT INTO balance_change_log (
+            merchant_user_id,
+            currency,
+            biz_type,
+            biz_no,
+            change_amount,
+            before_available,
+            after_available,
+            created_at
+        ) VALUES (
+            #{merchantUserId},
+            #{currency},
+            #{bizType},
+            #{bizNo},
+            #{changeAmount},
+            #{beforeAvailable},
+            #{afterAvailable},
+            #{createdAt}
+        )
+        ON CONFLICT (biz_type, biz_no)
+        DO NOTHING
+    </insert>
+
+</mapper>

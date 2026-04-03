@@ -82,6 +82,29 @@
         sign_key
     </sql>
 
+    <sql id="AuthColumns">
+        user_id,
+        parent_id,
+        merchant_name,
+        support_type,
+        status,
+        collection_rate,
+        collection_fixed_fee,
+        collection_max_fee,
+        collection_min_fee,
+        pay_rate,
+        pay_fixed_fee,
+        pay_max_fee,
+        pay_min_fee,
+        is_float,
+        float_range,
+        col_white_ips,
+        pay_white_ips,
+        channel_ids,
+        api_key,
+        sign_key
+    </sql>
+
     <sql id="BaseColumnsForJoin">
         m.user_id,
         ui.login_name,
@@ -126,8 +149,8 @@
         limit 1
     </select>
 
-    <select id="findByApiKey" resultMap="MerchantInfoDtoMap">
-        select <include refid="BaseColumns"/>
+    <select id="findAuthInfoByApiKey" resultMap="MerchantInfoDtoMap">
+        select <include refid="AuthColumns"/>
         from merchant_info
         where api_key = #{apiKey}
         limit 1

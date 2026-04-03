@@ -3,7 +3,7 @@
     <Properties>
         <Property name="logPath">./Users/xiaoyou_02/project/YouPayServer</Property>
         <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [pid=%pid tid=%tid] %-5level %X{traceId} %class{1} - %msg%n</Property>
-        <Property name="LOG_JSON_PATTERN">{"ts":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}","pid":"%pid","tid":"%tid","level":"%p","traceId":"%X{traceId}","logger":"%class{1}","message":"%enc{%m}{JSON}","exception":"%enc{%throwable{full}}{JSON}"}%n</Property>
+        <Property name="LOG_JSON_PATTERN">{"ts":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}","pid":"%pid","tid":"%tid","level":"%p","traceId":"%X{traceId}","logger":"%logger{1}","message":"%enc{%m}{JSON}","exception":"%enc{%throwable{full}}{JSON}"}%n</Property>
         <Property name="LOG_DIR">logs</Property>
         <Property name="LOG_FILE_NAME">root.log</Property>
     </Properties>
@@ -16,7 +16,7 @@
             <PatternLayout pattern="${LOG_JSON_PATTERN}"/>
             <Policies>
                 <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
-                <SizeBasedTriggeringPolicy size="100MB"/>
+                <SizeBasedTriggeringPolicy size="300MB"/>
             </Policies>
             <DefaultRolloverStrategy>
                 <Delete basePath="${LOG_DIR}" maxDepth="1">
@@ -67,12 +67,17 @@
                 </Delete>
             </DefaultRolloverStrategy>
         </RollingFile>
+
+        <!-- Root logger async wrapper: avoid request thread blocking on log I/O -->
+        <Async name="AsyncRoot" bufferSize="262144" blocking="false" includeLocation="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
+        </Async>
     </Appenders>
 
     <loggers>
         <root level="INFO">
-            <AppenderRef ref="Console"/>
-            <AppenderRef ref="RollingFile"/>
+            <AppenderRef ref="AsyncRoot"/>
         </root>
         <logger name="RollingFile" level="INFO" additivity="false">
             <AppenderRef ref="RollingFile"/>

@@ -7,32 +7,46 @@ import com.pakgopay.mapper.secondary.CollectionOrderFlowLogMapper;
 import com.pakgopay.mapper.secondary.PayOrderFlowLogMapper;
 import com.pakgopay.mapper.dto.OrderFlowLogDto;
 import com.pakgopay.service.common.OrderFlowLogService;
+import com.pakgopay.service.common.OrderFlowLogEvent;
 import com.pakgopay.service.common.OrderFlowLogSession;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.SensitiveDataMaskUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Service
 public class OrderFlowLogServiceImpl implements OrderFlowLogService {
 
+    private static final DateTimeFormatter MONTH_PARTITION_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyyMM").withZone(ZoneOffset.UTC);
+
     // Async queue config.
-    private static final int QUEUE_CAPACITY = 20000;
-    private static final int BATCH_SIZE = 1000;
-    private static final int MAX_BATCH_ROUNDS_PER_FLUSH = 2;
+    private static final int QUEUE_CAPACITY = 200000;
 
     // Keys that must be masked in flow log payload.
     private static final Set<String> FLOW_LOG_SENSITIVE_KEYS = Set.of("apikey", "signkey");
@@ -43,13 +57,63 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
     @Autowired
     private PayOrderFlowLogMapper payOrderFlowLogMapper;
 
+    @Value("${pakgopay.order-flow-log.enabled:true}")
+    private boolean enabled;
+
+    @Value("${pakgopay.order-flow-log.batch-size:500}")
+    private int batchSize;
+
+    @Value("${pakgopay.order-flow-log.max-batch-rounds-per-flush:20}")
+    private int maxBatchRoundsPerFlush;
+
+    @Value("${pakgopay.order-flow-log.queue-monitor-every-n-flush:100}")
+    private int queueMonitorEveryNFlush;
+
+    @Value("${pakgopay.order-flow-log.worker-count:8}")
+    private int workerCount;
+
+    @Value("${pakgopay.order-flow-log.max-inflight-batches:16}")
+    private int maxInflightBatches;
+
+    @Value("${pakgopay.order-flow-log.insert-slow-ms:200}")
+    private long insertSlowMs;
+
     private final LinkedBlockingQueue<QueueEvent> queue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
+    private long flushInvocationCount = 0;
+    private ExecutorService flushExecutor;
+    private Semaphore inFlightBatchSemaphore;
+    private static final OrderFlowLogSession NO_OP_SESSION = new OrderFlowLogSession() {
+        @Override
+        public void add(OrderFlowStepEnum step, Boolean success, Object payload) {
+        }
+
+        @Override
+        public void flush() {
+        }
+    };
+
+    @PostConstruct
+    public void initAsyncFlushWorkers() {
+        int resolvedWorkerCount = Math.max(1, workerCount);
+        int resolvedMaxInflightBatches = Math.max(resolvedWorkerCount, maxInflightBatches);
+        AtomicInteger workerIndex = new AtomicInteger(1);
+        this.flushExecutor = Executors.newFixedThreadPool(resolvedWorkerCount, runnable -> {
+            Thread thread = new Thread(runnable);
+            thread.setName("order-flow-log-flush-" + workerIndex.getAndIncrement());
+            thread.setDaemon(true);
+            return thread;
+        });
+        this.inFlightBatchSemaphore = new Semaphore(resolvedMaxInflightBatches);
+    }
 
     /**
      * Create a session for collection order flow logs.
      */
     @Override
     public OrderFlowLogSession newCollectionSession(String transactionNo) {
+        if (!enabled) {
+            return NO_OP_SESSION;
+        }
         return new DefaultOrderFlowLogSession(transactionNo, true);
     }
 
@@ -58,6 +122,9 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
      */
     @Override
     public OrderFlowLogSession newPayoutSession(String transactionNo) {
+        if (!enabled) {
+            return NO_OP_SESSION;
+        }
         return new DefaultOrderFlowLogSession(transactionNo, false);
     }
 
@@ -66,6 +133,9 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
      */
     @Override
     public void logCollection(String transactionNo, OrderFlowStepEnum step, Boolean success, Object payload) {
+        if (!enabled) {
+            return;
+        }
         enqueue(transactionNo, step, success, payload, true);
     }
 
@@ -74,7 +144,29 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
      */
     @Override
     public void logPayout(String transactionNo, OrderFlowStepEnum step, Boolean success, Object payload) {
+        if (!enabled) {
+            return;
+        }
         enqueue(transactionNo, step, success, payload, false);
+    }
+
+    /**
+     * Enqueue multiple flow events in one service call.
+     */
+    @Override
+    public void logBatch(String transactionNo, boolean collection, List<OrderFlowLogEvent> events) {
+        if (!enabled) {
+            return;
+        }
+        if (events == null || events.isEmpty()) {
+            return;
+        }
+        for (OrderFlowLogEvent event : events) {
+            if (event == null) {
+                continue;
+            }
+            enqueue(transactionNo, event.getStep(), event.getSuccess(), event.getPayload(), collection);
+        }
     }
 
     /**
@@ -92,8 +184,26 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
     /**
      * Scheduled async flush.
      */
-    @Scheduled(fixedDelay = 200, initialDelay = 1000)
+    @Scheduled(
+            fixedDelayString = "${pakgopay.order-flow-log.flush-delay-ms:50}",
+            initialDelayString = "${pakgopay.order-flow-log.initial-delay-ms:1000}"
+    )
     public void flushAsyncQueue() {
+        if (!enabled) {
+            return;
+        }
+        flushInvocationCount++;
+        int queueSize = queue.size();
+        if (queueSize > 0
+                && queueMonitorEveryNFlush > 0
+                && flushInvocationCount % queueMonitorEveryNFlush == 0) {
+            log.info("order flow log queue stats, size={}, remainingCapacity={}, capacity={}, batchSize={}, maxBatchRoundsPerFlush={}",
+                    queueSize,
+                    queue.remainingCapacity(),
+                    QUEUE_CAPACITY,
+                    batchSize,
+                    maxBatchRoundsPerFlush);
+        }
         flushQueueBatches();
     }
 
@@ -102,8 +212,22 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
      */
     @PreDestroy
     public void flushOnShutdown() {
+        if (!enabled) {
+            return;
+        }
         while (!queue.isEmpty()) {
             flushQueueBatch();
+        }
+        if (flushExecutor != null) {
+            flushExecutor.shutdown();
+            try {
+                if (!flushExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
+                    flushExecutor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                flushExecutor.shutdownNow();
+            }
         }
     }
 
@@ -164,7 +288,7 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
      * Flush up to configured rounds each schedule tick.
      */
     private void flushQueueBatches() {
-        for (int i = 0; i < MAX_BATCH_ROUNDS_PER_FLUSH; i++) {
+        for (int i = 0; i < maxBatchRoundsPerFlush; i++) {
             if (queue.isEmpty()) {
                 return;
             }
@@ -176,37 +300,50 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
      * Drain one batch from queue, then bulk insert into target tables.
      */
     private void flushQueueBatch() {
-        if (queue.isEmpty()) {
+        if (queue.isEmpty() || flushExecutor == null || inFlightBatchSemaphore == null) {
+            return;
+        }
+        if (!inFlightBatchSemaphore.tryAcquire()) {
             return;
         }
 
-        List<QueueEvent> drained = new ArrayList<>(BATCH_SIZE);
-        queue.drainTo(drained, BATCH_SIZE);
+        List<QueueEvent> drained = new ArrayList<>(batchSize);
+        queue.drainTo(drained, batchSize);
         if (drained.isEmpty()) {
+            inFlightBatchSemaphore.release();
             return;
         }
 
-        List<OrderFlowLogDto> collectionList = new ArrayList<>();
-        List<OrderFlowLogDto> payoutList = new ArrayList<>();
-        for (QueueEvent event : drained) {
-            OrderFlowLogDto dto = buildLogDto(
-                    event.transactionNo(),
-                    event.step(),
-                    event.success(),
-                    event.payload(),
-                    event.traceId(),
-                    event.eventTime(),
-                    event.createTime()
-            );
-            if (event.collection()) {
-                collectionList.add(dto);
-            } else {
-                payoutList.add(dto);
-            }
-        }
+        flushExecutor.execute(() -> {
+            try {
+                List<OrderFlowLogDto> collectionList = new ArrayList<>();
+                List<OrderFlowLogDto> payoutList = new ArrayList<>();
+                for (QueueEvent event : drained) {
+                    OrderFlowLogDto dto = buildLogDto(
+                            event.transactionNo(),
+                            event.step(),
+                            event.success(),
+                            event.payload(),
+                            event.traceId(),
+                            event.eventTime(),
+                            event.createTime()
+                    );
+                    if (event.collection()) {
+                        collectionList.add(dto);
+                    } else {
+                        payoutList.add(dto);
+                    }
+                }
 
-        saveBatchWithRetry(collectionList, true);
-        saveBatchWithRetry(payoutList, false);
+                saveBatchWithRetry(collectionList, true);
+                saveBatchWithRetry(payoutList, false);
+            } catch (Exception e) {
+                log.error("order flow async flush worker failed, batchSize={}, message={}",
+                        drained.size(), e.getMessage(), e);
+            } finally {
+                inFlightBatchSemaphore.release();
+            }
+        });
     }
 
     /**
@@ -234,11 +371,40 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
      * Insert batch to collection/payout table by route flag.
      */
     private void insertBatch(List<OrderFlowLogDto> list, boolean collection) {
-        if (collection) {
-            collectionOrderFlowLogMapper.insertBatch(list);
-        } else {
-            payOrderFlowLogMapper.insertBatch(list);
+        long start = System.currentTimeMillis();
+        try {
+            Map<String, List<OrderFlowLogDto>> partitionedBatches = splitByMonthlyPartition(list, collection);
+            for (Map.Entry<String, List<OrderFlowLogDto>> entry : partitionedBatches.entrySet()) {
+                if (collection) {
+                    collectionOrderFlowLogMapper.insertBatch(entry.getKey(), entry.getValue());
+                } else {
+                    payOrderFlowLogMapper.insertBatch(entry.getKey(), entry.getValue());
+                }
+            }
+        } finally {
+            long costMs = System.currentTimeMillis() - start;
+            if (costMs >= insertSlowMs) {
+                log.info("order flow batch insert cost, collection={}, size={}, costMs={}, worker={}",
+                        collection, list.size(), costMs, Thread.currentThread().getName());
+            }
         }
+    }
+
+    private Map<String, List<OrderFlowLogDto>> splitByMonthlyPartition(List<OrderFlowLogDto> list, boolean collection) {
+        Map<String, List<OrderFlowLogDto>> grouped = new LinkedHashMap<>();
+        String parentTable = collection ? "collection_order_flow_log" : "pay_order_flow_log";
+        for (OrderFlowLogDto dto : list) {
+            String tableName = parentTable + "_" + resolvePartitionMonthSuffix(dto.getCreateTime());
+            grouped.computeIfAbsent(tableName, key -> new ArrayList<>()).add(dto);
+        }
+        return grouped;
+    }
+
+    private String resolvePartitionMonthSuffix(Long createTime) {
+        long epochSecond = createTime == null || createTime <= 0
+                ? System.currentTimeMillis() / 1000
+                : createTime;
+        return MONTH_PARTITION_FORMATTER.format(Instant.ofEpochSecond(epochSecond));
     }
 
     /**
@@ -338,27 +504,23 @@ public class OrderFlowLogServiceImpl implements OrderFlowLogService {
             }
 
             long createTime = resolveCreateTimeFromTransactionNo(transactionNo);
-            List<OrderFlowLogDto> dtoList = new ArrayList<>(events.size());
             for (FlowEvent event : events) {
-                dtoList.add(buildLogDto(
+                boolean offered = queue.offer(new QueueEvent(
                         transactionNo,
                         event.step(),
                         event.success(),
                         event.payload(),
+                        collection,
                         traceId,
                         event.eventTime(),
                         createTime
                 ));
+                if (!offered) {
+                    log.warn("order flow log queue full, drop flush event, transactionNo={}, step={}",
+                            transactionNo, event.step() == null ? null : event.step().getCode());
+                }
             }
-
-            try {
-                insertBatch(dtoList, collection);
-            } catch (Exception e) {
-                log.warn("order flow log batch insert failed, transactionNo={}, message={}",
-                        transactionNo, e.getMessage());
-            } finally {
-                events.clear();
-            }
+            events.clear();
         }
     }
 

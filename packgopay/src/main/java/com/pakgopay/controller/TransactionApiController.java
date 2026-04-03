@@ -15,9 +15,12 @@ import com.pakgopay.service.transaction.CollectionOrderService;
 import com.pakgopay.service.transaction.PayOutOrderService;
 import com.pakgopay.util.CommonUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.WebAsyncTask;
 
@@ -38,9 +41,18 @@ public class TransactionApiController {
     @Autowired
     private OrderFlowLogService orderFlowLogService;
 
+    @Autowired
+    @Qualifier("createOrderApiAsyncExecutor")
+    private ThreadPoolTaskExecutor createOrderApiAsyncExecutor;
+
+    @Autowired
+    @Qualifier("notifyApiAsyncExecutor")
+    private ThreadPoolTaskExecutor notifyApiAsyncExecutor;
+
     @PostMapping(value = "/createCollectionOrder")
     public WebAsyncTask<CommonResponse> createCollectionOrder(
             HttpServletRequest request,
+            HttpServletResponse servletResponse,
             @RequestHeader(value = "Authorization") String authorization,
             @Valid @RequestBody CollectionOrderRequest collectionOrderRequest) {
         log.info("createCollectionOrder request, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
@@ -49,11 +61,12 @@ public class TransactionApiController {
                 collectionOrderRequest.getCurrency(),
                 collectionOrderRequest.getAmount(),
                 collectionOrderRequest.getPaymentNo());
-        WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L,
+        WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L, createOrderApiAsyncExecutor,
                 () -> {
                     try {
                         CommonResponse response = collectionOrderService.createCollectionOrder(collectionOrderRequest, authorization);
-                        return normalizeExternalResponse(response);
+                        CommonResponse normalized = normalizeExternalResponse(response);
+                        return normalized;
                     } catch (PakGoPayException e) {
                         log.error("createCollectionOrder error, code: {} message: {}",e.getErrorCode(), e.getMessage());
                         return normalizeExternalResponse(CommonResponse.fail(e.getCode(), e.getMessage()));
@@ -77,6 +90,7 @@ public class TransactionApiController {
     @PostMapping(value = "/createPayOutOrder")
     public WebAsyncTask<CommonResponse> createPayOutOrder(
             HttpServletRequest request,
+            HttpServletResponse servletResponse,
             @RequestHeader(value = "Authorization") String authorization,
             @Valid @RequestBody PayOutOrderRequest payOutOrderRequest) {
         log.info("createPayOutOrder request, merchantId={}, merchantOrderNo={}, currency={}, amount={}, paymentNo={}",
@@ -85,11 +99,12 @@ public class TransactionApiController {
                 payOutOrderRequest.getCurrency(),
                 payOutOrderRequest.getAmount(),
                 payOutOrderRequest.getPaymentNo());
-        WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L,
+        WebAsyncTask<CommonResponse> task = new WebAsyncTask<>(300000L, createOrderApiAsyncExecutor,
                 () -> {
                     try {
                         CommonResponse response = payOutOrderService.createPayOutOrder(payOutOrderRequest, authorization);
-                        return normalizeExternalResponse(response);
+                        CommonResponse normalized = normalizeExternalResponse(response);
+                        return normalized;
                     } catch (PakGoPayException e) {
                         log.error("createPayOutOrder error, code {} message {}",e.getErrorCode(), e.getMessage());
                         return normalizeExternalResponse(CommonResponse.fail(e.getCode(), e.getMessage()));
@@ -147,7 +162,14 @@ public class TransactionApiController {
     }
 
     @PostMapping(value = "/notifyTransaction")
-    public Object handleNotify(@RequestBody Map<String, Object> notifyData) {
+    public WebAsyncTask<Object> handleNotify(@RequestBody Map<String, Object> notifyData) {
+        WebAsyncTask<Object> task = new WebAsyncTask<>(300000L, notifyApiAsyncExecutor, () -> handleNotifyInternal(notifyData));
+        task.onTimeout(() -> CommonResponse.fail(ResultCode.REQUEST_TIME_OUT, "notify async timeout").toString());
+        task.onError(() -> CommonResponse.fail(ResultCode.FAIL, "notify async error").toString());
+        return task;
+    }
+
+    private Object handleNotifyInternal(Map<String, Object> notifyData) {
         log.info("notify received, notifyData={}", notifyData);
         String orderNo = extractOrderNo(notifyData);
         Map<String, Object> data = getDataMap(notifyData);

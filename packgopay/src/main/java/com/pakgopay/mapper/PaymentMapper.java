@@ -32,6 +32,11 @@ public interface PaymentMapper {
 
     int updateByPaymentId(PaymentDto dto);
 
+    int increaseCountersByPaymentIdDelta(@Param("paymentId") Long paymentId,
+                                         @Param("orderInc") long orderInc,
+                                         @Param("successInc") long successInc,
+                                         @Param("updateTime") long updateTime);
+
     int deleteByPaymentId(@Param("paymentId") Long paymentId);
 
     List<PaymentDto> findEnableInfoByPaymentNos(
