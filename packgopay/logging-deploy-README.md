@@ -6,8 +6,8 @@ Unified script:
 
 This script now contains backend deploy + log server deploy + promtail deploy in one file.
 Default log server host is fixed to `121.5.179.75` (can still be overridden by `--log-server-host`).
-Default backend host is `8.219.132.103`.
-In `--mode all`, if `--business-host` is not provided, it defaults to backend host.
+Default backend host is `47.237.209.29`.
+In `--mode promtail` or `--mode all`, if `--business-host` is not provided, it defaults to backend host.
 
 ## 1) Backend only
 
@@ -31,6 +31,12 @@ Default ports:
 ## 3) Promtail only (business host -> standalone log server)
 
 ```bash
+bash logging-deploy/scripts/deploy_unified.sh --mode promtail
+```
+
+Optional override business host:
+
+```bash
 bash logging-deploy/scripts/deploy_unified.sh \
   --mode promtail \
   --business-host 8.219.132.103
@@ -44,10 +50,13 @@ bash logging-deploy/scripts/deploy_unified.sh --mode all
 
 Notes:
 - `--mode all` order: `backend -> log-server -> promtail`.
+- In `--mode promtail`, `--business-host` is optional and defaults to backend host.
 - `--log-server-host` is used to deploy Loki/Grafana on a dedicated machine and auto-generate promtail push URL.
 - You can still override push URL directly: `--log-server-push-url http://x.x.x.x:3100/loki/api/v1/push`.
 - Promtail app log collection is fixed to `${APP_LOG_DIR}/root*.log` (only root-prefix logs).
-- Promtail parses root log format and extracts fields (`log_time/pid/tid/level/traceId/class/msg`), and promotes `level` and `traceId` as Loki labels.
+- App file logs (`root/timer/dmq`) are written as single-line JSON.
+- Promtail parses JSON fields such as `ts/level/traceId/logger/message/exception`, uses `ts` as Loki event timestamp, and promotes only low-cardinality labels such as `level` to Loki labels.
+- Loki query defaults were raised for dashboard stability: higher `max_outstanding_per_tenant`, higher `max_concurrent`, and smaller `split_queries_by_interval` to reduce `too many outstanding requests` on multi-panel boards.
 - Log-server deploy checks Docker first. If Docker is missing, it installs Docker automatically.
 - Log-server deploy auto-fixes permissions for `loki-data`/`grafana-data` on first deploy.
 - Log-server deploy includes `grafana-image-renderer` for `/render/*` image APIs.

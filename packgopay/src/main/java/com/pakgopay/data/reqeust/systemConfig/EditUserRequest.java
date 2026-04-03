@@ -17,10 +17,8 @@ public class EditUserRequest implements Serializable {
     @NotBlank(message = "loginName is empty")
     private String loginName;
 
-    @NotBlank(message = "password is empty")
     private String password;
 
-    @NotBlank(message = "confirmPassword is empty")
     private String confirmPassword;
 
     @NotNull(message = "roleId is empty")
@@ -50,4 +48,3 @@ public class EditUserRequest implements Serializable {
 
     private String operatorId;
 }
-

@@ -157,7 +157,6 @@
             m.login_secret_expire,
             m.api_secret,
             m.api_secret_expire,
-            m.password,
             m.last_login_ip,
             m.last_login_time,
             m.create_time,
@@ -190,15 +189,15 @@
     <update id="updateUserByUserId" parameterType="com.pakgopay.mapper.dto.UserDTO">
         UPDATE user_info
         SET
-            login_name = #{user.loginName},
-            password = #{user.password},
-            role_id = #{user.roleId},
             status = #{user.status},
             login_ips = #{user.loginIps},
             withdrawal_ips = #{user.withdrawalIps},
             contact_name = #{user.contactName},
             contact_email = #{user.contactEmail},
             contact_phone = #{user.contactPhone}
+        <if test="user.password != null and user.password != ''">
+            , password = #{user.password}
+        </if>
         WHERE user_id = #{user.userId}
     </update>
 

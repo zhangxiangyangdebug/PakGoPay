@@ -118,25 +118,29 @@ public class UserService {
         if (user.getOperatorId() == null || user.getOperatorId().isBlank()) {
             throw new PakGoPayException(ResultCode.FAIL, "operator is invalid");
         }
-        if (user.getPassword() == null || !user.getPassword().equals(user.getConfirmPassword())) {
-            throw new PakGoPayException(ResultCode.FAIL, "check password is same with confirm password");
+        String password = user.getPassword();
+        String confirmPassword = user.getConfirmPassword();
+        boolean hasPasswordInput = password != null && !password.isBlank();
+        boolean hasConfirmPasswordInput = confirmPassword != null && !confirmPassword.isBlank();
+        if (hasPasswordInput || hasConfirmPasswordInput) {
+            if (!hasPasswordInput || !hasConfirmPasswordInput || !password.equals(confirmPassword)) {
+                throw new PakGoPayException(ResultCode.FAIL, "check password is same with confirm password");
+            }
         }
-
+        if (!hasPasswordInput) {
+            user.setPassword(null);
+            user.setConfirmPassword(null);
+        }
         UserDTO existUser = userMapper.getOneUserByUserId(user.getUserId());
         if (existUser == null) {
             throw new PakGoPayException(ResultCode.FAIL, "user is not exist");
         }
 
-        UserDTO sameLoginNameUser = userMapper.getOneUser(user.getLoginName());
-        if (sameLoginNameUser != null && !String.valueOf(user.getUserId()).equals(String.valueOf(sameLoginNameUser.getUserId()))) {
-            throw new PakGoPayException(ResultCode.FAIL, "user already exist");
-        }
-
         UserDTO editUser = new UserDTO();
         editUser.setUserId(user.getUserId());
-        editUser.setLoginName(user.getLoginName());
+        editUser.setLoginName(existUser.getLoginName());
         editUser.setPassword(user.getPassword());
-        editUser.setRoleId(user.getRoleId());
+        editUser.setRoleId(existUser.getRoleId());
         editUser.setStatus(user.getStatus());
         editUser.setLoginIps(user.getLoginIps());
         editUser.setWithdrawalIps(user.getWithdrawalIps());

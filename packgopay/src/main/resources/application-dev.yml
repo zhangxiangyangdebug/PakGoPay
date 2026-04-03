@@ -4,13 +4,13 @@ spring:
   application:
     name: PakGoPay
   rabbitmq:
-    host: pakgopay-rabbitmq
+    host: 47.237.209.29
     port: 5672
     username: xiaoyou
     password: "ENC(IyYEbQuxanXY0fTveLB9SKrjo8Ulk8Swwrr8VbuP0fBW/q23FJIT501PxB+MJzr6)"
   data:
     redis:
-      host: pakgopay-redis
+      host: 47.237.209.29
       port: 6379
       password: "ENC(b5hhW1348eyAF5C2OK7IxiXMXpcMfdzX4IR1WjBI1itCZfl532XYCH0O3/IIZa88)"
   datasource:
@@ -36,6 +36,12 @@ jasypt:
 server:
   address: 0.0.0.0
   port: 8090
+websocket:
+  relay:
+    host: ${WEBSOCKET_RELAY_HOST:${spring.rabbitmq.host}}
+    port: ${WEBSOCKET_RELAY_PORT:61613}
+    username: ${WEBSOCKET_RELAY_USERNAME:${spring.rabbitmq.username}}
+    password: ${WEBSOCKET_RELAY_PASSWORD:${spring.rabbitmq.password}}
 mybatis:
   mapper-locations: classpath:mapper/**/*.xml
 turnstile:
