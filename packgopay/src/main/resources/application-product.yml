@@ -34,6 +34,12 @@ jasypt:
 server:
   address: localhost
   port: 8090
+  tomcat:
+    threads:
+      max: 300
+      min-spare: 50
+    accept-count: 200
+    max-connections: 8192
 mybatis:
   mapper-locations: classpath:mapper/*.xml
 turnstile:

@@ -4,12 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pakgopay.data.entity.Message;
 import com.pakgopay.service.common.AuthorizationService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
-import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -29,8 +24,8 @@ public class RedisUtil {
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
-    /*@Autowired
-    private RedisTemplate<String, String> redisTemplate;*/
+    @Autowired
+    private RedisTemplate<String, Object> objectRedisTemplate;
 
     public void set(String key, String value) {
         redisTemplate.opsForValue().set(key, value, AuthorizationService.refreshTokenExpirationTime*1000, TimeUnit.SECONDS);
@@ -50,6 +45,10 @@ public class RedisUtil {
         redisTemplate.opsForValue().set(key, value, expireTime, TimeUnit.SECONDS);
     }
 
+    public void setObjectWithSecondExpire(String key, Object value, int expireTime) {
+        objectRedisTemplate.opsForValue().set(key, value, expireTime, TimeUnit.SECONDS);
+    }
+
     public boolean setIfAbsentWithSecondExpire(String key, String value, int expireTime) {
         Boolean success = redisTemplate.opsForValue().setIfAbsent(key, value, expireTime, TimeUnit.SECONDS);
         return Boolean.TRUE.equals(success);
@@ -58,6 +57,21 @@ public class RedisUtil {
     public String getValue(String key) {
         if (redisTemplate.hasKey(key)) return redisTemplate.opsForValue().get(key);
         return null;
+    }
+
+    public <T> T getObjectValue(String key, Class<T> clazz) {
+        if (!objectRedisTemplate.hasKey(key)) {
+            return null;
+        }
+        Object value = objectRedisTemplate.opsForValue().get(key);
+        if (value == null) {
+            return null;
+        }
+        if (clazz.isInstance(value)) {
+            return clazz.cast(value);
+        }
+        throw new IllegalStateException("redis value type mismatch, key=" + key + ", expected=" + clazz.getName()
+                + ", actual=" + value.getClass().getName());
     }
 
     public boolean remove(String key) {

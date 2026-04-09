@@ -459,7 +459,7 @@ public class AgentServiceImpl implements AgentService {
         try {
             redisUtil.increment(AGENT_CHAIN_CACHE_VERSION_KEY);
         } catch (Exception e) {
-            log.warn("bumpAgentChainCacheVersion failed, message={}", e.getMessage());
+            log.warn("bumpAgentChainCacheVersion failed", e);
         }
     }
 

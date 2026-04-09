@@ -208,7 +208,7 @@ public class MerchantServiceImpl implements MerchantService {
             String version = redisUtil.getValue(MERCHANT_INFO_CACHE_VERSION_KEY);
             return StringUtils.hasText(version) ? version : "1";
         } catch (Exception e) {
-            log.warn("resolveMerchantInfoCacheVersion failed, message={}", e.getMessage());
+            log.warn("resolveMerchantInfoCacheVersion failed", e);
             return "1";
         }
     }
@@ -217,7 +217,7 @@ public class MerchantServiceImpl implements MerchantService {
         try {
             redisUtil.increment(MERCHANT_INFO_CACHE_VERSION_KEY);
         } catch (Exception e) {
-            log.warn("bumpMerchantInfoCacheVersion failed, message={}", e.getMessage());
+            log.warn("bumpMerchantInfoCacheVersion failed", e);
         }
     }
 
@@ -467,7 +467,7 @@ public class MerchantServiceImpl implements MerchantService {
             String version = redisUtil.getValue(AGENT_CHAIN_CACHE_VERSION_KEY);
             return StringUtils.hasText(version) ? version : "1";
         } catch (Exception e) {
-            log.warn("resolveAgentChainCacheVersion failed, message={}", e.getMessage());
+            log.warn("resolveAgentChainCacheVersion failed", e);
             return "1";
         }
     }

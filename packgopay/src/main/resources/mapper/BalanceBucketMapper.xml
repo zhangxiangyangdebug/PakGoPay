@@ -5,6 +5,17 @@
 
 <mapper namespace="com.pakgopay.mapper.BalanceBucketMapper">
 
+    <resultMap id="BalanceAggregateResultMap" type="com.pakgopay.mapper.dto.BalanceDto">
+        <id column="user_id" property="userId" javaType="java.lang.String"/>
+        <id column="currency" property="currency" javaType="java.lang.String"/>
+        <result column="available_balance" property="availableBalance" javaType="java.math.BigDecimal"/>
+        <result column="frozen_balance" property="frozenBalance" javaType="java.math.BigDecimal"/>
+        <result column="total_balance" property="totalBalance" javaType="java.math.BigDecimal"/>
+        <result column="withdraw_amount" property="withdrawAmount" javaType="java.math.BigDecimal"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+        <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
+    </resultMap>
+
     <resultMap id="BalanceBucketResultMap" type="com.pakgopay.mapper.dto.BalanceDto">
         <id column="user_id" property="userId" javaType="java.lang.String"/>
         <id column="currency" property="currency" javaType="java.lang.String"/>
@@ -12,10 +23,64 @@
         <result column="available_balance" property="availableBalance" javaType="java.math.BigDecimal"/>
         <result column="frozen_balance" property="frozenBalance" javaType="java.math.BigDecimal"/>
         <result column="total_balance" property="totalBalance" javaType="java.math.BigDecimal"/>
+        <result column="withdraw_amount" property="withdrawAmount" javaType="java.math.BigDecimal"/>
         <result column="create_time" property="createTime" javaType="java.lang.Long"/>
         <result column="update_time" property="updateTime" javaType="java.lang.Long"/>
         <result column="remark" property="remark" javaType="java.lang.String"/>
     </resultMap>
+
+    <select id="findByUserId" resultMap="BalanceAggregateResultMap">
+        SELECT
+            user_id,
+            currency,
+            COALESCE(SUM(available_balance), 0) AS available_balance,
+            COALESCE(SUM(frozen_balance), 0) AS frozen_balance,
+            COALESCE(SUM(total_balance), 0) AS total_balance,
+            COALESCE(SUM(withdraw_amount), 0) AS withdraw_amount,
+            MIN(create_time) AS create_time,
+            MAX(update_time) AS update_time
+        FROM balance_bucket
+        WHERE user_id = #{userId}
+        GROUP BY user_id, currency
+        ORDER BY currency ASC
+    </select>
+
+    <select id="listByUserIds" resultMap="BalanceAggregateResultMap">
+        SELECT
+            user_id,
+            currency,
+            COALESCE(SUM(available_balance), 0) AS available_balance,
+            COALESCE(SUM(frozen_balance), 0) AS frozen_balance,
+            COALESCE(SUM(total_balance), 0) AS total_balance,
+            COALESCE(SUM(withdraw_amount), 0) AS withdraw_amount,
+            MIN(create_time) AS create_time,
+            MAX(update_time) AS update_time
+        FROM balance_bucket
+        <if test="userIds != null and userIds.size() > 0">
+            WHERE user_id IN
+            <foreach collection="userIds" item="userId" open="(" separator="," close=")">
+                #{userId}
+            </foreach>
+        </if>
+        GROUP BY user_id, currency
+        ORDER BY user_id ASC, currency ASC
+    </select>
+
+    <select id="findByUserIdAndCurrency" resultMap="BalanceAggregateResultMap">
+        SELECT
+            user_id,
+            currency,
+            COALESCE(SUM(available_balance), 0) AS available_balance,
+            COALESCE(SUM(frozen_balance), 0) AS frozen_balance,
+            COALESCE(SUM(total_balance), 0) AS total_balance,
+            COALESCE(SUM(withdraw_amount), 0) AS withdraw_amount,
+            MIN(create_time) AS create_time,
+            MAX(update_time) AS update_time
+        FROM balance_bucket
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+        GROUP BY user_id, currency
+    </select>
 
     <insert id="insertZeroBuckets">
         INSERT INTO balance_bucket (
@@ -25,6 +90,7 @@
             available_balance,
             frozen_balance,
             total_balance,
+            withdraw_amount,
             create_time,
             update_time,
             remark
@@ -33,6 +99,7 @@
             #{userId},
             #{currency},
             gs.bucket_no,
+            0,
             0,
             0,
             0,
@@ -51,6 +118,7 @@
             available_balance,
             frozen_balance,
             total_balance,
+            withdraw_amount,
             create_time,
             update_time,
             remark
@@ -60,6 +128,49 @@
         ORDER BY bucket_no ASC
         FOR UPDATE
     </select>
+
+    <select id="listBuckets" resultMap="BalanceBucketResultMap">
+        SELECT
+            user_id,
+            currency,
+            bucket_no,
+            available_balance,
+            frozen_balance,
+            total_balance,
+            withdraw_amount,
+            create_time,
+            update_time,
+            remark
+        FROM balance_bucket
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+        ORDER BY bucket_no ASC
+    </select>
+
+    <update id="batchApplyDeltas">
+        UPDATE balance_bucket b
+        SET
+            available_balance = b.available_balance + v.available_delta,
+            frozen_balance = b.frozen_balance + v.frozen_delta,
+            total_balance = b.total_balance + v.total_delta,
+            withdraw_amount = COALESCE(b.withdraw_amount, 0) + v.withdraw_delta,
+            update_time = #{updateTime}
+        FROM (
+            VALUES
+            <foreach collection="list" item="item" separator=",">
+                (
+                    #{item.bucketNo},
+                    #{item.availableDelta},
+                    #{item.frozenDelta},
+                    #{item.totalDelta},
+                    #{item.withdrawDelta}
+                )
+            </foreach>
+        ) AS v(bucket_no, available_delta, frozen_delta, total_delta, withdraw_delta)
+        WHERE b.user_id = #{userId}
+          AND b.currency = #{currency}
+          AND b.bucket_no = v.bucket_no
+    </update>
 
     <update id="freezeBalance">
         UPDATE balance_bucket
@@ -81,6 +192,7 @@
             available_balance,
             frozen_balance,
             total_balance,
+            withdraw_amount,
             create_time,
             update_time,
             remark
@@ -91,6 +203,7 @@
             #{amount},
             0,
             #{amount},
+            0,
             #{now},
             #{now},
             NULL
@@ -142,6 +255,7 @@
         UPDATE balance_bucket
         SET
             frozen_balance = frozen_balance - #{amount},
+            withdraw_amount = COALESCE(withdraw_amount, 0) + #{amount},
             update_time = #{now}
         WHERE user_id = #{userId}
           AND currency = #{currency}

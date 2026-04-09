@@ -17,7 +17,6 @@ import com.pakgopay.data.entity.OrderQueryEntity;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.report.OpsReportResponse;
 import com.pakgopay.mapper.AccountStatementsMapper;
-import com.pakgopay.mapper.BalanceMapper;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.CurrencyTypeMapper;
 import com.pakgopay.mapper.PayOrderMapper;
@@ -29,6 +28,7 @@ import com.pakgopay.mapper.dto.CurrencyTypeDTO;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.mapper.dto.UserDTO;
+import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.OpsReportService;
 import com.pakgopay.service.common.AccountStatementService;
 import com.pakgopay.service.common.OrderInterventionTelegramNotifier;
@@ -80,7 +80,7 @@ public class WebhookController {
     private final AccountStatementsMapper accountStatementsMapper;
     private final AccountStatementService accountStatementService;
     private final UserMapper userMapper;
-    private final BalanceMapper balanceMapper;
+    private final BalanceService balanceService;
     private final RedisUtil redisUtil;
     private final OrderInterventionTelegramNotifier orderInterventionTelegramNotifier;
     private final TelegramOrderNoRecognizer telegramOrderNoRecognizer;
@@ -97,7 +97,7 @@ public class WebhookController {
                              AccountStatementsMapper accountStatementsMapper,
                              AccountStatementService accountStatementService,
                              UserMapper userMapper,
-                             BalanceMapper balanceMapper,
+                             BalanceService balanceService,
                              RedisUtil redisUtil,
                              OrderInterventionTelegramNotifier orderInterventionTelegramNotifier,
                              TelegramOrderNoRecognizer telegramOrderNoRecognizer) {
@@ -111,7 +111,7 @@ public class WebhookController {
         this.accountStatementsMapper = accountStatementsMapper;
         this.accountStatementService = accountStatementService;
         this.userMapper = userMapper;
-        this.balanceMapper = balanceMapper;
+        this.balanceService = balanceService;
         this.redisUtil = redisUtil;
         this.orderInterventionTelegramNotifier = orderInterventionTelegramNotifier;
         this.telegramOrderNoRecognizer = telegramOrderNoRecognizer;
@@ -447,7 +447,7 @@ public class WebhookController {
             telegramService.sendMessageTo(chatId, "该功能仅支持商户");
             return;
         }
-        List<BalanceDto> balances = balanceMapper.findByUserId(boundUser.getUserId());
+        List<BalanceDto> balances = balanceService.listUserBalances(boundUser.getUserId());
         if (balances == null || balances.isEmpty()) {
             telegramService.sendMessageTo(chatId, "当前账号无余额数据。");
             return;

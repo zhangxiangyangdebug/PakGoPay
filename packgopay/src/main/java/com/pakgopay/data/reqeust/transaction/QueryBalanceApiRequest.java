@@ -9,8 +9,8 @@ import lombok.Data;
 @Data
 public class QueryBalanceApiRequest {
     /** Merchant ID */
-    @NotBlank(message = "merhcantId is empty")
-    private String merhcantId;
+    @NotBlank(message = "merchantId is empty")
+    private String merchantId;
 
     /** Request signature */
     @NotBlank(message = "sign is empty")

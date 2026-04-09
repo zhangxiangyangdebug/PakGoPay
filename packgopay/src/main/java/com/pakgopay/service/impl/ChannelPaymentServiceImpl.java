@@ -75,7 +75,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
     private static final String COLLECTION_LIMIT_MONTH_KEY_PREFIX = "collection:limit:{v1}:month:";
     private static final String COLLECTION_LIMIT_TX_GUARD_KEY_PREFIX = "collection:limit:{v1}:tx:";
     private static final String COLLECTION_LIMIT_ACTIVE_PAYMENT_SET_KEY = "collection:limit:{v1}:activePayments";
-    private static final int COLLECTION_LIMIT_TX_GUARD_TTL_SECONDS = 40 * 24 * 60 * 60;
+    private static final int COLLECTION_LIMIT_TX_GUARD_TTL_SECONDS = 20 * 60;
     private static final int COLLECTION_LIMIT_DAY_KEY_GRACE_SECONDS = 2 * 60 * 60;
     private static final int COLLECTION_LIMIT_MONTH_KEY_GRACE_SECONDS = 2 * 60 * 60;
     private static final BigDecimal AMOUNT_SCALE = new BigDecimal("100");
@@ -510,7 +510,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             String version = redisUtil.getValue(AGENT_CACHE_VERSION_KEY);
             return StringUtils.hasText(version) ? version : "1";
         } catch (Exception e) {
-            log.warn("resolveAgentCacheVersion failed, message={}", e.getMessage());
+            log.warn("resolveAgentCacheVersion failed", e);
             return "1";
         }
     }
@@ -1285,7 +1285,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             String version = redisUtil.getValue(CHANNEL_PAYMENT_IDS_CACHE_VERSION_KEY);
             return StringUtils.hasText(version) ? version : "1";
         } catch (Exception e) {
-            log.warn("resolveChannelPaymentIdsCacheVersion failed, message={}", e.getMessage());
+            log.warn("resolveChannelPaymentIdsCacheVersion failed", e);
             return "1";
         }
     }
@@ -1294,7 +1294,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         try {
             redisUtil.increment(CHANNEL_PAYMENT_IDS_CACHE_VERSION_KEY);
         } catch (Exception e) {
-            log.warn("bumpChannelPaymentIdsCacheVersion failed, message={}", e.getMessage());
+            log.warn("bumpChannelPaymentIdsCacheVersion failed", e);
         }
     }
 
@@ -1339,7 +1339,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
             String version = redisUtil.getValue(ENABLE_PAYMENT_INFO_CACHE_VERSION_KEY);
             return StringUtils.hasText(version) ? version : "1";
         } catch (Exception e) {
-            log.warn("resolveEnablePaymentInfoCacheVersion failed, message={}", e.getMessage());
+            log.warn("resolveEnablePaymentInfoCacheVersion failed", e);
             return "1";
         }
     }
@@ -1348,7 +1348,7 @@ public class ChannelPaymentServiceImpl implements ChannelPaymentService {
         try {
             redisUtil.increment(ENABLE_PAYMENT_INFO_CACHE_VERSION_KEY);
         } catch (Exception e) {
-            log.warn("bumpEnablePaymentInfoCacheVersion failed, message={}", e.getMessage());
+            log.warn("bumpEnablePaymentInfoCacheVersion failed", e);
         }
     }
 

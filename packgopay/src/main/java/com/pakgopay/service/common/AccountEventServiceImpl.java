@@ -12,6 +12,7 @@ import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.service.common.BalanceBucketSelectService.BucketSelectAction;
 import com.pakgopay.util.CalcUtil;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.TransactionUtil;
@@ -55,7 +56,7 @@ public class AccountEventServiceImpl implements AccountEventService {
     private BalanceService balanceService;
 
     @Autowired
-    private OrderBalanceSerializeExecutor orderBalanceSerializeExecutor;
+    private BalanceBucketSelectService balanceBucketSelectService;
 
     @Autowired
     private TransactionUtil transactionUtil;
@@ -207,24 +208,25 @@ public class AccountEventServiceImpl implements AccountEventService {
      * Map grouped event type to balance operation.
      */
     private void applyBalanceChange(EventGroup group, String batchNo) {
-        String serializeKey = buildOrderBalanceSerializeKey(group.userId, group.currency, group.bucketNo);
-        orderBalanceSerializeExecutor.run(serializeKey, () ->
-                CommonUtil.withBalanceLogContext("account_event.consume", group.routeKey, () -> {
-                    if (AccountEventType.COLLECTION_CREDIT.getCode().equals(group.eventType)
-                            || AccountEventType.AGENT_CREDIT.getCode().equals(group.eventType)) {
-                        balanceService.creditBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
-                        return;
-                    }
-                    if (AccountEventType.PAYOUT_CONFIRM.getCode().equals(group.eventType)) {
-                        balanceService.confirmPayoutBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
-                        return;
-                    }
-                    if (AccountEventType.PAYOUT_RELEASE.getCode().equals(group.eventType)) {
-                        balanceService.releaseFrozenBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
-                        return;
-                    }
-                    throw new IllegalArgumentException("unsupported event type: " + group.eventType);
-                }));
+        CommonUtil.withBalanceLogContext("account_event.consume", group.routeKey, () -> {
+            if (AccountEventType.COLLECTION_CREDIT.getCode().equals(group.eventType)) {
+                balanceService.creditBalanceWithoutSplit(group.userId, group.currency, group.totalAmount, group.bucketNo);
+                return;
+            }
+            if (AccountEventType.AGENT_CREDIT.getCode().equals(group.eventType)) {
+                balanceService.creditBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
+                return;
+            }
+            if (AccountEventType.PAYOUT_CONFIRM.getCode().equals(group.eventType)) {
+                balanceService.confirmPayoutBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
+                return;
+            }
+            if (AccountEventType.PAYOUT_RELEASE.getCode().equals(group.eventType)) {
+                balanceService.releaseFrozenBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
+                return;
+            }
+            throw new IllegalArgumentException("unsupported event type: " + group.eventType);
+        });
     }
 
     /**
@@ -263,7 +265,11 @@ public class AccountEventServiceImpl implements AccountEventService {
                 continue;
             }
             String routeKey = resolveEventRouteKey(event);
-            int bucketNo = CommonUtil.resolveBalanceBucketNo(routeKey, 16);
+            Integer bucketNo = balanceBucketSelectService.selectBucketNo(
+                    event.getUserId(),
+                    event.getCurrency(),
+                    event.getAmount(),
+                    resolveBucketSelectAction(event.getEventType()));
             String key = buildEventGroupKey(event.getEventType(), event.getUserId(), event.getCurrency(), bucketNo);
             EventGroup group = grouped.computeIfAbsent(key, k -> new EventGroup(
                     event.getEventType(), event.getUserId(), event.getCurrency(), routeKey, bucketNo));
@@ -408,13 +414,9 @@ public class AccountEventServiceImpl implements AccountEventService {
         return normalized.substring(0, MAX_ERROR_TEXT);
     }
 
-    private String buildEventGroupKey(String eventType, String userId, String currency, int bucketNo) {
+    private String buildEventGroupKey(String eventType, String userId, String currency, Integer bucketNo) {
         return eventType + EVENT_KEY_SEPARATOR + userId + EVENT_KEY_SEPARATOR + currency
-                + EVENT_KEY_SEPARATOR + bucketNo;
-    }
-
-    private String buildOrderBalanceSerializeKey(String userId, String currency, int bucketNo) {
-        return userId + ":" + currency + ":" + bucketNo;
+                + EVENT_KEY_SEPARATOR + (bucketNo == null ? "cross" : bucketNo);
     }
 
     private String resolveEventRouteKey(AccountEventDto event) {
@@ -429,6 +431,20 @@ public class AccountEventServiceImpl implements AccountEventService {
         return actualAmount != null ? actualAmount : amount;
     }
 
+    private BucketSelectAction resolveBucketSelectAction(String eventType) {
+        if (AccountEventType.COLLECTION_CREDIT.getCode().equals(eventType)
+                || AccountEventType.AGENT_CREDIT.getCode().equals(eventType)) {
+            return BucketSelectAction.CREDIT;
+        }
+        if (AccountEventType.PAYOUT_CONFIRM.getCode().equals(eventType)) {
+            return BucketSelectAction.CONFIRM_PAYOUT;
+        }
+        if (AccountEventType.PAYOUT_RELEASE.getCode().equals(eventType)) {
+            return BucketSelectAction.RELEASE_FROZEN;
+        }
+        throw new IllegalArgumentException("unsupported event type: " + eventType);
+    }
+
     /**
      * One grouped bucket for a single balance operation.
      */
@@ -437,11 +453,11 @@ public class AccountEventServiceImpl implements AccountEventService {
         private final String userId;
         private final String currency;
         private final String routeKey;
-        private final int bucketNo;
+        private final Integer bucketNo;
         private final List<Long> ids = new ArrayList<>();
         private BigDecimal totalAmount = BigDecimal.ZERO;
 
-        private EventGroup(String eventType, String userId, String currency, String routeKey, int bucketNo) {
+        private EventGroup(String eventType, String userId, String currency, String routeKey, Integer bucketNo) {
             this.eventType = eventType;
             this.userId = userId;
             this.currency = currency;
