@@ -1,5 +1,6 @@
 package com.pakgopay.service.common;
 
+import com.pakgopay.data.response.AccountEventQueryResponse;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
@@ -34,4 +35,6 @@ public interface AccountEventService {
      * @return total claimed rows in this invocation
      */
     int consumePendingEvents(int limitSize, int maxRounds);
+
+    AccountEventQueryResponse listByTransactionNo(String transactionNo);
 }

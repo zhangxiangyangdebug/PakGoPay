@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
 @Component
 public class PartitionMaintenanceTimer {
 
+    public static final String ACCOUNT_EVENT_PARTITION_CACHE_KEY = "meta:partition:account_event:tables";
     private static final String LOCK_KEY = "job:partition_maintenance:lock";
     private static final int LOCK_SECONDS = 600;
     private static final int FUTURE_MONTHS_TO_PRECREATE = 2;
@@ -104,6 +105,8 @@ public class PartitionMaintenanceTimer {
                     jdbcTemplate,
                     "account_event",
                     Math.max(accountEventRetainMonths, 1));
+
+            refreshAccountEventPartitionCache();
 
             log.info("partition maintenance done, source={}", source);
         } catch (Exception e) {
@@ -257,6 +260,28 @@ public class PartitionMaintenanceTimer {
                 Boolean.class,
                 parentTable);
         return Boolean.TRUE.equals(isPartitioned);
+    }
+
+    private void refreshAccountEventPartitionCache() {
+        List<String> partitionTables = jdbcTemplate.query(
+                "select child.relname " +
+                        "from pg_inherits i " +
+                        "join pg_class parent on parent.oid = i.inhparent " +
+                        "join pg_namespace parent_ns on parent_ns.oid = parent.relnamespace " +
+                        "join pg_class child on child.oid = i.inhrelid " +
+                        "join pg_namespace child_ns on child_ns.oid = child.relnamespace " +
+                        "where parent_ns.nspname = 'public' " +
+                        "  and child_ns.nspname = 'public' " +
+                        "  and parent.relname = 'account_event' " +
+                        "order by child.relname",
+                (rs, rowNum) -> rs.getString(1));
+        redisTemplate.delete(ACCOUNT_EVENT_PARTITION_CACHE_KEY);
+        if (partitionTables != null && !partitionTables.isEmpty()) {
+            redisTemplate.opsForSet().add(ACCOUNT_EVENT_PARTITION_CACHE_KEY, partitionTables.toArray(new String[0]));
+        }
+        log.info("account event partition cache refreshed, count={}, tables={}",
+                partitionTables == null ? 0 : partitionTables.size(),
+                partitionTables);
     }
 
     /**

@@ -3,6 +3,7 @@ package com.pakgopay.controller;
 import com.pakgopay.common.enums.OperateInterfaceEnum;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
+import com.pakgopay.data.reqeust.transaction.AccountEventQueryRequest;
 import com.pakgopay.data.reqeust.transaction.CollectionOrderRequest;
 import com.pakgopay.data.reqeust.transaction.MerchantAvailableChannelRequest;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
@@ -12,6 +13,7 @@ import com.pakgopay.data.reqeust.transaction.OrderReverseRequest;
 import com.pakgopay.data.reqeust.transaction.PayOutOrderRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.ChannelPaymentService;
+import com.pakgopay.service.common.AccountEventService;
 import com.pakgopay.service.common.OrderFlowLogService;
 import com.pakgopay.service.common.OperateLogService;
 import com.pakgopay.service.transaction.CollectionOrderService;
@@ -43,6 +45,9 @@ public class TransactionController {
 
     @Autowired
     private OrderFlowLogService orderFlowLogService;
+
+    @Autowired
+    private AccountEventService accountEventService;
 
     @PostMapping(value = "/queryCollectionOrders")
     public CommonResponse queryCollectionOrders(@RequestBody @Valid OrderQueryRequest request) {
@@ -196,6 +201,21 @@ public class TransactionController {
             log.error("queryOrderFlowLogs failed, transactionNo={}, message={}",
                     request.getTransactionNo(), e.getMessage());
             return CommonResponse.fail(ResultCode.FAIL, "queryOrderFlowLogs failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Query account events by transactionNo.
+     */
+    @PostMapping(value = "/queryAccountEvents")
+    public CommonResponse queryAccountEvents(@RequestBody @Valid AccountEventQueryRequest request) {
+        log.info("queryAccountEvents request, transactionNo={}", request.getTransactionNo());
+        try {
+            return CommonResponse.success(accountEventService.listByTransactionNo(request.getTransactionNo()));
+        } catch (Exception e) {
+            log.error("queryAccountEvents failed, transactionNo={}, message={}",
+                    request.getTransactionNo(), e.getMessage());
+            return CommonResponse.fail(ResultCode.FAIL, "queryAccountEvents failed: " + e.getMessage());
         }
     }
 }

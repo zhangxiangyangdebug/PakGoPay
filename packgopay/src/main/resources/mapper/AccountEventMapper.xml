@@ -21,41 +21,15 @@
         <result column="updated_at" property="updatedAt" javaType="java.lang.Long"/>
     </resultMap>
 
+    <resultMap id="AccountEventQueryResultMap" type="com.pakgopay.mapper.dto.AccountEventQueryDto">
+        <result column="user_name" property="userName" javaType="java.lang.String"/>
+        <result column="role_id" property="roleId" javaType="java.lang.Integer"/>
+        <result column="currency" property="currency" javaType="java.lang.String"/>
+        <result column="amount" property="amount" javaType="java.math.BigDecimal"/>
+        <result column="event_type" property="eventType" javaType="java.lang.String"/>
+    </resultMap>
+
     <insert id="insertEventBatch">
-        <!--
-            Batch append for account events:
-            1) build in-memory rows via VALUES
-            2) write directly into monthly partition table
-            3) rely on partition-local unique index (biz_no) for idempotency
-        -->
-        WITH input_rows (
-            event_type,
-            biz_no,
-            user_id,
-            currency,
-            amount,
-            event_time,
-            status,
-            retry_count,
-            created_at,
-            updated_at
-        ) AS (
-            VALUES
-            <foreach collection="list" item="item" separator=",">
-                (
-                    #{item.eventType},
-                    #{item.bizNo},
-                    #{item.userId},
-                    #{item.currency},
-                    #{item.amount},
-                    #{item.eventTime},
-                    #{item.status},
-                    #{item.retryCount},
-                    #{item.createdAt},
-                    #{item.updatedAt}
-                )
-            </foreach>
-        )
         INSERT INTO ${tableName} (
             event_type,
             biz_no,
@@ -68,29 +42,31 @@
             created_at,
             updated_at
         )
-        SELECT
-            r.event_type,
-            r.biz_no,
-            r.user_id,
-            r.currency,
-            r.amount,
-            r.event_time,
-            r.status,
-            r.retry_count,
-            r.created_at,
-            r.updated_at
-        FROM input_rows r
-        ON CONFLICT (biz_no) DO NOTHING
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.eventType},
+                #{item.bizNo},
+                #{item.userId},
+                #{item.currency},
+                #{item.amount},
+                #{item.eventTime},
+                #{item.status},
+                #{item.retryCount},
+                #{item.createdAt},
+                #{item.updatedAt}
+            )
+        </foreach>
     </insert>
 
-    <select id="claimPendingEvents" resultMap="AccountEventResultMap">
+    <select id="claimPendingEventsFromTable" resultMap="AccountEventResultMap">
         <!--
             Claim rows using FOR UPDATE SKIP LOCKED:
             multiple workers can run concurrently without blocking each other.
         -->
         WITH cte AS (
             SELECT id
-            FROM account_event
+            FROM ${tableName}
             WHERE status IN (0, 3)
               AND event_type IN
                 <foreach collection="eventTypes" item="eventType" open="(" close=")" separator=",">
@@ -100,7 +76,7 @@
             LIMIT #{limitSize}
             FOR UPDATE SKIP LOCKED
         )
-        UPDATE account_event e
+        UPDATE ${tableName} e
         SET status = 1,
             updated_at = #{now}
         FROM cte
@@ -121,6 +97,21 @@
             e.updated_at
     </select>
 
+    <select id="listByTransactionNo" resultMap="AccountEventQueryResultMap">
+        SELECT
+            u.login_name AS user_name,
+            u.role_id,
+            e.currency,
+            e.amount,
+            e.event_type
+        FROM account_event e
+        LEFT JOIN user_info u ON u.user_id = e.user_id
+        WHERE e.biz_no LIKE concat(#{transactionNo}, '%')
+          AND e.created_at <![CDATA[ >= ]]> #{partitionStart}
+          AND e.created_at <![CDATA[ < ]]> #{partitionEnd}
+        ORDER BY e.event_time ASC, e.id ASC
+    </select>
+
     <update id="markDoneByIds">
         UPDATE account_event
         SET status = 2,
@@ -128,10 +119,19 @@
             last_error = NULL,
             updated_at = #{now}
         WHERE status = 1
-          AND id IN
-            <foreach collection="ids" item="id" open="(" close=")" separator=",">
-                #{id}
-            </foreach>
+          AND created_at <![CDATA[ >= ]]> #{partitionStart}
+          AND created_at <![CDATA[ < ]]> #{partitionEnd}
+        <choose>
+            <when test="ids != null and ids.size() > 0">
+              AND id IN
+                <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                    #{id}
+                </foreach>
+            </when>
+            <otherwise>
+              AND 1 = 0
+            </otherwise>
+        </choose>
     </update>
 
     <update id="markFailedByIds">
@@ -141,10 +141,19 @@
             last_error = #{error},
             updated_at = #{now}
         WHERE status = 1
-          AND id IN
-            <foreach collection="ids" item="id" open="(" close=")" separator=",">
-                #{id}
-            </foreach>
+          AND created_at <![CDATA[ >= ]]> #{partitionStart}
+          AND created_at <![CDATA[ < ]]> #{partitionEnd}
+        <choose>
+            <when test="ids != null and ids.size() > 0">
+              AND id IN
+                <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                    #{id}
+                </foreach>
+            </when>
+            <otherwise>
+              AND 1 = 0
+            </otherwise>
+        </choose>
     </update>
 
 </mapper>
