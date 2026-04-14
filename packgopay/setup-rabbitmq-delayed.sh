@@ -2,23 +2,24 @@
 set -euo pipefail
 
 # ====== 可配置参数 ======
-CONTAINER_NAME="pakgopay-rabbitmq"
-RABBIT_IMAGE="rabbitmq:3.8-management"
-RABBIT_USER="admin"
-RABBIT_PASS="admin123"
-RABBIT_VHOST="/"
-RABBIT_PORT_AMQP="5672"
-RABBIT_PORT_HTTP="15672"
+CONTAINER_NAME="${CONTAINER_NAME:-pakgopay-rabbitmq}"
+RABBIT_IMAGE="${RABBIT_IMAGE:-rabbitmq:3.8-management}"
+RABBIT_USER="${RABBIT_USER:-admin}"
+RABBIT_PASS="${RABBIT_PASS:-admin123}"
+RABBIT_VHOST="${RABBIT_VHOST:-/}"
+RABBIT_PORT_AMQP="${RABBIT_PORT_AMQP:-5672}"
+RABBIT_PORT_HTTP="${RABBIT_PORT_HTTP:-15672}"
+RABBIT_PORT_STOMP="${RABBIT_PORT_STOMP:-61613}"
 
-DATA_VOLUME="pakgopay_rabbitmq_data"
+DATA_VOLUME="${DATA_VOLUME:-pakgopay_rabbitmq_data}"
 
-DELAY_EXCHANGE="task.delay.exchange"
-DELAY_EXCHANGE_TYPE="direct"
-COLLECTING_QUEUE="task.collecting.queue"
-PAYING_QUEUE="task.paying.queue"
+DELAY_EXCHANGE="${DELAY_EXCHANGE:-task.delay.exchange}"
+DELAY_EXCHANGE_TYPE="${DELAY_EXCHANGE_TYPE:-direct}"
+COLLECTING_QUEUE="${COLLECTING_QUEUE:-task.collecting.queue}"
+PAYING_QUEUE="${PAYING_QUEUE:-task.paying.queue}"
 
-USER_NOTIFY_EXCHANGE="user-notify"
-USER_NOTIFY_EXCHANGE_TYPE="fanout"
+USER_NOTIFY_EXCHANGE="${USER_NOTIFY_EXCHANGE:-user-notify}"
+USER_NOTIFY_EXCHANGE_TYPE="${USER_NOTIFY_EXCHANGE_TYPE:-fanout}"
 # ========================
 
 echo ">>> Removing old container (keep volume)..."
@@ -32,6 +33,7 @@ docker run -d \
   --name "${CONTAINER_NAME}" \
   -p "${RABBIT_PORT_AMQP}:5672" \
   -p "${RABBIT_PORT_HTTP}:15672" \
+  -p "${RABBIT_PORT_STOMP}:61613" \
   -e RABBITMQ_DEFAULT_USER="${RABBIT_USER}" \
   -e RABBITMQ_DEFAULT_PASS="${RABBIT_PASS}" \
   -v "${DATA_VOLUME}:/var/lib/rabbitmq" \
@@ -92,6 +94,9 @@ if ! docker exec "${CONTAINER_NAME}" test -f "${PLUGIN_PATH}"; then
   fi
   docker cp "/tmp/${PLUGIN_FILE}" "${CONTAINER_NAME}:${PLUGIN_PATH}"
 fi
+
+echo ">>> Enabling STOMP plugin..."
+docker exec "${CONTAINER_NAME}" rabbitmq-plugins enable rabbitmq_stomp
 
 echo ">>> Enabling delayed message plugin..."
 docker exec "${CONTAINER_NAME}" rabbitmq-plugins enable rabbitmq_delayed_message_exchange
@@ -195,4 +200,5 @@ fi
 
 echo ">>> Done."
 echo "RabbitMQ UI: http://localhost:${RABBIT_PORT_HTTP}"
+echo "RabbitMQ STOMP: tcp://localhost:${RABBIT_PORT_STOMP}"
 echo "User: ${RABBIT_USER}  Pass: ${RABBIT_PASS}"
