@@ -127,6 +127,7 @@ public class BalanceServiceImpl implements BalanceService {
         }
         try {
             long now = System.currentTimeMillis() / 1000;
+            ensureBucketsIfRequired(userId, currency, amount, operation);
             Integer preferredBucketNo = resolvePreferredBucketNo(userId, currency, amount, bucketNo, operation, allowLargeSplit);
             List<BalanceBucketDeltaDto> appliedDeltas = applyBucketOperation(userId, currency, amount, preferredBucketNo, now, operation, allowLargeSplit);
             balanceBucketSelectService.applyBucketDeltas(userId, currency, appliedDeltas);
@@ -138,6 +139,13 @@ public class BalanceServiceImpl implements BalanceService {
         } catch (Exception e) {
             log.error("{} failed, message {}", operation.name(), e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+    }
+
+    private void ensureBucketsIfRequired(String userId, String currency, BigDecimal amount, BucketOperation operation) {
+        if (operation == BucketOperation.CREDIT
+                || (operation == BucketOperation.ADJUST && amount != null && amount.compareTo(BigDecimal.ZERO) > 0)) {
+            balanceBucketSelectService.ensureBucketsForCredit(userId, currency);
         }
     }
 

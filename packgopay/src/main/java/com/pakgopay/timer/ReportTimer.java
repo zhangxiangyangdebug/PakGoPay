@@ -36,6 +36,7 @@ public class ReportTimer {
 
         try {
             doHourlyReport();
+            flushPendingRefreshRequests();
         } finally {
             // 防止误删别人锁
             String val = redisTemplate.opsForValue().get(lockKey);
@@ -50,6 +51,17 @@ public class ReportTimer {
             reportTask.doHourlyReport();
         } catch (Exception e) {
             log.error("doHourlyReport failed, error message: {}", e.getMessage());
+        }
+    }
+
+    private void flushPendingRefreshRequests() {
+        try {
+            int processed = reportTask.flushPendingRefreshRequests();
+            if (processed > 0) {
+                log.info("flushPendingRefreshRequests done, processed={}", processed);
+            }
+        } catch (Exception e) {
+            log.error("flushPendingRefreshRequests failed, error message: {}", e.getMessage());
         }
     }
 }

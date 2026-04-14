@@ -920,7 +920,7 @@ public abstract class BaseOrderService {
                     return;
                 }
             }
-            reportTask.refreshReportsByEpoch(recordDateEpoch, currency);
+            reportTask.enqueueRefreshByEpoch(recordDateEpoch, currency);
         } catch (Exception e) {
             log.error("refreshReportData failed, error message: {}", e.getMessage());
         }

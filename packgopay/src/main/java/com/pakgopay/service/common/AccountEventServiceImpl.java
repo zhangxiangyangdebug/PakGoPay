@@ -200,8 +200,10 @@ public class AccountEventServiceImpl implements AccountEventService {
             if (claimed == null || claimed.isEmpty()) {
                 break;
             }
+            log.info("account event claim returned, tick={}, round={}, claimedSize={}", tick, i + 1, claimed.size());
             totalConsumed += claimed.size();
             processClaimedEventBatch(claimed, now);
+            log.info("account event claimed batch processed, tick={}, round={}, claimedSize={}", tick, i + 1, claimed.size());
         }
         return totalConsumed;
     }
@@ -333,6 +335,9 @@ public class AccountEventServiceImpl implements AccountEventService {
         response.setCurrency(dto.getCurrency());
         response.setAmount(dto.getAmount());
         response.setEventType(dto.getEventType());
+        response.setStatus(dto.getStatus());
+        response.setCreateTime(dto.getCreateTime());
+        response.setUpdateTime(dto.getUpdateTime());
         return response;
     }
 
@@ -341,7 +346,9 @@ public class AccountEventServiceImpl implements AccountEventService {
      * group by (eventType,userId,currency), then apply each group in one transaction.
      */
     private void processClaimedEventBatch(List<AccountEventDto> claimed, long now) {
+        log.info("account event grouping start, claimedSize={}", claimed == null ? 0 : claimed.size());
         Map<String, EventGroup> grouped = groupEvents(claimed);
+        log.info("account event grouped, claimedSize={}, groupedSize={}", claimed == null ? 0 : claimed.size(), grouped.size());
         for (EventGroup group : grouped.values()) {
             processOneEventGroup(group, now);
         }
@@ -366,14 +373,16 @@ public class AccountEventServiceImpl implements AccountEventService {
         try {
             transactionUtil.runInTransaction(() -> {
                 applyBalanceChange(group, batchNo);
-                accountEventMapper.markDoneByIds(group.ids, batchNo, now, partitionStart, partitionEnd);
+                int updated = accountEventMapper.markDoneByIds(group.ids, batchNo, now, partitionStart, partitionEnd);
+                log.info("account event mark done, batchNo={}, updatedRows={}", batchNo, updated);
             });
             writeBalanceChangeLog(group, batchNo, now);
             log.info("account event batch done, batchNo={}, eventType={}, userId={}, currency={}, bucketNo={}, count={}, amount={}, createTime={}",
                     batchNo, group.eventType, group.userId, group.currency, group.bucketNo, group.ids.size(), group.totalAmount, group.createTime);
         } catch (Exception e) {
             String error = trimError(e == null ? null : e.getMessage());
-            accountEventMapper.markFailedByIds(group.ids, error, now, partitionStart, partitionEnd);
+            int updated = accountEventMapper.markFailedByIds(group.ids, error, now, partitionStart, partitionEnd);
+            log.warn("account event mark failed, batchNo={}, updatedRows={}, error={}", batchNo, updated, error);
             log.warn("account event batch failed, batchNo={}, eventType={}, userId={}, currency={}, bucketNo={}, count={}, createTime={}, error={}",
                     batchNo, group.eventType, group.userId, group.currency, group.bucketNo, group.ids.size(), group.createTime, error);
         }
@@ -383,6 +392,8 @@ public class AccountEventServiceImpl implements AccountEventService {
      * Map grouped event type to balance operation.
      */
     private void applyBalanceChange(EventGroup group, String batchNo) {
+        log.info("account event apply start, batchNo={}, eventType={}, userId={}, currency={}, bucketNo={}, amount={}",
+                batchNo, group.eventType, group.userId, group.currency, group.bucketNo, group.totalAmount);
         CommonUtil.withBalanceLogContext("account_event.consume", group.routeKey, () -> {
             if (AccountEventType.COLLECTION_CREDIT.getCode().equals(group.eventType)) {
                 balanceService.creditBalanceWithoutSplit(group.userId, group.currency, group.totalAmount, group.bucketNo);
@@ -457,14 +468,22 @@ public class AccountEventServiceImpl implements AccountEventService {
         Map<String, EventGroup> grouped = new LinkedHashMap<>();
         for (PendingGroup pendingGroup : pendingGroups.values()) {
             if (isCreditEvent(pendingGroup.eventType)) {
+                log.info("account event credit group select buckets start, eventType={}, userId={}, currency={}, eventCount={}, amount={}",
+                        pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, pendingGroup.events.size(), pendingGroup.totalAmount);
                 distributeCreditEvents(grouped, pendingGroup);
+                log.info("account event credit group select buckets done, eventType={}, userId={}, currency={}, eventCount={}, amount={}",
+                        pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, pendingGroup.events.size(), pendingGroup.totalAmount);
                 continue;
             }
+            log.info("account event bucket select start, eventType={}, userId={}, currency={}, eventCount={}, amount={}",
+                    pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, pendingGroup.events.size(), pendingGroup.totalAmount);
             Integer bucketNo = balanceBucketSelectService.selectBucketNo(
                     pendingGroup.userId,
                     pendingGroup.currency,
                     pendingGroup.totalAmount,
                     resolveBucketSelectAction(pendingGroup.eventType));
+            log.info("account event bucket select done, eventType={}, userId={}, currency={}, bucketNo={}, eventCount={}, amount={}",
+                    pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, bucketNo, pendingGroup.events.size(), pendingGroup.totalAmount);
             String routeKey = buildRouteKey(pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, bucketNo);
             String key = buildEventGroupKey(
                     pendingGroup.eventType,
@@ -561,7 +580,7 @@ public class AccountEventServiceImpl implements AccountEventService {
         dto.setCurrency(currency);
         dto.setAmount(amount);
         dto.setEventTime(eventTime == null ? now : eventTime);
-        dto.setStatus(AccountEventStatus.PENDING.getCode());
+        dto.setStatus(AccountEventStatus.PROCESSING.getCode());
         dto.setRetryCount(0);
         dto.setCreatedAt(eventCreatedAt);
         dto.setUpdatedAt(now);
@@ -631,6 +650,8 @@ public class AccountEventServiceImpl implements AccountEventService {
                 pendingGroup.userId,
                 pendingGroup.currency,
                 CREDIT_GROUP_BUCKET_COUNT);
+        log.info("account event lowest buckets selected, eventType={}, userId={}, currency={}, bucketNos={}, eventCount={}, amount={}",
+                pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, bucketNos, pendingGroup.events.size(), pendingGroup.totalAmount);
         if (bucketNos == null || bucketNos.isEmpty()) {
             bucketNos = List.of((Integer) null);
         }

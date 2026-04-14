@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 
 public class CommonUtil {
 
+    private static final String TRACE_ID_KEY = "traceId";
     private static final String BALANCE_TRANSACTION_NO_KEY = "balanceTransactionNo";
 
     /**
@@ -120,6 +121,7 @@ public class CommonUtil {
         if (runnable == null) {
             return;
         }
+        ensureTraceId();
         String prevSource = MDC.get("balanceSource");
         String prevTransactionNo = MDC.get(BALANCE_TRANSACTION_NO_KEY);
         boolean setSource = false;
@@ -146,6 +148,16 @@ public class CommonUtil {
 
     public static String resolveBalanceRouteKey() {
         return MDC.get(BALANCE_TRANSACTION_NO_KEY);
+    }
+
+    public static String ensureTraceId() {
+        String traceId = MDC.get(TRACE_ID_KEY);
+        if (traceId != null && !traceId.isBlank()) {
+            return traceId;
+        }
+        traceId = UUID.randomUUID().toString().replace("-", "");
+        MDC.put(TRACE_ID_KEY, traceId);
+        return traceId;
     }
 
     public static int resolveBalanceBucketNo(String routeKey, int bucketCount) {

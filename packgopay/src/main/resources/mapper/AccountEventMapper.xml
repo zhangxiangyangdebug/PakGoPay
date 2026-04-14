@@ -27,6 +27,8 @@
         <result column="currency" property="currency" javaType="java.lang.String"/>
         <result column="amount" property="amount" javaType="java.math.BigDecimal"/>
         <result column="event_type" property="eventType" javaType="java.lang.String"/>
+        <result column="created_at" property="createTime" javaType="java.lang.Long"/>
+        <result column="updated_at" property="updateTime" javaType="java.lang.Long"/>
     </resultMap>
 
     <insert id="insertEventBatch">
@@ -60,41 +62,28 @@
     </insert>
 
     <select id="claimPendingEventsFromTable" resultMap="AccountEventResultMap">
-        <!--
-            Claim rows using FOR UPDATE SKIP LOCKED:
-            multiple workers can run concurrently without blocking each other.
-        -->
-        WITH cte AS (
-            SELECT id
-            FROM ${tableName}
-            WHERE status IN (0, 3)
-              AND event_type IN
-                <foreach collection="eventTypes" item="eventType" open="(" close=")" separator=",">
-                    #{eventType}
-                </foreach>
-            ORDER BY event_time ASC, id ASC
-            LIMIT #{limitSize}
-            FOR UPDATE SKIP LOCKED
-        )
-        UPDATE ${tableName} e
-        SET status = 1,
-            updated_at = #{now}
-        FROM cte
-        WHERE e.id = cte.id
-        RETURNING
-            e.id,
-            e.event_type,
-            e.biz_no,
-            e.user_id,
-            e.currency,
-            e.amount,
-            e.event_time,
-            e.status,
-            e.retry_count,
-            e.batch_no,
-            e.last_error,
-            e.created_at,
-            e.updated_at
+        SELECT
+            id,
+            event_type,
+            biz_no,
+            user_id,
+            currency,
+            amount,
+            event_time,
+            status,
+            retry_count,
+            batch_no,
+            last_error,
+            created_at,
+            updated_at
+        FROM ${tableName}
+        WHERE status IN (1, 3)
+          AND event_type IN
+            <foreach collection="eventTypes" item="eventType" open="(" close=")" separator=",">
+                #{eventType}
+            </foreach>
+        ORDER BY event_time ASC, id ASC
+        LIMIT #{limitSize}
     </select>
 
     <select id="listByTransactionNo" resultMap="AccountEventQueryResultMap">
@@ -103,7 +92,10 @@
             u.role_id,
             e.currency,
             e.amount,
-            e.event_type
+            e.event_type,
+            e.status,
+            e.created_at,
+            e.updated_at
         FROM account_event e
         LEFT JOIN user_info u ON u.user_id = e.user_id
         WHERE e.biz_no LIKE concat(#{transactionNo}, '%')
@@ -118,7 +110,7 @@
             batch_no = #{batchNo},
             last_error = NULL,
             updated_at = #{now}
-        WHERE status = 1
+        WHERE status IN (1, 3)
           AND created_at <![CDATA[ >= ]]> #{partitionStart}
           AND created_at <![CDATA[ < ]]> #{partitionEnd}
         <choose>
@@ -140,7 +132,7 @@
             retry_count = retry_count + 1,
             last_error = #{error},
             updated_at = #{now}
-        WHERE status = 1
+        WHERE status IN (1, 3)
           AND created_at <![CDATA[ >= ]]> #{partitionStart}
           AND created_at <![CDATA[ < ]]> #{partitionEnd}
         <choose>

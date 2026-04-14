@@ -23,7 +23,7 @@ public class AccountEventConsumeTimer {
     @Autowired
     private RedissonClient redissonClient;
 
-    @Value("${pakgopay.account-event.claim-limit:300}")
+    @Value("${pakgopay.account-event.claim-limit:200}")
     private int claimLimit;
 
     @Value("${pakgopay.account-event.max-rounds:3}")

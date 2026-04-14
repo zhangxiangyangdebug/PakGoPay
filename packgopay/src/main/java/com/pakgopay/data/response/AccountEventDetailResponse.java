@@ -12,4 +12,7 @@ public class AccountEventDetailResponse {
     private String currency;
     private BigDecimal amount;
     private String eventType;
+    private Short status;
+    private Long createTime;
+    private Long updateTime;
 }

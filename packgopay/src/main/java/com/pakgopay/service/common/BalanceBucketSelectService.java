@@ -34,6 +34,9 @@ public class BalanceBucketSelectService {
     private BalanceBucketMapper balanceBucketMapper;
 
     public Integer selectBucketNo(String userId, String currency, BigDecimal amount, BucketSelectAction action) {
+        if (action == BucketSelectAction.CREDIT || action == BucketSelectAction.ADJUST_INCREASE) {
+            ensureBucketsForCredit(userId, currency);
+        }
         List<BalanceDto> buckets = getBucketView(userId, currency);
         if (buckets == null || buckets.isEmpty()) {
             return null;
@@ -59,6 +62,37 @@ public class BalanceBucketSelectService {
 
     public boolean shouldSplitLargeCredit(BigDecimal amount) {
         return amount != null && amount.compareTo(LARGE_CREDIT_SPLIT_THRESHOLD) >= 0;
+    }
+
+    public void ensureBucketsForCredit(String userId, String currency) {
+        if (userId == null || userId.isBlank() || currency == null || currency.isBlank()) {
+            return;
+        }
+        String cacheKey = buildCacheKey(userId, currency);
+        try {
+            BucketViewCache cached = redisUtil.getObjectValue(cacheKey, BucketViewCache.class);
+            if (cached != null && cached.getBuckets() != null && !cached.getBuckets().isEmpty()) {
+                return;
+            }
+        } catch (Exception e) {
+            log.warn("load bucket view cache failed before ensure, userId={}, currency={}, message={}",
+                    userId, currency, e.getMessage());
+        }
+
+        List<BalanceDto> buckets = balanceBucketMapper.listBuckets(userId, currency);
+        if (buckets != null && !buckets.isEmpty()) {
+            saveBucketView(userId, currency, buckets);
+            return;
+        }
+
+        long now = System.currentTimeMillis() / 1000;
+        int inserted = balanceBucketMapper.insertZeroBuckets(userId, currency, now, now);
+        List<BalanceDto> createdBuckets = balanceBucketMapper.listBuckets(userId, currency);
+        if (createdBuckets != null && !createdBuckets.isEmpty()) {
+            saveBucketView(userId, currency, createdBuckets);
+            log.info("ensure balance buckets for credit done, userId={}, currency={}, inserted={}",
+                    userId, currency, inserted);
+        }
     }
 
     public List<BalanceBucketDeltaDto> buildLargeCreditDeltas(String userId, String currency, BigDecimal amount) {
@@ -98,6 +132,7 @@ public class BalanceBucketSelectService {
         if (limit <= 0) {
             return List.of();
         }
+        ensureBucketsForCredit(userId, currency);
         List<BalanceDto> buckets = getBucketView(userId, currency);
         if (buckets == null || buckets.isEmpty()) {
             return List.of();
@@ -156,19 +191,27 @@ public class BalanceBucketSelectService {
     private List<BalanceDto> getBucketView(String userId, String currency) {
         String cacheKey = buildCacheKey(userId, currency);
         try {
+            log.info("balance bucket view load start, userId={}, currency={}", userId, currency);
             BucketViewCache cached = redisUtil.getObjectValue(cacheKey, BucketViewCache.class);
             if (cached != null && cached.getBuckets() != null && !cached.getBuckets().isEmpty()) {
+                log.info("balance bucket view cache hit, userId={}, currency={}, bucketCount={}",
+                        userId, currency, cached.getBuckets().size());
                 return cached.getBuckets();
             }
+            log.info("balance bucket view cache miss, userId={}, currency={}", userId, currency);
         } catch (Exception e) {
             log.warn("load bucket view cache failed, userId={}, currency={}, message={}",
                     userId, currency, e.getMessage());
         }
+        log.info("balance bucket view db load start, userId={}, currency={}", userId, currency);
         List<BalanceDto> buckets = balanceBucketMapper.listBuckets(userId, currency);
         if (buckets == null || buckets.isEmpty()) {
+            log.info("balance bucket view db load empty, userId={}, currency={}", userId, currency);
             return buckets;
         }
         saveBucketView(userId, currency, buckets);
+        log.info("balance bucket view db load done, userId={}, currency={}, bucketCount={}",
+                userId, currency, buckets.size());
         return buckets;
     }
 
