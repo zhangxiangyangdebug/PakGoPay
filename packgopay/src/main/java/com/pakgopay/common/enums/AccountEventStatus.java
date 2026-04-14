@@ -4,7 +4,6 @@ import lombok.Getter;
 
 @Getter
 public enum AccountEventStatus {
-    PENDING((short) 0),
     PROCESSING((short) 1),
     DONE((short) 2),
     FAILED((short) 3);

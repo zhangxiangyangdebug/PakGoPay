@@ -19,8 +19,8 @@ import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.MerchantService;
 import com.pakgopay.service.common.AccountEventService;
+import com.pakgopay.service.common.BalanceBucketSelectService;
 import com.pakgopay.service.common.MerchantNotifyRetryService;
-import com.pakgopay.service.common.OrderBalanceSerializeExecutor;
 import com.pakgopay.service.common.OrderFlowLogSession;
 import com.pakgopay.service.impl.ChannelPaymentServiceImpl;
 import com.pakgopay.service.transaction.*;
@@ -64,7 +64,7 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
     private AccountEventService accountEventService;
 
     @Autowired
-    private OrderBalanceSerializeExecutor orderBalanceSerializeExecutor;
+    private BalanceBucketSelectService balanceBucketSelectService;
 
     @Override
     public CommonResponse createPayOutOrder(
@@ -193,20 +193,18 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             // 10. freeze balance, persist processing order and publish timeout message
             frozenAmount = CalcUtil.safeAdd(transactionInfo.getMerchantFee(), payOrderRequest.getAmount());
             BigDecimal frozenAmountSnapshot = frozenAmount;
+            Integer selectedBucketNo = balanceBucketSelectService.selectBucketNo(
+                    payOrderRequest.getMerchantId(),
+                    payOrderRequest.getCurrency(),
+                    frozenAmountSnapshot,
+                    BalanceBucketSelectService.BucketSelectAction.FREEZE);
             transactionUtil.runInTransaction(() -> {
-                String serializeKey = buildOrderBalanceSerializeKey(
-                        payOrderRequest.getMerchantId(),
-                        payOrderRequest.getCurrency(),
-                        transactionInfo.getTransactionNo());
-                orderBalanceSerializeExecutor.run(serializeKey, () ->
-                        CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
-                            int bucketNo = CommonUtil.resolveBalanceBucketNo(transactionInfo.getTransactionNo(), 16);
-                            balanceService.freezeBalance(
-                                    frozenAmountSnapshot,
-                                    payOrderRequest.getMerchantId(),
-                                    payOrderRequest.getCurrency(),
-                                    bucketNo);
-                        }));
+                CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () ->
+                        balanceService.freezeBalance(
+                                frozenAmountSnapshot,
+                                payOrderRequest.getMerchantId(),
+                                payOrderRequest.getCurrency(),
+                                selectedBucketNo));
 
                 int ret = payOrderMapper.insert(payOrderDto);
                 if (ret <= 0) {
@@ -266,12 +264,11 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                 try {
                     BigDecimal frozenAmountSnapshot = frozenAmount;
                     CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
-                        int bucketNo = CommonUtil.resolveBalanceBucketNo(transactionInfo.getTransactionNo(), 16);
                         balanceService.releaseFrozenBalance(
                                 payOrderRequest.getMerchantId(),
                                 payOrderRequest.getCurrency(),
                                 frozenAmountSnapshot,
-                                bucketNo);
+                                null);
                     });
                 } catch (Exception ex) {
                     log.error("releaseFrozenBalance failed, message {}", ex.getMessage());
@@ -290,11 +287,6 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             CommonResponse<Void> failResponse = CommonResponse.fail(pe.getCode(), pe.getMessage());
             return recordMerchantCreateResponse(transactionInfo.getTransactionNo(), failResponse);
         }
-    }
-
-    private String buildOrderBalanceSerializeKey(String userId, String currency, String transactionNo) {
-        int bucketNo = CommonUtil.resolveBalanceBucketNo(transactionNo, 16);
-        return userId + ":" + currency + ":" + bucketNo;
     }
 
     @Override

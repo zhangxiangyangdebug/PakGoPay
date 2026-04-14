@@ -348,7 +348,7 @@ public abstract class BaseOrderService {
             String version = redisUtil.getValue(PAYMENT_CACHE_VERSION_KEY);
             return (version == null || version.isBlank()) ? "1" : version;
         } catch (Exception e) {
-            log.warn("resolvePaymentCacheVersion failed, message={}", e.getMessage());
+            log.warn("resolvePaymentCacheVersion failed", e);
             return "1";
         }
     }
@@ -368,8 +368,8 @@ public abstract class BaseOrderService {
         }
         if (!merchantId.equals(merchantInfoDto.getUserId())) {
             log.warn(
-                    "validateApiKeyAndMerchant failed: merchantId mismatch, merchantId={}, ownerUserId={}",
-                    merchantId, merchantInfoDto.getUserId());
+                    "validateApiKeyAndMerchant failed: merchantId mismatch, merchantId={}, ownerUserId={}, apiKey={}",
+                    merchantId, merchantInfoDto.getUserId(), apiKey);
             throw new PakGoPayException(ResultCode.INVALID_PARAMS, "merchantId does not match apiKey");
         }
         if (merchantInfoDto.getParentId() == null || merchantInfoDto.getParentId().isBlank()) {
@@ -448,7 +448,7 @@ public abstract class BaseOrderService {
             String version = redisUtil.getValue(MERCHANT_INFO_CACHE_VERSION_KEY);
             return (version == null || version.isBlank()) ? "1" : version;
         } catch (Exception e) {
-            log.warn("resolveMerchantInfoCacheVersion failed, message={}", e.getMessage());
+            log.warn("resolveMerchantInfoCacheVersion failed", e);
             return "1";
         }
     }
@@ -488,7 +488,7 @@ public abstract class BaseOrderService {
             String version = redisUtil.getValue(AGENT_CHAIN_CACHE_VERSION_KEY);
             return (version == null || version.isBlank()) ? "1" : version;
         } catch (Exception e) {
-            log.warn("resolveAgentChainCacheVersion failed, message={}", e.getMessage());
+            log.warn("resolveAgentChainCacheVersion failed", e);
             return "1";
         }
     }
@@ -673,8 +673,7 @@ public abstract class BaseOrderService {
         BalanceDto before = balanceService.loadOrCreateBalanceSnapshot(userId, currency);
         // 2) Apply delta on balance.
         CommonUtil.withBalanceLogContext("order.reverse", transactionNo, () -> {
-            int bucketNo = CommonUtil.resolveBalanceBucketNo(transactionNo, 16);
-            balanceService.adjustBalance(userId, currency, deltaAmount, bucketNo);
+            balanceService.adjustBalance(userId, currency, deltaAmount, null);
         });
         // 3) Capture balance snapshot after change.
         BalanceDto after = balanceService.loadOrCreateBalanceSnapshot(userId, currency);
@@ -900,8 +899,7 @@ public abstract class BaseOrderService {
                 String routeKey = "AGENT_FEE_" + agent.getUserId() + "_" + currency + "_"
                         + System.currentTimeMillis() / 1000;
                 CommonUtil.withBalanceLogContext("agent.fee", routeKey, () -> {
-                    int bucketNo = CommonUtil.resolveBalanceBucketNo(routeKey, 16);
-                    balanceService.creditBalance(agent.getUserId(), currency, fee, bucketNo);
+                    balanceService.creditBalance(agent.getUserId(), currency, fee, null);
                 });
                 log.info("agent fee credited, agentUserId={}, level={}, amount={}",
                         agent.getUserId(), targetLevel, fee);
@@ -922,7 +920,7 @@ public abstract class BaseOrderService {
                     return;
                 }
             }
-            reportTask.refreshReportsByEpoch(recordDateEpoch, currency);
+            reportTask.enqueueRefreshByEpoch(recordDateEpoch, currency);
         } catch (Exception e) {
             log.error("refreshReportData failed, error message: {}", e.getMessage());
         }

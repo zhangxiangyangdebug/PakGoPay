@@ -13,15 +13,22 @@ spring:
       host: 172.18.157.21
       port: 6379
       password: "ENC(b5hhW1348eyAF5C2OK7IxiXMXpcMfdzX4IR1WjBI1itCZfl532XYCH0O3/IIZa88)"
+      lettuce:
+        pool:
+          max-active: 64
+          max-idle: 32
+          min-idle: 8
+          max-wait: 2000ms
+        connect-timeout: 3000ms
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
-    url: jdbc:postgresql://pgm-gs54h1z25sz4mftjdo.pgsql.singapore.rds.aliyuncs.com:5432/test
+    url: jdbc:postgresql://pgm-gs54h1z25sz4mftj.pgsql.singapore.rds.aliyuncs.com:5432/test
     username: xiaoyou
     password: "ENC(Ey/mtoNnV5MkLjfGhyUqtOWQPIIsCpgHB9VM6031gqfGcqHZEYkVoPnIh86U+iS7)"
     driver-class-name: org.postgresql.Driver
     hikari:
       connection-test-query: SELECT 1
-      maximum-pool-size: 200
+      maximum-pool-size: 150
       minimum-idle: 60
       connection-timeout: 3000
       idle-timeout: 60000
@@ -36,6 +43,12 @@ jasypt:
 server:
   address: 0.0.0.0
   port: 8090
+  tomcat:
+    threads:
+      max: 300
+      min-spare: 50
+    accept-count: 200
+    max-connections: 8192
 websocket:
   relay:
     host: ${WEBSOCKET_RELAY_HOST:${spring.rabbitmq.host}}
@@ -52,7 +65,7 @@ pakgopay:
   datasource:
     secondary:
       enabled: true
-      url: jdbc:postgresql://pgm-gs543rf0wic099lxho.pgsql.singapore.rds.aliyuncs.com:5432/test
+      url: jdbc:postgresql://pgm-gs543rf0wic099lx.pgsql.singapore.rds.aliyuncs.com:5432/test
       username: xiaoyou_rz
       password: ENC(crCykm3Fd+e7/Zc8IKAqfVP3piydsNtXaL6MzAIU+v/MPYfSFzwfb2u+e5UjgdRT)
       driver-class-name: org.postgresql.Driver

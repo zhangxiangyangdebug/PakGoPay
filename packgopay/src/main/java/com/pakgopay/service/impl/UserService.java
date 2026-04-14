@@ -5,7 +5,6 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.reqeust.CreateUserRequest;
 import com.pakgopay.data.reqeust.systemConfig.EditUserRequest;
 import com.pakgopay.data.response.CommonResponse;
-import com.pakgopay.mapper.BalanceMapper;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.util.CommonUtil;
@@ -23,9 +22,6 @@ import java.util.Set;
 public class UserService {
     @Autowired
     private UserMapper userMapper;
-
-    @Autowired
-    private BalanceMapper balanceMapper;
 
     @Autowired
     private SnowflakeIdService snowflakeIdService;

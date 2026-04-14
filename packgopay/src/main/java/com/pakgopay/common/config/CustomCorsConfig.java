@@ -40,8 +40,8 @@ public class CustomCorsConfig implements WebMvcConfigurer {
     @Bean(name = "notifyApiAsyncExecutor")
     public ThreadPoolTaskExecutor notifyApiAsyncExecutor() {
         ThreadPoolTaskExecutor ex = new ThreadPoolTaskExecutor();
-        ex.setCorePoolSize(16);
-        ex.setMaxPoolSize(32);
+        ex.setCorePoolSize(50);
+        ex.setMaxPoolSize(200);
         ex.setQueueCapacity(1000);
         ex.setThreadNamePrefix("notify-api-async-");
         ex.setTaskDecorator(new MdcTaskDecorator());

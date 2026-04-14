@@ -3,33 +3,46 @@ package com.pakgopay.service.common;
 import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.AccountEventStatus;
 import com.pakgopay.common.enums.AccountEventType;
+import com.pakgopay.data.response.AccountEventDetailResponse;
+import com.pakgopay.data.response.AccountEventQueryResponse;
 import com.pakgopay.mapper.AccountEventMapper;
 import com.pakgopay.mapper.secondary.BalanceChangeLogMapper;
 import com.pakgopay.mapper.dto.AccountEventDto;
+import com.pakgopay.mapper.dto.AccountEventQueryDto;
 import com.pakgopay.mapper.dto.AgentInfoDto;
 import com.pakgopay.mapper.dto.BalanceChangeLogDto;
 import com.pakgopay.mapper.dto.CollectionOrderDto;
 import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.service.common.BalanceBucketSelectService.BucketSelectAction;
+import com.pakgopay.timer.PartitionMaintenanceTimer;
 import com.pakgopay.util.CalcUtil;
 import com.pakgopay.util.CommonUtil;
+import com.pakgopay.util.SnowflakeIdGenerator;
 import com.pakgopay.util.TransactionUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RAtomicLong;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -44,6 +57,17 @@ public class AccountEventServiceImpl implements AccountEventService {
             .withZone(ZoneOffset.UTC);
     private static final String EVENT_KEY_SEPARATOR = "|";
     private static final int MAX_ERROR_TEXT = 500;
+    private static final int CREDIT_GROUP_BUCKET_COUNT = 4;
+    private static final int CLAIM_PREVIOUS_MONTHS_ALWAYS = 1;
+    private static final int CLAIM_EXTRA_PREVIOUS_MONTH_EVERY = 5;
+    private static final int CLAIM_OLDER_MONTH_EVERY = 20;
+    private static final int CLAIM_OLDER_MONTH_LOOKBACK = 24;
+    private static final int CLAIM_WEIGHT_CURRENT = 60;
+    private static final int CLAIM_WEIGHT_PREVIOUS = 25;
+    private static final int CLAIM_WEIGHT_PREVIOUS_EXTRA = 10;
+    private static final int CLAIM_WEIGHT_OLDER = 5;
+    private static final String CONSUME_TICK_KEY = "job:account_event_consume:tick";
+    private static final long CONSUME_TICK_CYCLE = 1000L;
 
     @Autowired
     private AccountEventMapper accountEventMapper;
@@ -55,10 +79,16 @@ public class AccountEventServiceImpl implements AccountEventService {
     private BalanceService balanceService;
 
     @Autowired
-    private OrderBalanceSerializeExecutor orderBalanceSerializeExecutor;
+    private BalanceBucketSelectService balanceBucketSelectService;
 
     @Autowired
     private TransactionUtil transactionUtil;
+
+    @Autowired
+    private RedissonClient redissonClient;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     /**
      * Collection success creates:
@@ -70,6 +100,7 @@ public class AccountEventServiceImpl implements AccountEventService {
         if (collectionOrderDto == null) {
             return;
         }
+        Long eventCreatedAt = resolveEventCreatedAt(collectionOrderDto.getCreateTime(), collectionOrderDto.getUpdateTime());
         List<AccountEventDto> eventsToAppend = new ArrayList<>();
         BigDecimal creditAmount = CalcUtil.safeSubtract(
                 resolveOrderAmount(collectionOrderDto.getActualAmount(), collectionOrderDto.getAmount()),
@@ -82,7 +113,8 @@ public class AccountEventServiceImpl implements AccountEventService {
                 creditAmount,
                 collectionOrderDto.getSuccessCallbackTime() == null
                         ? collectionOrderDto.getUpdateTime()
-                        : collectionOrderDto.getSuccessCallbackTime());
+                        : collectionOrderDto.getSuccessCallbackTime(),
+                eventCreatedAt);
 
         appendAgentCreditEvents(
                 eventsToAppend,
@@ -91,7 +123,8 @@ public class AccountEventServiceImpl implements AccountEventService {
                 collectionOrderDto.getCurrencyType(),
                 collectionOrderDto.getAgent1Fee(),
                 collectionOrderDto.getAgent2Fee(),
-                collectionOrderDto.getAgent3Fee());
+                collectionOrderDto.getAgent3Fee(),
+                eventCreatedAt);
         appendEvents(eventsToAppend);
     }
 
@@ -105,6 +138,7 @@ public class AccountEventServiceImpl implements AccountEventService {
         if (payOrderDto == null) {
             return;
         }
+        Long eventCreatedAt = resolveEventCreatedAt(payOrderDto.getCreateTime(), payOrderDto.getUpdateTime());
         List<AccountEventDto> eventsToAppend = new ArrayList<>();
         appendEvent(eventsToAppend,
                 AccountEventType.PAYOUT_CONFIRM,
@@ -114,7 +148,8 @@ public class AccountEventServiceImpl implements AccountEventService {
                 frozenAmount,
                 payOrderDto.getSuccessCallbackTime() == null
                         ? payOrderDto.getUpdateTime()
-                        : payOrderDto.getSuccessCallbackTime());
+                        : payOrderDto.getSuccessCallbackTime(),
+                eventCreatedAt);
 
         appendAgentCreditEvents(
                 eventsToAppend,
@@ -123,7 +158,8 @@ public class AccountEventServiceImpl implements AccountEventService {
                 payOrderDto.getCurrencyType(),
                 payOrderDto.getAgent1Fee(),
                 payOrderDto.getAgent2Fee(),
-                payOrderDto.getAgent3Fee());
+                payOrderDto.getAgent3Fee(),
+                eventCreatedAt);
         appendEvents(eventsToAppend);
     }
 
@@ -135,6 +171,7 @@ public class AccountEventServiceImpl implements AccountEventService {
         if (payOrderDto == null) {
             return;
         }
+        Long eventCreatedAt = resolveEventCreatedAt(payOrderDto.getCreateTime(), payOrderDto.getUpdateTime());
         List<AccountEventDto> eventsToAppend = new ArrayList<>();
         appendEvent(eventsToAppend,
                 AccountEventType.PAYOUT_RELEASE,
@@ -142,7 +179,8 @@ public class AccountEventServiceImpl implements AccountEventService {
                 payOrderDto.getMerchantUserId(),
                 payOrderDto.getCurrencyType(),
                 frozenAmount,
-                payOrderDto.getUpdateTime());
+                payOrderDto.getUpdateTime(),
+                eventCreatedAt);
         appendEvents(eventsToAppend);
     }
 
@@ -155,16 +193,152 @@ public class AccountEventServiceImpl implements AccountEventService {
         int totalConsumed = 0;
         int rounds = Math.max(maxRounds, 1);
         int claimLimit = Math.max(limitSize, 1);
+        long tick = nextConsumeTick();
         for (int i = 0; i < rounds; i++) {
             long now = System.currentTimeMillis() / 1000;
-            List<AccountEventDto> claimed = accountEventMapper.claimPendingEvents(AccountEventType.allCodes(), claimLimit, now);
+            List<AccountEventDto> claimed = claimPendingEventsByPartitions(claimLimit, now, tick);
             if (claimed == null || claimed.isEmpty()) {
                 break;
             }
+            log.info("account event claim returned, tick={}, round={}, claimedSize={}", tick, i + 1, claimed.size());
             totalConsumed += claimed.size();
             processClaimedEventBatch(claimed, now);
+            log.info("account event claimed batch processed, tick={}, round={}, claimedSize={}", tick, i + 1, claimed.size());
         }
         return totalConsumed;
+    }
+
+    @Override
+    public AccountEventQueryResponse listByTransactionNo(String transactionNo) {
+        long[] range = SnowflakeIdGenerator.extractMonthEpochSecondRange(transactionNo);
+        if (range == null) {
+            throw new IllegalArgumentException("invalid transactionNo");
+        }
+        List<AccountEventQueryDto> queryDtos = accountEventMapper.listByTransactionNo(transactionNo, range[0], range[1]);
+        AccountEventQueryResponse response = new AccountEventQueryResponse();
+        response.setTransactionNo(transactionNo);
+        response.setAccountEvents(queryDtos.stream().map(this::toAccountEventDetailResponse).collect(Collectors.toList()));
+        return response;
+    }
+
+    private long nextConsumeTick() {
+        try {
+            RAtomicLong tickCounter = redissonClient.getAtomicLong(CONSUME_TICK_KEY);
+            long rawTick = tickCounter.incrementAndGet();
+            return Math.floorMod(rawTick - 1, CONSUME_TICK_CYCLE) + 1;
+        } catch (Exception e) {
+            log.warn("account event consume tick fallback to current time, message={}", e.getMessage());
+            return Math.floorMod(System.currentTimeMillis() / 1000 - 1, CONSUME_TICK_CYCLE) + 1;
+        }
+    }
+
+    private List<AccountEventDto> claimPendingEventsByPartitions(int claimLimit, long now, long tick) {
+        List<AccountEventDto> claimed = new ArrayList<>();
+        List<ClaimPartitionPlan> plans = resolveClaimPartitionPlans(now, tick);
+        List<String> claimDetails = new ArrayList<>(plans.size());
+        int remainingBudget = claimLimit;
+        int remainingWeight = plans.stream().mapToInt(plan -> plan.weight).sum();
+        for (ClaimPartitionPlan plan : plans) {
+            if (remainingBudget <= 0 || remainingWeight <= 0) {
+                break;
+            }
+            int targetLimit = Math.max((int) Math.ceil((double) remainingBudget * plan.weight / remainingWeight), 1);
+            try {
+                List<AccountEventDto> partitionClaimed = accountEventMapper.claimPendingEventsFromTable(
+                        plan.tableName,
+                        AccountEventType.allCodes(),
+                        targetLimit,
+                        now);
+                if (partitionClaimed != null && !partitionClaimed.isEmpty()) {
+                    claimed.addAll(partitionClaimed);
+                    remainingBudget -= partitionClaimed.size();
+                    claimDetails.add(plan.tableName + "(weight=" + plan.weight + ",target=" + targetLimit + ",claimed=" + partitionClaimed.size() + ")");
+                } else {
+                    claimDetails.add(plan.tableName + "(weight=" + plan.weight + ",target=" + targetLimit + ",claimed=0)");
+                }
+            } catch (Exception e) {
+                log.warn("account event claim skipped, tableName={}, message={}", plan.tableName, e.getMessage());
+                claimDetails.add(plan.tableName + "(weight=" + plan.weight + ",target=" + targetLimit + ",claimed=skip)");
+            }
+            remainingWeight -= plan.weight;
+        }
+        if (!claimDetails.isEmpty()) {
+            log.info("account event claim plan, tick={}, claimLimit={}, claimed={}, plans={}",
+                    tick, claimLimit, claimed.size(), String.join(", ", claimDetails));
+        }
+        return claimed;
+    }
+
+    private List<ClaimPartitionPlan> resolveClaimPartitionPlans(long now, long tick) {
+        Instant current = Instant.ofEpochSecond(now);
+        Set<String> existingPartitionTables = loadCachedAccountEventPartitions();
+        LinkedHashMap<String, Integer> weightedPlans = new LinkedHashMap<>();
+        if (tick % CLAIM_EXTRA_PREVIOUS_MONTH_EVERY == 0) {
+            addClaimPartitionPlanIfExists(
+                    weightedPlans,
+                    existingPartitionTables,
+                    "account_event_" + PARTITION_SUFFIX_FORMATTER.format(current.atZone(ZoneOffset.UTC).minusMonths(2)),
+                    CLAIM_WEIGHT_PREVIOUS_EXTRA);
+        }
+        if (tick % CLAIM_OLDER_MONTH_EVERY == 0) {
+            long olderCycleIndex = Math.max(tick / CLAIM_OLDER_MONTH_EVERY - 1, 0);
+            int olderMonths = 3 + (int) (olderCycleIndex % CLAIM_OLDER_MONTH_LOOKBACK);
+            addClaimPartitionPlanIfExists(
+                    weightedPlans,
+                    existingPartitionTables,
+                    "account_event_" + PARTITION_SUFFIX_FORMATTER.format(current.atZone(ZoneOffset.UTC).minusMonths(olderMonths)),
+                    CLAIM_WEIGHT_OLDER);
+        }
+        for (int i = CLAIM_PREVIOUS_MONTHS_ALWAYS; i >= 1; i--) {
+            addClaimPartitionPlanIfExists(
+                    weightedPlans,
+                    existingPartitionTables,
+                    "account_event_" + PARTITION_SUFFIX_FORMATTER.format(current.atZone(ZoneOffset.UTC).minusMonths(i)),
+                    CLAIM_WEIGHT_PREVIOUS);
+        }
+        addClaimPartitionPlanIfExists(
+                weightedPlans,
+                existingPartitionTables,
+                "account_event_" + resolvePartitionSuffix(current.getEpochSecond()),
+                CLAIM_WEIGHT_CURRENT);
+
+        List<ClaimPartitionPlan> plans = new ArrayList<>(weightedPlans.size());
+        for (Map.Entry<String, Integer> entry : weightedPlans.entrySet()) {
+            plans.add(new ClaimPartitionPlan(entry.getKey(), entry.getValue()));
+        }
+        return plans;
+    }
+
+    private void addClaimPartitionPlanIfExists(
+            Map<String, Integer> weightedPlans,
+            Set<String> existingPartitionTables,
+            String tableName,
+            int weight) {
+        if (existingPartitionTables == null || existingPartitionTables.isEmpty() || existingPartitionTables.contains(tableName)) {
+            weightedPlans.put(tableName, weight);
+        }
+    }
+
+    private Set<String> loadCachedAccountEventPartitions() {
+        try {
+            return redisTemplate.opsForSet().members(PartitionMaintenanceTimer.ACCOUNT_EVENT_PARTITION_CACHE_KEY);
+        } catch (Exception e) {
+            log.warn("load account event partition cache failed, message={}", e.getMessage());
+            return null;
+        }
+    }
+
+    private AccountEventDetailResponse toAccountEventDetailResponse(AccountEventQueryDto dto) {
+        AccountEventDetailResponse response = new AccountEventDetailResponse();
+        response.setUserName(dto.getUserName());
+        response.setRoleId(dto.getRoleId());
+        response.setCurrency(dto.getCurrency());
+        response.setAmount(dto.getAmount());
+        response.setEventType(dto.getEventType());
+        response.setStatus(dto.getStatus());
+        response.setCreateTime(dto.getCreateTime());
+        response.setUpdateTime(dto.getUpdateTime());
+        return response;
     }
 
     /**
@@ -172,7 +346,9 @@ public class AccountEventServiceImpl implements AccountEventService {
      * group by (eventType,userId,currency), then apply each group in one transaction.
      */
     private void processClaimedEventBatch(List<AccountEventDto> claimed, long now) {
+        log.info("account event grouping start, claimedSize={}", claimed == null ? 0 : claimed.size());
         Map<String, EventGroup> grouped = groupEvents(claimed);
+        log.info("account event grouped, claimedSize={}, groupedSize={}", claimed == null ? 0 : claimed.size(), grouped.size());
         for (EventGroup group : grouped.values()) {
             processOneEventGroup(group, now);
         }
@@ -186,20 +362,29 @@ public class AccountEventServiceImpl implements AccountEventService {
      * On failure: mark all events as failed with retry_count+1.
      */
     private void processOneEventGroup(EventGroup group, long now) {
+        if (group.ids == null || group.ids.isEmpty()) {
+            log.warn("skip empty account event group, eventType={}, userId={}, currency={}, bucketNo={}, createTime={}",
+                    group.eventType, group.userId, group.currency, group.bucketNo, group.createTime);
+            return;
+        }
         String batchNo = buildBatchNo(group.eventType, group.userId, group.currency);
+        long partitionStart = resolvePartitionStart(group.createTime);
+        long partitionEnd = resolvePartitionEnd(group.createTime);
         try {
             transactionUtil.runInTransaction(() -> {
                 applyBalanceChange(group, batchNo);
-                accountEventMapper.markDoneByIds(group.ids, batchNo, now);
+                int updated = accountEventMapper.markDoneByIds(group.ids, batchNo, now, partitionStart, partitionEnd);
+                log.info("account event mark done, batchNo={}, updatedRows={}", batchNo, updated);
             });
             writeBalanceChangeLog(group, batchNo, now);
-            log.info("account event batch done, batchNo={}, eventType={}, userId={}, currency={}, count={}, amount={}",
-                    batchNo, group.eventType, group.userId, group.currency, group.ids.size(), group.totalAmount);
+            log.info("account event batch done, batchNo={}, eventType={}, userId={}, currency={}, bucketNo={}, count={}, amount={}, createTime={}",
+                    batchNo, group.eventType, group.userId, group.currency, group.bucketNo, group.ids.size(), group.totalAmount, group.createTime);
         } catch (Exception e) {
             String error = trimError(e == null ? null : e.getMessage());
-            accountEventMapper.markFailedByIds(group.ids, error, now);
-            log.warn("account event batch failed, batchNo={}, eventType={}, userId={}, currency={}, count={}, error={}",
-                    batchNo, group.eventType, group.userId, group.currency, group.ids.size(), error);
+            int updated = accountEventMapper.markFailedByIds(group.ids, error, now, partitionStart, partitionEnd);
+            log.warn("account event mark failed, batchNo={}, updatedRows={}, error={}", batchNo, updated, error);
+            log.warn("account event batch failed, batchNo={}, eventType={}, userId={}, currency={}, bucketNo={}, count={}, createTime={}, error={}",
+                    batchNo, group.eventType, group.userId, group.currency, group.bucketNo, group.ids.size(), group.createTime, error);
         }
     }
 
@@ -207,24 +392,27 @@ public class AccountEventServiceImpl implements AccountEventService {
      * Map grouped event type to balance operation.
      */
     private void applyBalanceChange(EventGroup group, String batchNo) {
-        String serializeKey = buildOrderBalanceSerializeKey(group.userId, group.currency, group.bucketNo);
-        orderBalanceSerializeExecutor.run(serializeKey, () ->
-                CommonUtil.withBalanceLogContext("account_event.consume", group.routeKey, () -> {
-                    if (AccountEventType.COLLECTION_CREDIT.getCode().equals(group.eventType)
-                            || AccountEventType.AGENT_CREDIT.getCode().equals(group.eventType)) {
-                        balanceService.creditBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
-                        return;
-                    }
-                    if (AccountEventType.PAYOUT_CONFIRM.getCode().equals(group.eventType)) {
-                        balanceService.confirmPayoutBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
-                        return;
-                    }
-                    if (AccountEventType.PAYOUT_RELEASE.getCode().equals(group.eventType)) {
-                        balanceService.releaseFrozenBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
-                        return;
-                    }
-                    throw new IllegalArgumentException("unsupported event type: " + group.eventType);
-                }));
+        log.info("account event apply start, batchNo={}, eventType={}, userId={}, currency={}, bucketNo={}, amount={}",
+                batchNo, group.eventType, group.userId, group.currency, group.bucketNo, group.totalAmount);
+        CommonUtil.withBalanceLogContext("account_event.consume", group.routeKey, () -> {
+            if (AccountEventType.COLLECTION_CREDIT.getCode().equals(group.eventType)) {
+                balanceService.creditBalanceWithoutSplit(group.userId, group.currency, group.totalAmount, group.bucketNo);
+                return;
+            }
+            if (AccountEventType.AGENT_CREDIT.getCode().equals(group.eventType)) {
+                balanceService.creditBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
+                return;
+            }
+            if (AccountEventType.PAYOUT_CONFIRM.getCode().equals(group.eventType)) {
+                balanceService.confirmPayoutBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
+                return;
+            }
+            if (AccountEventType.PAYOUT_RELEASE.getCode().equals(group.eventType)) {
+                balanceService.releaseFrozenBalance(group.userId, group.currency, group.totalAmount, group.bucketNo);
+                return;
+            }
+            throw new IllegalArgumentException("unsupported event type: " + group.eventType);
+        });
     }
 
     /**
@@ -248,10 +436,13 @@ public class AccountEventServiceImpl implements AccountEventService {
     }
 
     /**
-     * Group claim rows by (eventType,userId,currency), and sum amount for each group.
+     * Group claim rows in 2 stages:
+     * 1) coarse group by (eventType,userId,currency,month partition)
+     * 2) for credit-like events, load 4 lowest buckets once and distribute rows among them
+     * 3) for other events, keep original single-bucket behavior
      */
     private Map<String, EventGroup> groupEvents(List<AccountEventDto> events) {
-        Map<String, EventGroup> grouped = new LinkedHashMap<>();
+        Map<String, PendingGroup> pendingGroups = new LinkedHashMap<>();
         for (AccountEventDto event : events) {
             if (event == null
                     || event.getId() == null
@@ -259,16 +450,57 @@ public class AccountEventServiceImpl implements AccountEventService {
                     || event.getEventType() == null
                     || event.getUserId() == null
                     || event.getCurrency() == null
+                    || event.getCreatedAt() == null
                     || event.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
-            String routeKey = resolveEventRouteKey(event);
-            int bucketNo = CommonUtil.resolveBalanceBucketNo(routeKey, 16);
-            String key = buildEventGroupKey(event.getEventType(), event.getUserId(), event.getCurrency(), bucketNo);
-            EventGroup group = grouped.computeIfAbsent(key, k -> new EventGroup(
-                    event.getEventType(), event.getUserId(), event.getCurrency(), routeKey, bucketNo));
-            group.ids.add(event.getId());
+            String partitionSuffix = resolvePartitionSuffix(event.getCreatedAt());
+            String key = buildPendingGroupKey(event.getEventType(), event.getUserId(), event.getCurrency(), partitionSuffix);
+            PendingGroup group = pendingGroups.computeIfAbsent(key, k -> new PendingGroup(
+                    event.getEventType(),
+                    event.getUserId(),
+                    event.getCurrency(),
+                    event.getCreatedAt()));
+            group.events.add(event);
             group.totalAmount = group.totalAmount.add(event.getAmount());
+        }
+
+        Map<String, EventGroup> grouped = new LinkedHashMap<>();
+        for (PendingGroup pendingGroup : pendingGroups.values()) {
+            if (isCreditEvent(pendingGroup.eventType)) {
+                log.info("account event credit group select buckets start, eventType={}, userId={}, currency={}, eventCount={}, amount={}",
+                        pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, pendingGroup.events.size(), pendingGroup.totalAmount);
+                distributeCreditEvents(grouped, pendingGroup);
+                log.info("account event credit group select buckets done, eventType={}, userId={}, currency={}, eventCount={}, amount={}",
+                        pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, pendingGroup.events.size(), pendingGroup.totalAmount);
+                continue;
+            }
+            log.info("account event bucket select start, eventType={}, userId={}, currency={}, eventCount={}, amount={}",
+                    pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, pendingGroup.events.size(), pendingGroup.totalAmount);
+            Integer bucketNo = balanceBucketSelectService.selectBucketNo(
+                    pendingGroup.userId,
+                    pendingGroup.currency,
+                    pendingGroup.totalAmount,
+                    resolveBucketSelectAction(pendingGroup.eventType));
+            log.info("account event bucket select done, eventType={}, userId={}, currency={}, bucketNo={}, eventCount={}, amount={}",
+                    pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, bucketNo, pendingGroup.events.size(), pendingGroup.totalAmount);
+            String routeKey = buildRouteKey(pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, bucketNo);
+            String key = buildEventGroupKey(
+                    pendingGroup.eventType,
+                    pendingGroup.userId,
+                    pendingGroup.currency,
+                    bucketNo,
+                    resolvePartitionSuffix(pendingGroup.createTime));
+            EventGroup group = grouped.computeIfAbsent(key, k -> new EventGroup(
+                    pendingGroup.eventType,
+                    pendingGroup.userId,
+                    pendingGroup.currency,
+                    routeKey,
+                    bucketNo,
+                    pendingGroup.createTime));
+            for (AccountEventDto event : pendingGroup.events) {
+                appendEventToGroup(group, event);
+            }
         }
         return grouped;
     }
@@ -283,13 +515,14 @@ public class AccountEventServiceImpl implements AccountEventService {
             String currency,
             BigDecimal agent1Fee,
             BigDecimal agent2Fee,
-            BigDecimal agent3Fee) {
+            BigDecimal agent3Fee,
+            Long eventCreatedAt) {
         if (agentInfos == null || agentInfos.isEmpty()) {
             return;
         }
-        appendOneAgentFee(eventsToAppend, transactionNo, agentInfos, CommonConstant.AGENT_LEVEL_FIRST, agent1Fee, currency);
-        appendOneAgentFee(eventsToAppend, transactionNo, agentInfos, CommonConstant.AGENT_LEVEL_SECOND, agent2Fee, currency);
-        appendOneAgentFee(eventsToAppend, transactionNo, agentInfos, CommonConstant.AGENT_LEVEL_THIRD, agent3Fee, currency);
+        appendOneAgentFee(eventsToAppend, transactionNo, agentInfos, CommonConstant.AGENT_LEVEL_FIRST, agent1Fee, currency, eventCreatedAt);
+        appendOneAgentFee(eventsToAppend, transactionNo, agentInfos, CommonConstant.AGENT_LEVEL_SECOND, agent2Fee, currency, eventCreatedAt);
+        appendOneAgentFee(eventsToAppend, transactionNo, agentInfos, CommonConstant.AGENT_LEVEL_THIRD, agent3Fee, currency, eventCreatedAt);
     }
 
     /**
@@ -301,7 +534,8 @@ public class AccountEventServiceImpl implements AccountEventService {
             List<AgentInfoDto> agentInfos,
             Integer targetLevel,
             BigDecimal fee,
-            String currency) {
+            String currency,
+            Long eventCreatedAt) {
         if (fee == null || fee.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
@@ -313,7 +547,8 @@ public class AccountEventServiceImpl implements AccountEventService {
                         agent.getUserId(),
                         currency,
                         fee,
-                        System.currentTimeMillis() / 1000);
+                        System.currentTimeMillis() / 1000,
+                        eventCreatedAt);
                 return;
             }
         }
@@ -329,13 +564,15 @@ public class AccountEventServiceImpl implements AccountEventService {
             String userId,
             String currency,
             BigDecimal amount,
-            Long eventTime) {
+            Long eventTime,
+            Long createdAt) {
         if (eventType == null || userId == null || userId.isBlank()
                 || currency == null || currency.isBlank()
                 || amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
         long now = System.currentTimeMillis() / 1000;
+        long eventCreatedAt = createdAt == null ? now : createdAt;
         AccountEventDto dto = new AccountEventDto();
         dto.setEventType(eventType.getCode());
         dto.setBizNo(bizNo);
@@ -343,9 +580,9 @@ public class AccountEventServiceImpl implements AccountEventService {
         dto.setCurrency(currency);
         dto.setAmount(amount);
         dto.setEventTime(eventTime == null ? now : eventTime);
-        dto.setStatus(AccountEventStatus.PENDING.getCode());
+        dto.setStatus(AccountEventStatus.PROCESSING.getCode());
         dto.setRetryCount(0);
-        dto.setCreatedAt(now);
+        dto.setCreatedAt(eventCreatedAt);
         dto.setUpdatedAt(now);
         eventsToAppend.add(dto);
     }
@@ -408,13 +645,91 @@ public class AccountEventServiceImpl implements AccountEventService {
         return normalized.substring(0, MAX_ERROR_TEXT);
     }
 
-    private String buildEventGroupKey(String eventType, String userId, String currency, int bucketNo) {
-        return eventType + EVENT_KEY_SEPARATOR + userId + EVENT_KEY_SEPARATOR + currency
-                + EVENT_KEY_SEPARATOR + bucketNo;
+    private void distributeCreditEvents(Map<String, EventGroup> grouped, PendingGroup pendingGroup) {
+        List<Integer> bucketNos = balanceBucketSelectService.selectLowestTotalBalanceBucketNos(
+                pendingGroup.userId,
+                pendingGroup.currency,
+                CREDIT_GROUP_BUCKET_COUNT);
+        log.info("account event lowest buckets selected, eventType={}, userId={}, currency={}, bucketNos={}, eventCount={}, amount={}",
+                pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, bucketNos, pendingGroup.events.size(), pendingGroup.totalAmount);
+        if (bucketNos == null || bucketNos.isEmpty()) {
+            bucketNos = List.of((Integer) null);
+        }
+        List<EventGroup> bucketGroups = new ArrayList<>(bucketNos.size());
+        String partitionSuffix = resolvePartitionSuffix(pendingGroup.createTime);
+        for (Integer bucketNo : bucketNos) {
+            String key = buildEventGroupKey(
+                    pendingGroup.eventType,
+                    pendingGroup.userId,
+                    pendingGroup.currency,
+                    bucketNo,
+                    partitionSuffix);
+            EventGroup group = grouped.computeIfAbsent(key, k -> new EventGroup(
+                    pendingGroup.eventType,
+                    pendingGroup.userId,
+                    pendingGroup.currency,
+                    buildRouteKey(pendingGroup.eventType, pendingGroup.userId, pendingGroup.currency, bucketNo),
+                    bucketNo,
+                    pendingGroup.createTime));
+            bucketGroups.add(group);
+        }
+        pendingGroup.events.stream()
+                .sorted(Comparator.comparing(AccountEventDto::getAmount).reversed())
+                .forEach(event -> appendEventToGroup(selectLightestGroup(bucketGroups), event));
     }
 
-    private String buildOrderBalanceSerializeKey(String userId, String currency, int bucketNo) {
-        return userId + ":" + currency + ":" + bucketNo;
+    private EventGroup selectLightestGroup(List<EventGroup> groups) {
+        return groups.stream()
+                .min(Comparator.comparing(group -> group.totalAmount))
+                .orElseThrow(() -> new IllegalStateException("no event group available"));
+    }
+
+    private void appendEventToGroup(EventGroup group, AccountEventDto event) {
+        group.ids.add(event.getId());
+        group.totalAmount = group.totalAmount.add(event.getAmount());
+    }
+
+    private boolean isCreditEvent(String eventType) {
+        return AccountEventType.COLLECTION_CREDIT.getCode().equals(eventType)
+                || AccountEventType.AGENT_CREDIT.getCode().equals(eventType);
+    }
+
+    private String buildEventGroupKey(String eventType, String userId, String currency, Integer bucketNo, String partitionSuffix) {
+        return eventType + EVENT_KEY_SEPARATOR + userId + EVENT_KEY_SEPARATOR + currency
+                + EVENT_KEY_SEPARATOR + partitionSuffix
+                + EVENT_KEY_SEPARATOR + (bucketNo == null ? "cross" : bucketNo);
+    }
+
+    private String buildPendingGroupKey(String eventType, String userId, String currency, String partitionSuffix) {
+        return eventType + EVENT_KEY_SEPARATOR + userId + EVENT_KEY_SEPARATOR + currency + EVENT_KEY_SEPARATOR + partitionSuffix;
+    }
+
+    private String buildRouteKey(String eventType, String userId, String currency, Integer bucketNo) {
+        return eventType + EVENT_KEY_SEPARATOR + userId + EVENT_KEY_SEPARATOR + currency
+                + EVENT_KEY_SEPARATOR + (bucketNo == null ? "cross" : bucketNo);
+    }
+
+    private String resolvePartitionSuffix(Long createTime) {
+        return PARTITION_SUFFIX_FORMATTER.format(Instant.ofEpochSecond(createTime));
+    }
+
+    private long resolvePartitionStart(Long createTime) {
+        LocalDateTime monthStart = Instant.ofEpochSecond(createTime)
+                .atZone(ZoneOffset.UTC)
+                .toLocalDate()
+                .withDayOfMonth(1)
+                .atStartOfDay();
+        return monthStart.toEpochSecond(ZoneOffset.UTC);
+    }
+
+    private long resolvePartitionEnd(Long createTime) {
+        LocalDateTime monthEnd = Instant.ofEpochSecond(createTime)
+                .atZone(ZoneOffset.UTC)
+                .toLocalDate()
+                .withDayOfMonth(1)
+                .plusMonths(1)
+                .atStartOfDay();
+        return monthEnd.toEpochSecond(ZoneOffset.UTC);
     }
 
     private String resolveEventRouteKey(AccountEventDto event) {
@@ -429,6 +744,30 @@ public class AccountEventServiceImpl implements AccountEventService {
         return actualAmount != null ? actualAmount : amount;
     }
 
+    private Long resolveEventCreatedAt(Long transactionCreateTime, Long fallbackTime) {
+        if (transactionCreateTime != null && transactionCreateTime > 0) {
+            return transactionCreateTime;
+        }
+        if (fallbackTime != null && fallbackTime > 0) {
+            return fallbackTime;
+        }
+        return System.currentTimeMillis() / 1000;
+    }
+
+    private BucketSelectAction resolveBucketSelectAction(String eventType) {
+        if (AccountEventType.COLLECTION_CREDIT.getCode().equals(eventType)
+                || AccountEventType.AGENT_CREDIT.getCode().equals(eventType)) {
+            return BucketSelectAction.CREDIT;
+        }
+        if (AccountEventType.PAYOUT_CONFIRM.getCode().equals(eventType)) {
+            return BucketSelectAction.CONFIRM_PAYOUT;
+        }
+        if (AccountEventType.PAYOUT_RELEASE.getCode().equals(eventType)) {
+            return BucketSelectAction.RELEASE_FROZEN;
+        }
+        throw new IllegalArgumentException("unsupported event type: " + eventType);
+    }
+
     /**
      * One grouped bucket for a single balance operation.
      */
@@ -437,16 +776,44 @@ public class AccountEventServiceImpl implements AccountEventService {
         private final String userId;
         private final String currency;
         private final String routeKey;
-        private final int bucketNo;
+        private final Integer bucketNo;
+        private final Long createTime;
         private final List<Long> ids = new ArrayList<>();
         private BigDecimal totalAmount = BigDecimal.ZERO;
 
-        private EventGroup(String eventType, String userId, String currency, String routeKey, int bucketNo) {
+        private EventGroup(String eventType, String userId, String currency, String routeKey, Integer bucketNo, Long createTime) {
             this.eventType = eventType;
             this.userId = userId;
             this.currency = currency;
             this.routeKey = routeKey;
             this.bucketNo = bucketNo;
+            this.createTime = createTime;
+        }
+    }
+
+    private static class PendingGroup {
+        private final String eventType;
+        private final String userId;
+        private final String currency;
+        private final Long createTime;
+        private final List<AccountEventDto> events = new ArrayList<>();
+        private BigDecimal totalAmount = BigDecimal.ZERO;
+
+        private PendingGroup(String eventType, String userId, String currency, Long createTime) {
+            this.eventType = eventType;
+            this.userId = userId;
+            this.currency = currency;
+            this.createTime = createTime;
+        }
+    }
+
+    private static class ClaimPartitionPlan {
+        private final String tableName;
+        private final int weight;
+
+        private ClaimPartitionPlan(String tableName, int weight) {
+            this.tableName = tableName;
+            this.weight = weight;
         }
     }
 }

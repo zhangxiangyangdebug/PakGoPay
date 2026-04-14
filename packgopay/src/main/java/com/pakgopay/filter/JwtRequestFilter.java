@@ -7,6 +7,7 @@ import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.service.common.AuthorizationService;
 import com.pakgopay.service.common.AuthorizationService.TokenClaims;
 import com.pakgopay.service.common.UserStatusService;
+import com.pakgopay.util.CommonUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,12 +21,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.UUID;
-
 @Slf4j
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
-    private static final String TRACE_ID = "traceId";
     //    private final JwtUtils jwtUtils;
     private final UserDetailsService userDetailsService;
 
@@ -39,12 +37,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        try {
-            String traceId = UUID.randomUUID().toString().replace("-", "");
-            MDC.put(TRACE_ID, traceId);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        CommonUtil.ensureTraceId();
 
         request.setCharacterEncoding("UTF-8");
         response.setCharacterEncoding("UTF-8");
@@ -52,7 +45,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         String token = header != null && header.startsWith("Bearer ") ? header.substring(7) : null;
         String uri = request.getRequestURI();
         boolean logEnabled = isLogEnabled(uri);
-        logInfo(logEnabled, "doFilterInternal, traceId: {}", MDC.get(TRACE_ID));
+        logInfo(logEnabled, "doFilterInternal, traceId: {}", MDC.get("traceId"));
 
         try {
             if (uri != null && uri.startsWith("/pakGoPay/api/server/v1/")) {

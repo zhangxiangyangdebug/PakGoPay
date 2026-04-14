@@ -5,9 +5,11 @@ import com.pakgopay.common.exception.PakGoPayException;
 import com.pakgopay.data.response.BalanceUserInfo;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.BalanceBucketMapper;
-import com.pakgopay.mapper.BalanceMapper;
+import com.pakgopay.mapper.dto.BalanceBucketDeltaDto;
 import com.pakgopay.mapper.dto.BalanceDto;
 import com.pakgopay.service.BalanceService;
+import com.pakgopay.service.common.BalanceBucketSelectService;
+import com.pakgopay.service.common.OrderBalanceSerializeExecutor;
 import com.pakgopay.util.TransactionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -16,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -28,24 +31,20 @@ public class BalanceServiceImpl implements BalanceService {
     private static final Logger BALANCE_LOG = LoggerFactory.getLogger("balance-change");
 
     @Autowired
-    private BalanceMapper balanceMapper;
-
-    @Autowired
     private BalanceBucketMapper balanceBucketMapper;
 
     @Autowired
     private TransactionUtil transactionUtil;
 
+    @Autowired
+    private BalanceBucketSelectService balanceBucketSelectService;
+
+    @Autowired
+    private OrderBalanceSerializeExecutor orderBalanceSerializeExecutor;
+
     @Override
     public CommonResponse fetchMerchantAvailableBalance(String userId, String authorization) throws PakGoPayException {
-        List<BalanceDto> balanceDtoList;
-        try {
-            balanceDtoList = balanceMapper.findByUserId(userId);
-        } catch (Exception e) {
-            log.error("balance findByTransactionNo failed, message {}", e.getMessage());
-            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
-        }
-
+        List<BalanceDto> balanceDtoList = listUserBalances(userId);
         if (balanceDtoList == null || balanceDtoList.isEmpty()) {
             log.error("record is not exists, userId {}", userId);
             throw new PakGoPayException(ResultCode.MERCHANT_HAS_NO_BALANCE_DATA);
@@ -63,40 +62,35 @@ public class BalanceServiceImpl implements BalanceService {
     }
 
     @Override
-    public void freezeBalance(BigDecimal freezeFee, String userId, String currency) throws PakGoPayException {
-        executeWithAggregateUpdate(userId, currency, freezeFee, null, BucketOperation.ORDER_FREEZE);
+    public List<BalanceDto> listUserBalances(String userId) throws PakGoPayException {
+        List<BalanceDto> balanceDtoList;
+        try {
+            balanceDtoList = balanceBucketMapper.findByUserId(userId);
+        } catch (Exception e) {
+            log.error("balance findByTransactionNo failed, message {}", e.getMessage());
+            throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+        return balanceDtoList;
     }
 
     @Override
-    public void freezeBalance(BigDecimal freezeFee, String userId, String currency, int bucketNo) throws PakGoPayException {
+    public void freezeBalance(BigDecimal freezeFee, String userId, String currency, Integer bucketNo) throws PakGoPayException {
         executeWithAggregateUpdate(userId, currency, freezeFee, bucketNo, BucketOperation.ORDER_FREEZE);
     }
 
     @Override
-    public void releaseFrozenBalance(String userId, String currency, BigDecimal amount) {
-        executeWithAggregateUpdate(userId, currency, amount, null, BucketOperation.RELEASE_FROZEN);
-    }
-
-    @Override
-    public void releaseFrozenBalance(String userId, String currency, BigDecimal amount, int bucketNo) {
+    public void releaseFrozenBalance(String userId, String currency, BigDecimal amount, Integer bucketNo) {
         executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.RELEASE_FROZEN);
     }
 
     @Override
-    public void creditBalance(String userId, String currency, BigDecimal amount) {
-        executeWithAggregateUpdate(userId, currency, amount, null, BucketOperation.CREDIT);
+    public void creditBalance(String userId, String currency, BigDecimal amount, Integer bucketNo) {
+        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.CREDIT, true);
     }
 
     @Override
-    public void creditBalance(String userId, String currency, BigDecimal amount, int bucketNo) {
-        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.CREDIT);
-    }
-
-    private void upsertCreditBalance(String userId, String currency, BigDecimal amount, long now) {
-        int updated = balanceMapper.upsertCreditBalance(userId, currency, amount, now);
-        if (updated <= 0) {
-            throw new PakGoPayException(ResultCode.FAIL, "upsert credit balance failed");
-        }
+    public void creditBalanceWithoutSplit(String userId, String currency, BigDecimal amount, Integer bucketNo) {
+        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.CREDIT, false);
     }
 
     private void upsertCreditBalanceBucket(String userId, String currency, BigDecimal amount, int bucketNo, long now) {
@@ -107,55 +101,51 @@ public class BalanceServiceImpl implements BalanceService {
     }
 
     @Override
-    public void applyWithdrawalOperation(String userId, String currency, BigDecimal amount, Integer oper) {
-        executeWithAggregateUpdate(userId, currency, amount, null, BucketOperation.fromWithdrawOper(oper));
+    public void applyWithdrawalOperation(String userId, String currency, BigDecimal amount, Integer oper, Integer bucketNo) {
+        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.fromWithdrawOper(oper), true);
     }
 
     @Override
-    public void applyWithdrawalOperation(String userId, String currency, BigDecimal amount, Integer oper, int bucketNo) {
-        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.fromWithdrawOper(oper));
+    public void confirmPayoutBalance(String userId, String currency, BigDecimal amount, Integer bucketNo) {
+        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.CONFIRM_PAYOUT, true);
     }
 
     @Override
-    public void confirmPayoutBalance(String userId, String currency, BigDecimal amount) {
-        executeWithAggregateUpdate(userId, currency, amount, null, BucketOperation.CONFIRM_PAYOUT);
-    }
-
-    @Override
-    public void confirmPayoutBalance(String userId, String currency, BigDecimal amount, int bucketNo) {
-        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.CONFIRM_PAYOUT);
-    }
-
-    @Override
-    public void adjustBalance(String userId, String currency, BigDecimal amount) {
-        executeWithAggregateUpdate(userId, currency, amount, null, BucketOperation.ADJUST);
-    }
-
-    @Override
-    public void adjustBalance(String userId, String currency, BigDecimal amount, int bucketNo) {
-        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.ADJUST);
+    public void adjustBalance(String userId, String currency, BigDecimal amount, Integer bucketNo) {
+        executeWithAggregateUpdate(userId, currency, amount, bucketNo, BucketOperation.ADJUST, true);
     }
 
     private void executeWithAggregateUpdate(
             String userId, String currency, BigDecimal amount, Integer bucketNo, BucketOperation operation) {
+        executeWithAggregateUpdate(userId, currency, amount, bucketNo, operation, true);
+    }
+
+    private void executeWithAggregateUpdate(
+            String userId, String currency, BigDecimal amount, Integer bucketNo, BucketOperation operation, boolean allowLargeSplit) {
         if (!checkParams(userId, currency, amount)) {
             return;
         }
         try {
-            transactionUtil.runInTransaction(() -> {
-                long now = System.currentTimeMillis() / 1000;
-                ensureZeroBuckets(userId, currency, now);
-                applyBucketOperation(userId, currency, amount, bucketNo, now, operation);
-                applyAggregateOperation(userId, currency, amount, now, operation);
-                BALANCE_LOG.info(
-                        "action={} userId={} currency={} amount={} bucketNo={} ts={}",
-                        operation.name(), userId, currency, amount, bucketNo, now);
-            });
+            long now = System.currentTimeMillis() / 1000;
+            ensureBucketsIfRequired(userId, currency, amount, operation);
+            Integer preferredBucketNo = resolvePreferredBucketNo(userId, currency, amount, bucketNo, operation, allowLargeSplit);
+            List<BalanceBucketDeltaDto> appliedDeltas = applyBucketOperation(userId, currency, amount, preferredBucketNo, now, operation, allowLargeSplit);
+            balanceBucketSelectService.applyBucketDeltas(userId, currency, appliedDeltas);
+            BALANCE_LOG.info(
+                    "action={} userId={} currency={} amount={} preferredBucketNo={} allowLargeSplit={} ts={}",
+                    operation.name(), userId, currency, amount, preferredBucketNo, allowLargeSplit, now);
         } catch (PakGoPayException e) {
             throw e;
         } catch (Exception e) {
             log.error("{} failed, message {}", operation.name(), e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
+        }
+    }
+
+    private void ensureBucketsIfRequired(String userId, String currency, BigDecimal amount, BucketOperation operation) {
+        if (operation == BucketOperation.CREDIT
+                || (operation == BucketOperation.ADJUST && amount != null && amount.compareTo(BigDecimal.ZERO) > 0)) {
+            balanceBucketSelectService.ensureBucketsForCredit(userId, currency);
         }
     }
 
@@ -183,7 +173,7 @@ public class BalanceServiceImpl implements BalanceService {
         
         List<BalanceDto> balanceDtoList;
         try {
-            balanceDtoList = balanceMapper.listByUserIds(userIds);
+            balanceDtoList = balanceBucketMapper.listByUserIds(userIds);
         } catch (Exception e) {
             log.error("balance listByUserId failed, message {}", e.getMessage());
             throw new PakGoPayException(ResultCode.DATA_BASE_ERROR);
@@ -228,19 +218,10 @@ public class BalanceServiceImpl implements BalanceService {
     @Override
     public void createBalanceRecord(String userId, String currency) {
         try {
-            BalanceDto dto = new BalanceDto();
-            dto.setUserId(userId);
-            dto.setCurrency(currency);
-            dto.setAvailableBalance(BigDecimal.ZERO);
-            dto.setFrozenBalance(BigDecimal.ZERO);
-            dto.setTotalBalance(BigDecimal.ZERO);
             long now = System.currentTimeMillis() / 1000;
-            dto.setCreateTime(now);
-            dto.setUpdateTime(now);
-
-            int ret = balanceMapper.insert(dto);
-            ensureZeroBuckets(userId, currency, now);
+            int ret = balanceBucketMapper.insertZeroBuckets(userId, currency, now, now);
             if (ret > 0) {
+                balanceBucketSelectService.refreshBucketView(userId, currency);
                 BALANCE_LOG.info(
                         "action=createBalanceRecord userId={} currency={} amount={} ts={}",
                         userId, currency, BigDecimal.ZERO, now);
@@ -278,65 +259,40 @@ public class BalanceServiceImpl implements BalanceService {
             return null;
         }
         try {
-            return balanceMapper.findByUserIdAndCurrency(userId, currency);
+            return balanceBucketMapper.findByUserIdAndCurrency(userId, currency);
         } catch (Exception e) {
             log.error("fetchBalanceSnapshot failed, message {}", e.getMessage());
             return null;
         }
     }
 
-    private void ensureZeroBuckets(String userId, String currency, long now) {
-        balanceBucketMapper.insertZeroBuckets(userId, currency, now, now);
-    }
-
-    private void applyBucketOperation(
-            String userId, String currency, BigDecimal amount, Integer bucketNo, long now, BucketOperation operation) {
+    private List<BalanceBucketDeltaDto> applyBucketOperation(
+            String userId, String currency, BigDecimal amount, Integer bucketNo, long now, BucketOperation operation, boolean allowLargeSplit) {
         if (bucketNo != null) {
-            applySingleBucketOperation(userId, currency, amount, bucketNo, now, operation);
-            return;
+            try {
+                return applySingleBucketOperation(userId, currency, amount, bucketNo, now, operation);
+            } catch (PakGoPayException e) {
+                return applyCrossBucketOperationWithSerializeLock(userId, currency, amount, now, operation, allowLargeSplit);
+            }
         }
-        applyCrossBucketOperation(userId, currency, amount, now, operation);
+        return applyCrossBucketOperationWithSerializeLock(userId, currency, amount, now, operation, allowLargeSplit);
     }
 
-    private void applyAggregateOperation(
-            String userId, String currency, BigDecimal amount, long now, BucketOperation operation) {
-        int ret;
-        switch (operation) {
-            case ORDER_FREEZE:
-                ret = balanceMapper.freezeBalance(userId, amount, currency, now);
-                break;
-            case RELEASE_FROZEN:
-                ret = balanceMapper.releaseFrozenBalance(userId, amount, currency, now);
-                break;
-            case CREDIT:
-                upsertCreditBalance(userId, currency, amount, now);
-                return;
-            case ADJUST:
-                ret = balanceMapper.adjustBalance(userId, amount, currency, now);
-                break;
-            case WITHDRAW_FREEZE:
-                ret = balanceMapper.freezeForWithdraw(userId, amount, currency, now);
-                break;
-            case WITHDRAW_CONFIRM:
-                ret = balanceMapper.confirmWithdraw(userId, amount, currency, now);
-                break;
-            case WITHDRAW_CANCEL:
-                ret = balanceMapper.cancelWithdraw(userId, amount, currency, now);
-                break;
-            case CONFIRM_PAYOUT:
-                ret = balanceMapper.confirmPayoutBalance(userId, amount, currency, now);
-                break;
-            default:
-                throw new PakGoPayException(ResultCode.FAIL, "unsupported aggregate operation");
-        }
-        if (ret <= 0) {
-            throw buildInsufficientException(operation);
-        }
+    @SuppressWarnings("unchecked")
+    private List<BalanceBucketDeltaDto> applyCrossBucketOperationWithSerializeLock(
+            String userId, String currency, BigDecimal amount, long now, BucketOperation operation, boolean allowLargeSplit) {
+        List<BalanceBucketDeltaDto>[] resultHolder = new List[1];
+        orderBalanceSerializeExecutor.run(
+                userId + ":" + currency,
+                () -> resultHolder[0] = transactionUtil.callInTransaction(
+                        () -> applyCrossBucketOperation(userId, currency, amount, now, operation, allowLargeSplit)));
+        return resultHolder[0];
     }
 
-    private void applySingleBucketOperation(
+    private List<BalanceBucketDeltaDto> applySingleBucketOperation(
             String userId, String currency, BigDecimal amount, int bucketNo, long now, BucketOperation operation) {
         int bucketRet;
+        List<BalanceBucketDeltaDto> deltas = new ArrayList<>(1);
         switch (operation) {
             case ORDER_FREEZE:
                 bucketRet = balanceBucketMapper.freezeBalance(userId, amount, currency, bucketNo, now);
@@ -346,7 +302,8 @@ public class BalanceServiceImpl implements BalanceService {
                 break;
             case CREDIT:
                 upsertCreditBalanceBucket(userId, currency, amount, bucketNo, now);
-                return;
+                deltas.add(buildBucketDelta(bucketNo, amount, BigDecimal.ZERO, amount, BigDecimal.ZERO));
+                return deltas;
             case ADJUST:
                 bucketRet = balanceBucketMapper.adjustBalance(userId, amount, currency, bucketNo, now);
                 break;
@@ -368,31 +325,51 @@ public class BalanceServiceImpl implements BalanceService {
         if (bucketRet <= 0) {
             throw buildInsufficientException(operation);
         }
+        deltas.add(buildBucketDelta(bucketNo, amount, operation));
+        return deltas;
     }
 
-    private void applyCrossBucketOperation(
-            String userId, String currency, BigDecimal amount, long now, BucketOperation operation) {
+    private List<BalanceBucketDeltaDto> applyCrossBucketOperation(
+            String userId, String currency, BigDecimal amount, long now, BucketOperation operation, boolean allowLargeSplit) {
         List<BalanceDto> buckets = balanceBucketMapper.listBucketsForUpdate(userId, currency);
         if (buckets == null || buckets.isEmpty()) {
             throw new PakGoPayException(ResultCode.FAIL, "balance bucket not found");
+        }
+        if (allowLargeSplit && (operation == BucketOperation.CREDIT
+                || (operation == BucketOperation.ADJUST && amount.compareTo(BigDecimal.ZERO) > 0))
+                && balanceBucketSelectService.shouldSplitLargeCredit(amount)) {
+            List<BalanceBucketDeltaDto> deltas = balanceBucketSelectService.buildLargeCreditDeltas(userId, currency, amount);
+            if (deltas.isEmpty()) {
+                throw buildInsufficientException(operation);
+            }
+            int updated = balanceBucketMapper.batchApplyDeltas(userId, currency, now, deltas);
+            if (updated != deltas.size()) {
+                throw buildInsufficientException(operation);
+            }
+            return deltas;
         }
         if (operation == BucketOperation.CREDIT || (operation == BucketOperation.ADJUST && amount.compareTo(BigDecimal.ZERO) > 0)) {
             int targetBucketNo = buckets.stream()
                     .min(Comparator.comparing(bucket -> amountDefaultValue(bucket.getTotalBalance())))
                     .map(BalanceDto::getBucketNo)
                     .orElse(0);
+            List<BalanceBucketDeltaDto> deltas = new ArrayList<>(1);
             if (operation == BucketOperation.CREDIT) {
-                upsertCreditBalanceBucket(userId, currency, amount, targetBucketNo, now);
+                deltas.add(buildBucketDelta(targetBucketNo, amount, BigDecimal.ZERO, amount, BigDecimal.ZERO));
             } else {
-                int updated = balanceBucketMapper.adjustBalance(userId, amount, currency, targetBucketNo, now);
-                if (updated <= 0) {
-                    throw buildInsufficientException(operation);
-                }
+                deltas.add(buildBucketDelta(targetBucketNo, amount, BigDecimal.ZERO, amount, BigDecimal.ZERO));
             }
-            return;
+            int updated = balanceBucketMapper.batchApplyDeltas(userId, currency, now, deltas);
+            if (updated != deltas.size()) {
+                throw buildInsufficientException(operation);
+            }
+            return deltas;
         }
 
-        BigDecimal remaining = amount;
+        BigDecimal remaining = operation == BucketOperation.ADJUST && amount.compareTo(BigDecimal.ZERO) < 0
+                ? amount.abs()
+                : amount;
+        List<BalanceBucketDeltaDto> deltas = new ArrayList<>();
         List<BalanceDto> orderedBuckets = switch (operation) {
             case ORDER_FREEZE, WITHDRAW_FREEZE, ADJUST ->
                     buckets.stream()
@@ -425,12 +402,67 @@ public class BalanceServiceImpl implements BalanceService {
                 continue;
             }
             BigDecimal applyAmount = remaining.min(capacity);
-            applySingleBucketOperation(userId, currency, applyAmount, bucket.getBucketNo(), now, operation);
+            BigDecimal deltaAmount = operation == BucketOperation.ADJUST && amount.compareTo(BigDecimal.ZERO) < 0
+                    ? applyAmount.negate()
+                    : applyAmount;
+            deltas.add(buildBucketDelta(bucket.getBucketNo(), deltaAmount, operation));
             remaining = remaining.subtract(applyAmount);
         }
         if (remaining.compareTo(BigDecimal.ZERO) > 0) {
             throw buildInsufficientException(operation);
         }
+        if (deltas.isEmpty()) {
+            throw buildInsufficientException(operation);
+        }
+        int updated = balanceBucketMapper.batchApplyDeltas(userId, currency, now, deltas);
+        if (updated != deltas.size()) {
+            throw buildInsufficientException(operation);
+        }
+        return deltas;
+    }
+
+    private Integer resolvePreferredBucketNo(
+            String userId, String currency, BigDecimal amount, Integer bucketNo, BucketOperation operation, boolean allowLargeSplit) {
+        if (bucketNo != null) {
+            return bucketNo;
+        }
+        if (allowLargeSplit && (operation == BucketOperation.CREDIT
+                || (operation == BucketOperation.ADJUST && amount.compareTo(BigDecimal.ZERO) > 0))
+                && balanceBucketSelectService.shouldSplitLargeCredit(amount)) {
+            return null;
+        }
+        return balanceBucketSelectService.selectBucketNo(
+                userId, currency, amount, mapSelectAction(operation, amount));
+    }
+
+    private BalanceBucketDeltaDto buildBucketDelta(Integer bucketNo, BigDecimal amount, BucketOperation operation) {
+        return switch (operation) {
+            case ORDER_FREEZE, WITHDRAW_FREEZE ->
+                    buildBucketDelta(bucketNo, amount.negate(), amount, BigDecimal.ZERO, BigDecimal.ZERO);
+            case RELEASE_FROZEN, WITHDRAW_CANCEL ->
+                    buildBucketDelta(bucketNo, amount, amount.negate(), BigDecimal.ZERO, BigDecimal.ZERO);
+            case WITHDRAW_CONFIRM ->
+                    buildBucketDelta(bucketNo, BigDecimal.ZERO, amount.negate(), BigDecimal.ZERO, amount);
+            case CONFIRM_PAYOUT ->
+                    buildBucketDelta(bucketNo, BigDecimal.ZERO, amount.negate(), amount.negate(), BigDecimal.ZERO);
+            case ADJUST, CREDIT ->
+                    buildBucketDelta(bucketNo, amount, BigDecimal.ZERO, amount, BigDecimal.ZERO);
+        };
+    }
+
+    private BalanceBucketDeltaDto buildBucketDelta(
+            Integer bucketNo,
+            BigDecimal availableDelta,
+            BigDecimal frozenDelta,
+            BigDecimal totalDelta,
+            BigDecimal withdrawDelta) {
+        BalanceBucketDeltaDto dto = new BalanceBucketDeltaDto();
+        dto.setBucketNo(bucketNo);
+        dto.setAvailableDelta(availableDelta);
+        dto.setFrozenDelta(frozenDelta);
+        dto.setTotalDelta(totalDelta);
+        dto.setWithdrawDelta(withdrawDelta);
+        return dto;
     }
 
     private PakGoPayException buildInsufficientException(BucketOperation operation) {
@@ -440,6 +472,21 @@ public class BalanceServiceImpl implements BalanceService {
             return new PakGoPayException(ResultCode.MERCHANT_BALANCE_NOT_ENOUGH);
         }
         return new PakGoPayException(ResultCode.FAIL, operation.name() + " failed");
+    }
+
+    private BalanceBucketSelectService.BucketSelectAction mapSelectAction(BucketOperation operation, BigDecimal amount) {
+        return switch (operation) {
+            case ORDER_FREEZE -> BalanceBucketSelectService.BucketSelectAction.FREEZE;
+            case RELEASE_FROZEN -> BalanceBucketSelectService.BucketSelectAction.RELEASE_FROZEN;
+            case CREDIT -> BalanceBucketSelectService.BucketSelectAction.CREDIT;
+            case ADJUST -> amount != null && amount.compareTo(BigDecimal.ZERO) < 0
+                    ? BalanceBucketSelectService.BucketSelectAction.ADJUST_DECREASE
+                    : BalanceBucketSelectService.BucketSelectAction.ADJUST_INCREASE;
+            case WITHDRAW_FREEZE -> BalanceBucketSelectService.BucketSelectAction.WITHDRAW_FREEZE;
+            case WITHDRAW_CONFIRM -> BalanceBucketSelectService.BucketSelectAction.WITHDRAW_CONFIRM;
+            case WITHDRAW_CANCEL -> BalanceBucketSelectService.BucketSelectAction.WITHDRAW_CANCEL;
+            case CONFIRM_PAYOUT -> BalanceBucketSelectService.BucketSelectAction.CONFIRM_PAYOUT;
+        };
     }
 
     private enum BucketOperation {

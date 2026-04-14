@@ -13,6 +13,7 @@ import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.PatchBuilderUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -26,6 +27,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class ReportTask {
+    private static final String PENDING_REFRESH_SET_KEY = "job:report_refresh:pending";
+    private static final String REFRESH_KEY_SEPARATOR = "|";
 
     @Autowired
     private MerchantInfoMapper merchantInfoMapper;
@@ -71,6 +74,9 @@ public class ReportTask {
 
     @Autowired
     private CurrencyTimezoneService currencyTimezoneService;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     private final ResolveHelper resolveHelper = new ResolveHelper();
     private final ComputeHelper computeHelper = new ComputeHelper();
@@ -146,6 +152,46 @@ public class ReportTask {
         }
     }
 
+    public void enqueueRefreshByEpoch(long recordDateEpoch, String currency) {
+        if (!StringUtils.hasText(currency)) {
+            log.warn("enqueueRefreshByEpoch skipped, currency is blank");
+            return;
+        }
+        ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(currency);
+        LocalDate targetDate = Instant.ofEpochSecond(recordDateEpoch).atZone(zoneId).toLocalDate();
+        String refreshKey = buildRefreshKey(targetDate, currency);
+        Long added = redisTemplate.opsForSet().add(PENDING_REFRESH_SET_KEY, refreshKey);
+        log.info("enqueue report refresh, refreshKey={}, added={}", refreshKey, added);
+    }
+
+    public int flushPendingRefreshRequests() {
+        Set<String> refreshKeys = redisTemplate.opsForSet().members(PENDING_REFRESH_SET_KEY);
+        if (refreshKeys == null || refreshKeys.isEmpty()) {
+            return 0;
+        }
+        int processed = 0;
+        for (String refreshKey : refreshKeys) {
+            if (!StringUtils.hasText(refreshKey)) {
+                continue;
+            }
+            try {
+                RefreshRequest request = parseRefreshKey(refreshKey);
+                if (request == null) {
+                    log.warn("skip invalid report refresh key, refreshKey={}", refreshKey);
+                    redisTemplate.opsForSet().remove(PENDING_REFRESH_SET_KEY, refreshKey);
+                    continue;
+                }
+                ZoneId zoneId = currencyTimezoneService.resolveZoneIdByCurrency(request.currency);
+                refreshReportsByEpoch(request.targetDate.atStartOfDay(zoneId).toEpochSecond(), request.currency);
+                redisTemplate.opsForSet().remove(PENDING_REFRESH_SET_KEY, refreshKey);
+                processed++;
+            } catch (Exception e) {
+                log.error("flush report refresh failed, refreshKey={}, message={}", refreshKey, e.getMessage());
+            }
+        }
+        return processed;
+    }
+
     /**
      * Refresh reports for a specified date (daily/monthly/yearly) by currency timezone.
      * Daily uses order tables, monthly/yearly aggregate from daily reports.
@@ -192,6 +238,28 @@ public class ReportTask {
                 resolveHelper.resolveNextMonthStart(currency),
                 resolveHelper.resolveYearStart(currency),
                 resolveHelper.resolveNextYearStart(currency));
+    }
+
+    private String buildRefreshKey(LocalDate targetDate, String currency) {
+        return targetDate + REFRESH_KEY_SEPARATOR + currency;
+    }
+
+    private RefreshRequest parseRefreshKey(String refreshKey) {
+        String[] parts = refreshKey.split("\\|", 2);
+        if (parts.length != 2 || !StringUtils.hasText(parts[0]) || !StringUtils.hasText(parts[1])) {
+            return null;
+        }
+        return new RefreshRequest(LocalDate.parse(parts[0]), parts[1]);
+    }
+
+    private static class RefreshRequest {
+        private final LocalDate targetDate;
+        private final String currency;
+
+        private RefreshRequest(LocalDate targetDate, String currency) {
+            this.targetDate = targetDate;
+            this.currency = currency;
+        }
     }
 
     /**

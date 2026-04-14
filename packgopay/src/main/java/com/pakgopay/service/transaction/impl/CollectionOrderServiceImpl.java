@@ -342,13 +342,13 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
     @Override
     public CommonResponse queryBalance(
             QueryBalanceApiRequest queryRequest, String authorization) throws PakGoPayException {
-        log.info("queryBalance start, merhcantId={}", queryRequest.getMerhcantId());
-        MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(queryRequest.getMerhcantId(), authorization);
+        log.info("queryBalance start, merchantId={}", queryRequest.getMerchantId());
+        MerchantInfoDto merchantInfoDto = validateApiKeyAndMerchant(queryRequest.getMerchantId(), authorization);
         validateQueryBalanceSign(queryRequest, merchantInfoDto);
         CommonResponse response = balanceService.fetchMerchantAvailableBalance(
-                queryRequest.getMerhcantId(),
+                queryRequest.getMerchantId(),
                 authorization);
-        log.info("queryBalance end, merhcantId={}", queryRequest.getMerhcantId());
+        log.info("queryBalance end, merchantId={}", queryRequest.getMerchantId());
         return response;
     }
 
@@ -636,8 +636,8 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
      * Validate sign for query balance API request.
      */
     private void validateQueryBalanceSign(QueryBalanceApiRequest request, MerchantInfoDto merchantInfoDto) {
-        Map<String, Object> payload = buildSignPayload(request, "merhcantId");
-        log.info("validateQueryBalanceSign, merhcantId={}", request.getMerhcantId());
+        Map<String, Object> payload = buildSignPayload(request, "merchantId");
+        log.info("validateQueryBalanceSign, merchantId={}", request.getMerchantId());
         validateRequestSign(payload, request.getSign(), merchantInfoDto, "queryBalance");
     }
 

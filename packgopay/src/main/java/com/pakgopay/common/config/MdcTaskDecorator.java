@@ -1,5 +1,6 @@
 package com.pakgopay.common.config;
 
+import com.pakgopay.util.CommonUtil;
 import org.slf4j.MDC;
 import org.springframework.core.task.TaskDecorator;
 
@@ -21,6 +22,7 @@ public class MdcTaskDecorator implements TaskDecorator {
                 } else {
                     MDC.clear();
                 }
+                CommonUtil.ensureTraceId();
                 runnable.run();
             } finally {
                 if (previous != null) {

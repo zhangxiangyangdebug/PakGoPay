@@ -126,7 +126,8 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                     balanceService.creditBalance(
                             accountStatementsDto.getUserId(),
                             accountStatementsDto.getCurrency(),
-                            accountStatementsDto.getAmount());
+                            accountStatementsDto.getAmount(),
+                            null);
                 });
             }
             // withdrawal
@@ -136,7 +137,8 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                             accountStatementsDto.getUserId(),
                             accountStatementsDto.getCurrency(),
                             accountStatementsDto.getAmount(),
-                            0);
+                            0,
+                            null);
                 });
             }
             // adjust
@@ -145,7 +147,8 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                     balanceService.adjustBalance(
                             accountStatementsDto.getUserId(),
                             accountStatementsDto.getCurrency(),
-                            accountStatementsDto.getAmount());
+                            accountStatementsDto.getAmount(),
+                            null);
                 });
             }
         });
@@ -265,7 +268,8 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                         dto.getUserId(),
                         dto.getCurrency(),
                         dto.getAmount(),
-                        request.isAgree() ? 1 : 2);
+                        request.isAgree() ? 1 : 2,
+                        null);
             });
         });
 
