@@ -54,6 +54,9 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             } else if (uri != null && uri.equals("/pakGoPay/server/telegram")) {
                 logInfo(logEnabled, "jwt filter skip telegram webhook, uri={}", uri);
                 filterChain.doFilter(request, response);
+            } else if (uri != null && uri.equals("/pakGoPay/server/grafana/alert")) {
+                logInfo(logEnabled, "jwt filter skip grafana webhook, uri={}", uri);
+                filterChain.doFilter(request, response);
             } else if (token == null && uri != null && uri.contains("/pakGoPay/server/notify")) {
                 logInfo(logEnabled, "jwt filter skip notify auth, uri={}", request.getRequestURI());
                 filterChain.doFilter(request, response);

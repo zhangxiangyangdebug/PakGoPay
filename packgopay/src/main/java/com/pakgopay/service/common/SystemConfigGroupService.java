@@ -182,6 +182,7 @@ public class SystemConfigGroupService {
                     SystemConfigItemKeyEnum.TELEGRAM_TOKEN,
                     SystemConfigItemKeyEnum.TELEGRAM_WEBHOOK_SECRET,
                     SystemConfigItemKeyEnum.TELEGRAM_ENABLED,
+                    SystemConfigItemKeyEnum.TELEGRAM_ALERT_CHAT_ID,
                     SystemConfigItemKeyEnum.TELEGRAM_CONSOLE_URL
             };
         }

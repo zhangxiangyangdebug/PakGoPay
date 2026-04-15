@@ -31,6 +31,7 @@ import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.OpsReportService;
 import com.pakgopay.service.common.AccountStatementService;
+import com.pakgopay.service.common.GrafanaAlertService;
 import com.pakgopay.service.common.OrderInterventionTelegramNotifier;
 import com.pakgopay.service.common.TelegramService;
 import com.pakgopay.service.common.TelegramOrderNoRecognizer;
@@ -84,6 +85,7 @@ public class WebhookController {
     private final RedisUtil redisUtil;
     private final OrderInterventionTelegramNotifier orderInterventionTelegramNotifier;
     private final TelegramOrderNoRecognizer telegramOrderNoRecognizer;
+    private final GrafanaAlertService grafanaAlertService;
     private static final int ORDER_PENDING_EXPIRE_SECONDS = 600;
     private static final int WITHDRAW_PENDING_EXPIRE_SECONDS = 600;
 
@@ -100,7 +102,8 @@ public class WebhookController {
                              BalanceService balanceService,
                              RedisUtil redisUtil,
                              OrderInterventionTelegramNotifier orderInterventionTelegramNotifier,
-                             TelegramOrderNoRecognizer telegramOrderNoRecognizer) {
+                             TelegramOrderNoRecognizer telegramOrderNoRecognizer,
+                             GrafanaAlertService grafanaAlertService) {
         this.telegramService = telegramService;
         this.opsReportService = opsReportService;
         this.currencyTypeMapper = currencyTypeMapper;
@@ -115,6 +118,7 @@ public class WebhookController {
         this.redisUtil = redisUtil;
         this.orderInterventionTelegramNotifier = orderInterventionTelegramNotifier;
         this.telegramOrderNoRecognizer = telegramOrderNoRecognizer;
+        this.grafanaAlertService = grafanaAlertService;
     }
 
     @PostMapping
@@ -661,6 +665,9 @@ public class WebhookController {
         if (callbackData.startsWith("wdr|")) {
             return handleWithdrawCallbackQuery(callbackQuery, response);
         }
+        if (callbackData.startsWith("gal|")) {
+            return handleGrafanaAlertCallbackQuery(callbackQuery, response);
+        }
 
         String[] parts = callbackData.split("\\|");
         if (parts.length != 4 || !"ord".equals(parts[0])) {
@@ -867,6 +874,27 @@ public class WebhookController {
         telegramService.answerCallbackQuery(callbackQueryId, "请发送说明: /remark 你的说明", false);
         telegramService.sendMessageTo(resolveCallbackChatId(callbackQuery), "请填写说明后提交，格式：/remark 你的说明");
         return CommonResponse.success("pending_remark");
+    }
+
+    private CommonResponse handleGrafanaAlertCallbackQuery(JSONObject callbackQuery, HttpServletResponse response) {
+        String callbackQueryId = callbackQuery.getString("id");
+        String callbackData = callbackQuery.getString("data");
+        String[] parts = callbackData == null ? new String[0] : callbackData.split("\\|");
+        if (parts.length != 3 || !"gal".equals(parts[0])) {
+            telegramService.answerCallbackQuery(callbackQueryId, "invalid callback", true);
+            return CommonResponse.success("ignore");
+        }
+        String action = parts[1];
+        String alertClassKey = parts[2];
+        GrafanaAlertService.ProcessResult result = grafanaAlertService.applyMuteAction(action, alertClassKey);
+        telegramService.answerCallbackQuery(
+                callbackQueryId,
+                result.getMessage(),
+                !result.isSuccess());
+        if (result.isSuccess()) {
+            return CommonResponse.success("ok");
+        }
+        return CommonResponse.fail(ResultCode.INVALID_PARAMS, result.getMessage());
     }
 
     private boolean tryHandleWithdrawRemark(JSONObject message, String chatId, String trimmedText) {

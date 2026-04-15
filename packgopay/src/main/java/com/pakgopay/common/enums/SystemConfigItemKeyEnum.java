@@ -10,6 +10,7 @@ public enum SystemConfigItemKeyEnum {
     TELEGRAM_TOKEN("telegram", "token"),
     TELEGRAM_WEBHOOK_SECRET("telegram", "webhookSecret"),
     TELEGRAM_ENABLED("telegram", "enabled"),
+    TELEGRAM_ALERT_CHAT_ID("telegram", "alertChatId"),
     TELEGRAM_CONSOLE_URL("telegram", "consoleUrl"),
 
     RATELIMIT_ENABLED("ratelimit", "enabled"),

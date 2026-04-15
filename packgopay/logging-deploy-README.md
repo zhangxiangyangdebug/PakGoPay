@@ -70,3 +70,32 @@ In Grafana Explore (Loki datasource):
 - `{job="app", app="pakgopay", env="prod"}`
 - `{job="nginx", env="prod"}`
 - `{job="app"} |= "ERROR"`
+
+## 6) PakGoPay Alert Rules (LogQL)
+
+- Template file (in repo): `docs/pakgopay-grafana-logql-alerts.yaml`
+- Template file (deploy workspace): `logging-deploy/templates/pakgopay-grafana-logql-alerts.yaml`
+- Recommended 6 categories:
+  - `infra_mq_exception`
+  - `infra_redis_snowflake_exception`
+  - `biz_order_timeout_abnormal`
+  - `biz_order_create_failed`
+  - `security_jwt_abnormal`
+  - `perf_db_slow_query`
+
+Recommended labels for each alert rule:
+
+- `service`
+- `env`
+- `severity`
+- `category`
+- `errorCode` (when exists)
+- `bizType` (when exists)
+- `api` (when exists)
+- `reason` (when exists)
+- `mapper` (when exists)
+- `threshold` (when exists)
+- `rootException` (when exists)
+- `logger` (when exists)
+
+These labels are consumed by backend webhook classification, and support Telegram quick mute for the same alert class.
