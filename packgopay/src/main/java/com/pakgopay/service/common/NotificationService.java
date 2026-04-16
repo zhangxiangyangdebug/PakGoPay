@@ -32,12 +32,13 @@ public class NotificationService {
      * @param message
      */
     public void broadcastMessage(Message message) {
-        //将消息放到/topic/newOrder
+        // RabbitMQ STOMP topic destination does not allow extra '/' segments.
+        // Use a dot-delimited routing key: /topic/<userId>.newOrder
         //JSONObject jsonObject = new JSONObject(message);
         //JSONObject messageInfo = new JSONObject(jsonObject.get("content").toString());
         //String megInfo = messageInfo.getString("messageInfo");
         String userId = message.getUserId();
-        simpMessagingTemplate.convertAndSend("/topic/"+userId+"/newOrder", message);
+        simpMessagingTemplate.convertAndSend("/topic/" + userId + ".newOrder", message);
     }
 
     /**
