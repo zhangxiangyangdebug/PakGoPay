@@ -18,7 +18,6 @@ import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.MerchantService;
-import com.pakgopay.service.common.AccountEventService;
 import com.pakgopay.service.common.BalanceBucketSelectService;
 import com.pakgopay.service.common.MerchantNotifyRetryService;
 import com.pakgopay.service.common.OrderFlowLogSession;
@@ -59,9 +58,6 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
 
     @Autowired
     private MerchantNotifyRetryService merchantNotifyRetryService;
-
-    @Autowired
-    private AccountEventService accountEventService;
 
     @Autowired
     private BalanceBucketSelectService balanceBucketSelectService;
@@ -205,14 +201,12 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                                 payOrderRequest.getMerchantId(),
                                 payOrderRequest.getCurrency(),
                                 selectedBucketNo));
-
                 int ret = payOrderMapper.insert(payOrderDto);
                 if (ret <= 0) {
                     throw new PakGoPayException(ResultCode.DATA_BASE_ERROR, "pay order insert failed");
                 }
                 flowSession.flush();
             });
-            frozen = true;
             log.info("balance frozen, userId={}, currency={}, frozenAmount={}",
                     payOrderRequest.getMerchantId(), payOrderRequest.getCurrency(), frozenAmount);
             log.info("pay order inserted, transactionNo={}", payOrderDto.getTransactionNo());
@@ -260,16 +254,15 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
                     payOrderDto.getTransactionNo(),
                     CommonResponse.success(responseBody));
         } catch (Exception e) {
-            if (frozen) {
+            if (frozenAmount.compareTo(BigDecimal.ZERO) > 0) {
                 try {
                     BigDecimal frozenAmountSnapshot = frozenAmount;
-                    CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () -> {
-                        balanceService.releaseFrozenBalance(
-                                payOrderRequest.getMerchantId(),
-                                payOrderRequest.getCurrency(),
-                                frozenAmountSnapshot,
-                                null);
-                    });
+                    CommonUtil.withBalanceLogContext("payout.create", transactionInfo.getTransactionNo(), () ->
+                            balanceService.releaseFrozenBalance(
+                                    payOrderRequest.getMerchantId(),
+                                    payOrderRequest.getCurrency(),
+                                    frozenAmountSnapshot,
+                                    null));
                 } catch (Exception ex) {
                     log.error("releaseFrozenBalance failed, message {}", ex.getMessage());
                 }
@@ -734,10 +727,15 @@ public class PayOutOrderServiceImpl extends BaseOrderService implements PayOutOr
             BigDecimal frozenAmount = CalcUtil.safeAdd(payoutAmount, merchantFee);
 
             if (TransactionStatus.SUCCESS.equals(targetStatus)) {
-                accountEventService.appendPayoutSuccessEvents(payOrderDto, merchantInfo, frozenAmount);
+                orderStatementService.recordPayoutSuccessStatements(payOrderDto, merchantInfo, frozenAmount);
             }
             if (TransactionStatus.FAILED.equals(targetStatus)) {
-                accountEventService.appendPayoutFailedEvents(payOrderDto, frozenAmount);
+                CommonUtil.withBalanceLogContext("payout.notify", payOrderDto.getTransactionNo(), () ->
+                        balanceService.releaseFrozenBalance(
+                                payOrderDto.getMerchantUserId(),
+                                payOrderDto.getCurrencyType(),
+                                frozenAmount,
+                                null));
             }
         });
         log.info("payout applyNotifyUpdate end, transactionNo={}, stateUpdated={}",

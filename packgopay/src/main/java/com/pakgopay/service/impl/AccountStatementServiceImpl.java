@@ -12,19 +12,13 @@ import com.pakgopay.data.reqeust.account.AccountStatementEditRequest;
 import com.pakgopay.data.reqeust.account.AccountStatementQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.account.AccountStatementsResponse;
-import com.pakgopay.mapper.AccountStatementsMapper;
 import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.AccountStatementsDto;
-import com.pakgopay.mapper.dto.BalanceDto;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.AccountStatementService;
 import com.pakgopay.service.common.OrderInterventionTelegramNotifier;
 import com.pakgopay.service.common.SendDmqMessage;
-import com.pakgopay.thirdUtil.RedisUtil;
-import com.pakgopay.util.CommonUtil;
-import com.pakgopay.util.PatchBuilderUtil;
-import com.pakgopay.util.SnowflakeIdService;
-import com.pakgopay.util.TransactionUtil;
+import com.pakgopay.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -34,14 +28,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.pakgopay.util.CalcUtil;
-
 @Slf4j
 @Service
-public class AccountStatementServiceImpl implements AccountStatementService {
-
-    @Autowired
-    private AccountStatementsMapper accountStatementsMapper;
+public class AccountStatementServiceImpl extends AbstractStatementSnapshotService implements AccountStatementService {
 
     @Autowired
     private BalanceService balanceService;
@@ -59,27 +48,28 @@ public class AccountStatementServiceImpl implements AccountStatementService {
     private UserMapper userMapper;
 
     @Autowired
-    private RedisUtil redisUtil;
-
-    @Autowired
     private SendDmqMessage sendDmqMessage;
 
     @Autowired
     private OrderInterventionTelegramNotifier orderInterventionTelegramNotifier;
 
+    /**
+     * Query statement rows from the new account_statements chain.
+     */
     @Override
     public CommonResponse queryAccountStatement(AccountStatementQueryRequest accountStatementQueryRequest) {
         log.info("queryAccountStatement start");
-        AccountStatementsResponse response = queryMerchantRechargeData(
+        AccountStatementsResponse response = loadStatementPage(
                 accountStatementQueryRequest);
         log.info("query AccountStatement end");
         return CommonResponse.success(response);
     }
 
-    private AccountStatementsResponse queryMerchantRechargeData(AccountStatementQueryRequest accountStatementQueryRequest) {
-        log.info("queryMerchantRechargeData start");
+    private AccountStatementsResponse loadStatementPage(AccountStatementQueryRequest accountStatementQueryRequest) {
+        log.info("loadStatementPage start");
         AccountStatementEntity entity = new AccountStatementEntity();
-        entity.setId(accountStatementQueryRequest.getId());
+        entity.setSerialNo(accountStatementQueryRequest.getSerialNo());
+        entity.setTransactionNo(accountStatementQueryRequest.getTransactionNo());
         entity.setUserId(accountStatementQueryRequest.getMerchantAgentId());
         entity.setOrderType(accountStatementQueryRequest.getOrderType());
         entity.setUserRole(accountStatementQueryRequest.getUserRole());
@@ -88,6 +78,7 @@ public class AccountStatementServiceImpl implements AccountStatementService {
         entity.setEndTime(accountStatementQueryRequest.getEndTime());
         entity.setPageSize(accountStatementQueryRequest.getPageSize());
         entity.setPageNo(accountStatementQueryRequest.getPageNo());
+        applyDefaultMonthRange(entity);
 
         AccountStatementsResponse response = new AccountStatementsResponse();
         try {
@@ -103,26 +94,31 @@ public class AccountStatementServiceImpl implements AccountStatementService {
 
         response.setPageNo(entity.getPageNo());
         response.setPageSize(entity.getPageSize());
-        log.info("queryMerchantRechargeData end");
+        log.info("loadStatementPage end");
         return response;
     }
 
+    /**
+     * Create one manual statement row and apply the real balance change immediately.
+     * Snapshot columns are not filled here; they are backfilled asynchronously when status=3.
+     */
     @Override
     public CommonResponse createAccountStatement(AccountStatementAddRequest accountStatementAddRequest) {
         log.info("createAccountStatement start");
 
-        if (accountStatementAddRequest.getOrderType() == 2) {
+        if (accountStatementAddRequest.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW) {
             userService.validateWithdrawalPermission(
                     accountStatementAddRequest.getMerchantAgentId(),
                     accountStatementAddRequest.getClientIp());
         }
         AccountStatementsDto accountStatementsDto = generateAccountStatementForAdd(accountStatementAddRequest);
+        AccountStatementsDto createdStatement;
 
         transactionUtil.runInTransaction(() -> {
             accountStatementsMapper.insert(accountStatementsDto);
-            // recharge
-            if (accountStatementsDto.getOrderType() == 1) {
-                CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getId(), () -> {
+            // Recharge: real credit is applied first, snapshots are backfilled later.
+            if (accountStatementsDto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_RECHARGE) {
+                CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getSerialNo(), () -> {
                     balanceService.creditBalance(
                             accountStatementsDto.getUserId(),
                             accountStatementsDto.getCurrency(),
@@ -130,9 +126,9 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                             null);
                 });
             }
-            // withdrawal
-            if (accountStatementsDto.getOrderType() == 2) {
-                CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getId(), () -> {
+            // Withdrawal apply: move available to frozen first, then wait for manual review.
+            if (accountStatementsDto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW) {
+                CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getSerialNo(), () -> {
                     balanceService.applyWithdrawalOperation(
                             accountStatementsDto.getUserId(),
                             accountStatementsDto.getCurrency(),
@@ -141,9 +137,9 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                             null);
                 });
             }
-            // adjust
-            if (accountStatementsDto.getOrderType() == 3) {
-                CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getId(), () -> {
+            // Manual adjustment: real balance changes first, snapshots are backfilled later.
+            if (accountStatementsDto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_ADJUST) {
+                CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getSerialNo(), () -> {
                     balanceService.adjustBalance(
                             accountStatementsDto.getUserId(),
                             accountStatementsDto.getCurrency(),
@@ -152,34 +148,42 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                 });
             }
         });
+        createdStatement = loadStatementBySerialNo(accountStatementsDto.getSerialNo());
+
+        if (accountStatementsDto.getStatus() != null && accountStatementsDto.getStatus() == 3) {
+            enqueuePendingSnapshot(
+                    accountStatementsDto.getUserId(),
+                    accountStatementsDto.getCurrency(),
+                    createdStatement == null ? accountStatementsDto.getCreateTime() : createdStatement.getCreateTime());
+        }
 
         // only withdraw order need to resolve
-        if (accountStatementsDto.getOrderType() == 2) {
+        if (accountStatementsDto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW) {
             log.info("notify admin to resolve order");
             List<String> adminUserIds = userMapper.listUserIdsByRoleId(CommonConstant.ROLE_ADMIN);
             if (adminUserIds == null || adminUserIds.isEmpty()) {
-                log.warn("no admin user found, skip notification for statementId={}", accountStatementsDto.getId());
+                log.warn("no admin user found, skip notification for statementId={}", accountStatementsDto.getSerialNo());
             } else {
                 for (String adminUserId : adminUserIds) {
                     Message message = new Message();
-                    message.setId(accountStatementsDto.getId());
+                    message.setId(accountStatementsDto.getSerialNo());
                     message.setUserId(adminUserId);
                     message.setTimestamp(System.currentTimeMillis());
                     message.setRead(false);
                     message.setPath(NotificationComponentType.Withdraw_Component);
                     message.setTitle(NotificationComponentType.Withdraw_Title);
-                    message.setContent(accountStatementsDto.getId());
+                    message.setContent(accountStatementsDto.getSerialNo());
                     redisUtil.saveMessage(message);
                     sendDmqMessage.sendFanout("user-notify", message);
                 }
             }
             try {
                 orderInterventionTelegramNotifier.notifyPendingWithdrawOrder(
-                        accountStatementsDto.getId(),
-                        accountStatementsDto.getCreateTime());
+                        accountStatementsDto.getSerialNo(),
+                        createdStatement == null ? null : createdStatement.getCreateTime());
             } catch (Exception e) {
                 log.warn("send telegram withdraw notify failed, statementId={}, message={}",
-                        accountStatementsDto.getId(), e.getMessage());
+                        accountStatementsDto.getSerialNo(), e.getMessage());
             }
         }
 
@@ -187,12 +191,14 @@ public class AccountStatementServiceImpl implements AccountStatementService {
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
-
+    /**
+     * Build the base row for manual recharge / withdrawal / adjustment.
+     */
     private AccountStatementsDto generateAccountStatementForAdd(AccountStatementAddRequest req) {
         AccountStatementsDto dto = new AccountStatementsDto();
-        long now = System.currentTimeMillis() / 1000;
         String systemTransactionNo = snowflakeIdService.nextId(CommonConstant.STATEMENT_PREFIX);
-        dto.setId(systemTransactionNo);
+        long createTime = resolveCreateTimeFromSerialNo(systemTransactionNo);
+        dto.setSerialNo(systemTransactionNo);
 
         PatchBuilderUtil<AccountStatementAddRequest, AccountStatementsDto> b = PatchBuilderUtil.from(req).to(dto)
                 .reqStr("merchantAgentId", req::getMerchantAgentId, dto::setUserId)
@@ -201,69 +207,59 @@ public class AccountStatementServiceImpl implements AccountStatementService {
                 .reqObj("amount", req::getAmount, dto::setAmount)
                 .reqObj("orderType", req::getOrderType, dto::setOrderType)
                 .obj(req::getUserRole, dto::setUserRole)
-                .ifTrue(2 == req.getOrderType())
+                .ifTrue(CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW == req.getOrderType())
                 .reqStr("walletAddr", req::getWalletAddr, dto::setWalletAddr)
                 .endSkip()
                 .str(req::getClientIp, dto::setRequestIp)
                 .str(req::getRemark, dto::setRemark);
 
         // 4) meta
-        dto.setCreateTime(now);
-        dto.setUpdateTime(now);
+        dto.setUpdateTime(createTime);
         dto.setCreateBy(req.getUserName());
         dto.setUpdateBy(req.getUserName());
 
-        Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(new ArrayList<>() {{
-            add(dto.getUserId());
-        }}).getTotalData();
-        String currency = dto.getCurrency();
-        Map<String, BigDecimal> balanceInfo = cardInfo.get(currency);
+        if (CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW == req.getOrderType()) {
+            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(new ArrayList<>() {{
+                add(dto.getUserId());
+            }}).getTotalData();
+            String currency = dto.getCurrency();
+            Map<String, BigDecimal> balanceInfo = cardInfo.get(currency);
 
-        BigDecimal availableBalanceBefore = BigDecimal.ZERO;
-        BigDecimal frozenBalanceBefore = BigDecimal.ZERO;
-        BigDecimal totalBalanceBefore = BigDecimal.ZERO;
-        if (balanceInfo != null && !balanceInfo.isEmpty()) {
-            availableBalanceBefore = balanceInfo.getOrDefault("available", BigDecimal.ZERO);
-            frozenBalanceBefore = balanceInfo.getOrDefault("frozen", BigDecimal.ZERO);
-            totalBalanceBefore = balanceInfo.getOrDefault("total", BigDecimal.ZERO);
-        } else {
-            balanceService.createBalanceRecord(dto.getUserId(), dto.getCurrency());
-        }
+            BigDecimal availableBalanceBefore = BigDecimal.ZERO;
+            if (balanceInfo != null && !balanceInfo.isEmpty()) {
+                availableBalanceBefore = balanceInfo.getOrDefault("available", BigDecimal.ZERO);
+            } else {
+                balanceService.createBalanceRecord(dto.getUserId(), dto.getCurrency());
+            }
 
-        if (req.getOrderType() == 2 && availableBalanceBefore.compareTo(req.getAmount()) < CommonConstant.ZERO) {
-            log.warn("insufficient available balance");
-            throw new PakGoPayException(ResultCode.FAIL, "insufficient available balance");
-        }
+            if (availableBalanceBefore.compareTo(req.getAmount()) < CommonConstant.ZERO) {
+                log.warn("insufficient available balance");
+                throw new PakGoPayException(ResultCode.FAIL, "insufficient available balance");
+            }
 
-        if (2 == req.getOrderType()) {
             dto.setStatus(0);
-            dto.setAvailableBalanceAfter(CalcUtil.safeSubtract(availableBalanceBefore, req.getAmount()));
-            dto.setFrozenBalanceAfter(CalcUtil.safeAdd(frozenBalanceBefore, req.getAmount()));
-            dto.setTotalBalanceAfter(totalBalanceBefore);
         } else {
-            dto.setStatus(1);
-            dto.setAvailableBalanceAfter(CalcUtil.safeAdd(availableBalanceBefore, req.getAmount()));
-            dto.setFrozenBalanceAfter(frozenBalanceBefore);
-            dto.setTotalBalanceAfter(CalcUtil.safeAdd(totalBalanceBefore, req.getAmount()));
+            dto.setStatus(3);
         }
-        dto.setFrozenBalanceBefore(frozenBalanceBefore);
-        dto.setAvailableBalanceBefore(availableBalanceBefore);
-        dto.setTotalBalanceBefore(totalBalanceBefore);
 
         return b.build();
     }
 
+    /**
+     * Review one withdrawal statement. Approval applies the real payout delta first and then
+     * enqueues the async snapshot task to fill before/after balances in order.
+     */
     @Override
     public CommonResponse updateAccountStatement(AccountStatementEditRequest request) {
-        log.info("editAccountStatement start, id={}", request.getId());
+        log.info("editAccountStatement start, serialNo={}", request.getSerialNo());
 
         AccountStatementsDto accountStatementsDto = generateAccountStatement(request);
         transactionUtil.runInTransaction(() -> {
-            accountStatementsMapper.updateById(accountStatementsDto);
+            accountStatementsMapper.updateBySerialNo(accountStatementsDto);
 
-            AccountStatementsDto dto = accountStatementsMapper.selectById(accountStatementsDto.getId());
+            AccountStatementsDto dto = loadStatementBySerialNo(accountStatementsDto.getSerialNo());
 
-            CommonUtil.withBalanceLogContext("accountStatement.update", dto.getId(), () -> {
+            CommonUtil.withBalanceLogContext("accountStatement.update", dto.getSerialNo(), () -> {
                 balanceService.applyWithdrawalOperation(
                         dto.getUserId(),
                         dto.getCurrency(),
@@ -273,76 +269,115 @@ public class AccountStatementServiceImpl implements AccountStatementService {
             });
         });
 
-        AccountStatementsDto dto = accountStatementsMapper.selectById(accountStatementsDto.getId());
-        if (dto != null && dto.getOrderType() != null && dto.getOrderType() == 2) {
+        if (Boolean.TRUE.equals(request.isAgree())) {
+            AccountStatementsDto approved = loadStatementBySerialNo(accountStatementsDto.getSerialNo());
+            if (approved != null) {
+                enqueuePendingSnapshot(approved.getUserId(), approved.getCurrency(), approved.getCreateTime());
+            }
+        }
+
+        AccountStatementsDto dto = loadStatementBySerialNo(accountStatementsDto.getSerialNo());
+        if (dto != null && dto.getOrderType() != null && dto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW) {
             Message message = new Message();
-            message.setId(dto.getId());
+            message.setId(dto.getSerialNo());
             message.setUserId(dto.getUserId());
             message.setTimestamp(System.currentTimeMillis());
             message.setRead(false);
             message.setPath(NotificationComponentType.Withdraw_Component);
             message.setTitle(NotificationComponentType.Withdraw_Result_Title);
-            message.setContent(dto.getId());
+            message.setContent(dto.getSerialNo());
             redisUtil.saveMessage(message);
             sendDmqMessage.sendFanout("user-notify", message);
             log.info("notify merchant withdraw review completed, statementId={}, merchantUserId={}",
-                    dto.getId(), dto.getUserId());
+                    dto.getSerialNo(), dto.getUserId());
         }
 
-        log.info("editAccountStatement end, id={}", request.getId());
+        log.info("editAccountStatement end, serialNo={}", request.getSerialNo());
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
+    /**
+     * Build the partial update payload for one withdrawal review action.
+     */
     private AccountStatementsDto generateAccountStatement(AccountStatementEditRequest request) {
         AccountStatementsDto dto = new AccountStatementsDto();
         dto.setUpdateTime(System.currentTimeMillis() / 1000);
-        dto.setStatus(request.isAgree() ? 1 : 2);
+        dto.setStatus(request.isAgree() ? 3 : 2);
 
         return PatchBuilderUtil.from(request).to(dto)
-                .str(request::getId, dto::setId)
+                .str(request::getSerialNo, dto::setSerialNo)
                 .str(request::getRemark, dto::setRemark)
                 .str(request::getUserName, dto::setUpdateBy)
                 .build();
     }
 
     /**
-     * Persist one adjustment statement row based on subject/snapshot/audit payload.
+     * Persist one adjustment statement row after the real balance change has already committed.
      */
     @Override
     public void createAdjustmentStatement(AdjustmentStatementRecord payload) {
-        if (payload == null || payload.subject() == null || payload.snapshot() == null || payload.audit() == null) {
+        if (payload == null || payload.subject() == null || payload.audit() == null) {
             return;
         }
-        long now = System.currentTimeMillis() / 1000;
         AccountStatementsDto statement = new AccountStatementsDto();
-        statement.setId(snowflakeIdService.nextId(CommonConstant.STATEMENT_PREFIX));
-        statement.setOrderType(3);
+        String serialNo = snowflakeIdService.nextId(CommonConstant.STATEMENT_PREFIX);
+        long createTime = resolveCreateTimeFromSerialNo(serialNo);
+        statement.setSerialNo(serialNo);
+        statement.setOrderType(CommonConstant.STATEMENT_ORDER_TYPE_ADJUST);
         // Decompose payload parts for readability.
         AdjustmentStatementRecord.Subject subject = payload.subject();
-        AdjustmentStatementRecord.Snapshot snapshot = payload.snapshot();
         AdjustmentStatementRecord.Audit audit = payload.audit();
         statement.setAmount(subject.amount());
-        statement.setStatus(1);
-        // Fill before/after snapshots.
-        BalanceDto before = snapshot.before();
-        BalanceDto after = snapshot.after();
-        statement.setAvailableBalanceBefore(CalcUtil.defaultBigDecimal(before == null ? null : before.getAvailableBalance()));
-        statement.setAvailableBalanceAfter(CalcUtil.defaultBigDecimal(after == null ? null : after.getAvailableBalance()));
-        statement.setFrozenBalanceBefore(CalcUtil.defaultBigDecimal(before == null ? null : before.getFrozenBalance()));
-        statement.setFrozenBalanceAfter(CalcUtil.defaultBigDecimal(after == null ? null : after.getFrozenBalance()));
-        statement.setTotalBalanceBefore(CalcUtil.defaultBigDecimal(before == null ? null : before.getTotalBalance()));
-        statement.setTotalBalanceAfter(CalcUtil.defaultBigDecimal(after == null ? null : after.getTotalBalance()));
+        statement.setStatus(3);
         // Fill business/audit metadata.
         statement.setRequestIp(audit.requestIp());
         statement.setUserId(subject.userId());
         statement.setUserRole(subject.userRole());
         statement.setName(subject.name());
         statement.setCurrency(subject.currency());
-        statement.setCreateTime(now);
         statement.setCreateBy(audit.operator());
-        statement.setUpdateTime(now);
+        statement.setUpdateTime(createTime);
         statement.setUpdateBy(audit.operator());
         statement.setRemark(audit.remark());
         accountStatementsMapper.insert(statement);
+        AccountStatementsDto inserted = loadStatementBySerialNo(statement.getSerialNo());
+        enqueuePendingSnapshot(
+                statement.getUserId(),
+                statement.getCurrency(),
+                inserted == null ? statement.getCreateTime() : inserted.getCreateTime());
     }
+
+    private void applyDefaultMonthRange(AccountStatementEntity entity) {
+        if (entity.getStartTime() != null || entity.getEndTime() != null) {
+            return;
+        }
+        String anchorId = entity.getSerialNo() != null && !entity.getSerialNo().isBlank()
+                ? entity.getSerialNo()
+                : entity.getTransactionNo();
+        if (anchorId == null || anchorId.isBlank()) {
+            return;
+        }
+        long[] range = SnowflakeIdGenerator.extractMonthEpochSecondRange(anchorId);
+        if (range == null || range.length != 2) {
+            return;
+        }
+        entity.setStartTime(range[0]);
+        entity.setEndTime(range[1]);
+    }
+
+    @Override
+    public AccountStatementsDto findBySerialNo(String serialNo) {
+        return loadStatementBySerialNo(serialNo);
+    }
+
+    private AccountStatementsDto loadStatementBySerialNo(String serialNo) {
+        for (String partitionTable : resolveCandidatePartitionTablesBySerialNo(serialNo)) {
+            AccountStatementsDto dto = accountStatementsMapper.selectBySerialNoFromTable(partitionTable, serialNo);
+            if (dto != null) {
+                return dto;
+            }
+        }
+        return null;
+    }
+
 }

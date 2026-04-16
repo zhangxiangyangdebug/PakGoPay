@@ -23,6 +23,7 @@ import com.pakgopay.timer.ReportTask;
 import com.pakgopay.util.CommonUtil;
 import com.pakgopay.util.CryptoUtil;
 import com.pakgopay.util.SnowflakeIdGenerator;
+import com.pakgopay.util.TransactionUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -128,7 +129,13 @@ public abstract class BaseOrderService {
     protected AccountStatementService accountStatementService;
 
     @Autowired
+    protected OrderStatementService orderStatementService;
+
+    @Autowired
     protected OrderFlowLogService orderFlowLogService;
+
+    @Autowired
+    private TransactionUtil transactionUtil;
 
     @Autowired
     protected CurrencyTimezoneService currencyTimezoneService;
@@ -669,27 +676,23 @@ public abstract class BaseOrderService {
         }
         String currency = context.currency();
         String transactionNo = context.transactionNo();
-        // 1) Capture balance snapshot before change.
-        BalanceDto before = balanceService.loadOrCreateBalanceSnapshot(userId, currency);
-        // 2) Apply delta on balance.
-        CommonUtil.withBalanceLogContext("order.reverse", transactionNo, () -> {
-            balanceService.adjustBalance(userId, currency, deltaAmount, null);
-        });
-        // 3) Capture balance snapshot after change.
-        BalanceDto after = balanceService.loadOrCreateBalanceSnapshot(userId, currency);
-        // 4) Persist account statement row for audit trail.
-        accountStatementService.createAdjustmentStatement(new AdjustmentStatementRecord(
+        AdjustmentStatementRecord statementRecord = new AdjustmentStatementRecord(
                 new AdjustmentStatementRecord.Subject(
                         userId,
                         userRole,
                         name,
                         currency,
                         deltaAmount),
-                new AdjustmentStatementRecord.Snapshot(before, after),
                 new AdjustmentStatementRecord.Audit(
                         context.requestIp(),
                         context.operator(),
-                        remark)));
+                        remark));
+        transactionUtil.runInTransaction(() -> {
+            // Keep balance update and statement insert in one transaction for non-order adjustments.
+            CommonUtil.withBalanceLogContext("order.reverse", transactionNo, () ->
+                    balanceService.adjustBalance(userId, currency, deltaAmount, null));
+            accountStatementService.createAdjustmentStatement(statementRecord);
+        });
     }
 
     /**

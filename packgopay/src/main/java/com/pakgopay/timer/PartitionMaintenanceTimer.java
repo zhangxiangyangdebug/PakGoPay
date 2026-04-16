@@ -25,10 +25,11 @@ import java.util.regex.Pattern;
 @Component
 public class PartitionMaintenanceTimer {
 
-    public static final String ACCOUNT_EVENT_PARTITION_CACHE_KEY = "meta:partition:account_event:tables";
     private static final String LOCK_KEY = "job:partition_maintenance:lock";
+    public static final String ACCOUNT_STATEMENT_PARTITION_MONTH_SET_KEY = "meta:account_statement:partitions";
     private static final int LOCK_SECONDS = 600;
     private static final int FUTURE_MONTHS_TO_PRECREATE = 2;
+    private static final int PARTITION_CACHE_EXPIRE_SECONDS = 3 * 24 * 3600;
     private static final Pattern MONTH_PARTITION_PATTERN = Pattern.compile("^(.*)_(\\d{6})$");
 
     @Autowired
@@ -42,9 +43,8 @@ public class PartitionMaintenanceTimer {
     @Qualifier("secondaryJdbcTemplate")
     private ObjectProvider<JdbcTemplate> secondaryJdbcTemplateProvider;
 
-    // Keep N recent whole months of account_event partitions (UTC month boundary).
-    @Value("${pakgopay.account-event.partition-retain-months:3}")
-    private int accountEventRetainMonths;
+    @Value("${pakgopay.account-statements.partition-retain-months:6}")
+    private int accountStatementsRetainMonths;
 
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
@@ -60,9 +60,10 @@ public class PartitionMaintenanceTimer {
     /**
      * One maintenance round:
      * 1) pre-create current+future month partitions
-     * 2) clean old account_event monthly partitions
+     * 2) clean old monthly partitions
      */
     private void runOnce(String source) {
+        log.info("PartitionMaintenanceTimer runOnce start");
         String lockVal = UUID.randomUUID().toString();
         Boolean locked = redisTemplate.opsForValue()
                 .setIfAbsent(LOCK_KEY, lockVal, Duration.ofSeconds(LOCK_SECONDS));
@@ -88,7 +89,7 @@ public class PartitionMaintenanceTimer {
                 ensureMonthlyPartitionIfParentExists(jdbcTemplate, "pay_order", monthStart, monthEnd);
                 ensureMonthlyPartitionIfParentExists(jdbcTemplate, "collection_order_flow_log", monthStart, monthEnd);
                 ensureMonthlyPartitionIfParentExists(jdbcTemplate, "pay_order_flow_log", monthStart, monthEnd);
-                ensureMonthlyPartitionIfParentExists(jdbcTemplate, "account_event", monthStart, monthEnd);
+                ensureMonthlyPartitionIfParentExists(jdbcTemplate, "account_statements", monthStart, monthEnd);
 
                 // Secondary DB partition parents.
                 if (secondaryJdbcTemplate != null) {
@@ -100,13 +101,11 @@ public class PartitionMaintenanceTimer {
                 }
             }
 
-            // account_event cleanup strategy: drop old month partitions, not row delete.
             cleanupOldMonthlyPartitionsIfParentExists(
                     jdbcTemplate,
-                    "account_event",
-                    Math.max(accountEventRetainMonths, 1));
-
-            refreshAccountEventPartitionCache();
+                    "account_statements",
+                    Math.max(accountStatementsRetainMonths, 1));
+            refreshAccountStatementPartitionCache();
 
             log.info("partition maintenance done, source={}", source);
         } catch (Exception e) {
@@ -232,15 +231,24 @@ public class PartitionMaintenanceTimer {
             return;
         }
 
-        if ("account_event".equals(parentTable)) {
+        if ("account_statements".equals(parentTable)) {
             targetJdbcTemplate.execute(String.format(
-                    "create index if not exists idx_%s_scan on public.%s (event_type, status, event_time)",
+                    "create index if not exists idx_%s_txn_ctime on public.%s (transaction_no, create_time desc)",
                     partTable, partTable));
             targetJdbcTemplate.execute(String.format(
-                    "create index if not exists idx_%s_status_ctime on public.%s (status, created_at)",
+                    "create index if not exists idx_%s_user_ctime on public.%s (user_id, create_time desc)",
                     partTable, partTable));
             targetJdbcTemplate.execute(String.format(
-                    "create unique index if not exists uk_%s_biz_no on public.%s (biz_no)",
+                    "create index if not exists idx_%s_user_role_ctime on public.%s (user_role, create_time desc)",
+                    partTable, partTable));
+            targetJdbcTemplate.execute(String.format(
+                    "create index if not exists idx_%s_currency_ctime on public.%s (currency, create_time desc)",
+                    partTable, partTable));
+            targetJdbcTemplate.execute(String.format(
+                    "create unique index if not exists uk_%s_serial_no on public.%s (serial_no)",
+                    partTable, partTable));
+            targetJdbcTemplate.execute(String.format(
+                    "create index if not exists idx_%s_status_user_curr_ctime on public.%s (status, user_id, currency, create_time, id)",
                     partTable, partTable));
         }
     }
@@ -260,28 +268,6 @@ public class PartitionMaintenanceTimer {
                 Boolean.class,
                 parentTable);
         return Boolean.TRUE.equals(isPartitioned);
-    }
-
-    private void refreshAccountEventPartitionCache() {
-        List<String> partitionTables = jdbcTemplate.query(
-                "select child.relname " +
-                        "from pg_inherits i " +
-                        "join pg_class parent on parent.oid = i.inhparent " +
-                        "join pg_namespace parent_ns on parent_ns.oid = parent.relnamespace " +
-                        "join pg_class child on child.oid = i.inhrelid " +
-                        "join pg_namespace child_ns on child_ns.oid = child.relnamespace " +
-                        "where parent_ns.nspname = 'public' " +
-                        "  and child_ns.nspname = 'public' " +
-                        "  and parent.relname = 'account_event' " +
-                        "order by child.relname",
-                (rs, rowNum) -> rs.getString(1));
-        redisTemplate.delete(ACCOUNT_EVENT_PARTITION_CACHE_KEY);
-        if (partitionTables != null && !partitionTables.isEmpty()) {
-            redisTemplate.opsForSet().add(ACCOUNT_EVENT_PARTITION_CACHE_KEY, partitionTables.toArray(new String[0]));
-        }
-        log.info("account event partition cache refreshed, count={}, tables={}",
-                partitionTables == null ? 0 : partitionTables.size(),
-                partitionTables);
     }
 
     /**
@@ -351,5 +337,41 @@ public class PartitionMaintenanceTimer {
 
     private int toYearMonth(LocalDate date) {
         return date.getYear() * 100 + date.getMonthValue();
+    }
+
+    private void refreshAccountStatementPartitionCache() {
+        String regClass = jdbcTemplate.queryForObject(
+                "select to_regclass('public.account_statements')", String.class);
+        if (regClass == null || regClass.isBlank() || !isPartitionedParent(jdbcTemplate, "account_statements")) {
+            redisTemplate.delete(ACCOUNT_STATEMENT_PARTITION_MONTH_SET_KEY);
+            log.info("account statement partition cache cleared, reason=parent_missing_or_not_partitioned");
+            return;
+        }
+
+        List<String> partitions = jdbcTemplate.queryForList(
+                "select child.relname " +
+                        "from pg_inherits inh " +
+                        "join pg_class parent on parent.oid = inh.inhparent " +
+                        "join pg_namespace pn on pn.oid = parent.relnamespace " +
+                        "join pg_class child on child.oid = inh.inhrelid " +
+                        "join pg_namespace cn on cn.oid = child.relnamespace " +
+                        "where pn.nspname = 'public' " +
+                        "  and cn.nspname = 'public' " +
+                        "  and parent.relname = ?",
+                String.class,
+                "account_statements");
+
+        redisTemplate.delete(ACCOUNT_STATEMENT_PARTITION_MONTH_SET_KEY);
+        for (String partName : partitions) {
+            Integer ym = parsePartitionYearMonth(partName, "account_statements");
+            if (ym != null) {
+                redisTemplate.opsForSet().add(
+                        ACCOUNT_STATEMENT_PARTITION_MONTH_SET_KEY,
+                        String.format("%06d", ym));
+            }
+        }
+        redisTemplate.expire(ACCOUNT_STATEMENT_PARTITION_MONTH_SET_KEY, Duration.ofSeconds(PARTITION_CACHE_EXPIRE_SECONDS));
+        log.info("account statement partition cache refreshed, size={}",
+                partitions == null ? 0 : partitions.size());
     }
 }

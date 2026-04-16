@@ -19,7 +19,6 @@ import com.pakgopay.mapper.dto.MerchantInfoDto;
 import com.pakgopay.mapper.dto.PaymentDto;
 import com.pakgopay.service.ChannelPaymentService;
 import com.pakgopay.service.MerchantService;
-import com.pakgopay.service.common.AccountEventService;
 import com.pakgopay.service.common.MerchantNotifyRetryService;
 import com.pakgopay.service.common.OrderFlowLogSession;
 import com.pakgopay.service.transaction.*;
@@ -60,9 +59,6 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
 
     @Autowired
     private MerchantNotifyRetryService merchantNotifyRetryService;
-
-    @Autowired
-    private AccountEventService accountEventService;
 
     @Override
     public CommonResponse createCollectionOrder(
@@ -711,7 +707,7 @@ public class CollectionOrderServiceImpl extends BaseOrderService implements Coll
                     return;
                 }
                 if (TransactionStatus.SUCCESS.equals(targetStatus)) {
-                    accountEventService.appendCollectionSuccessEvents(collectionOrderDto, merchantInfo);
+                    orderStatementService.recordCollectionSuccessStatements(collectionOrderDto, merchantInfo);
                 }
                 stateUpdated.set(true);
             } catch (Exception e) {

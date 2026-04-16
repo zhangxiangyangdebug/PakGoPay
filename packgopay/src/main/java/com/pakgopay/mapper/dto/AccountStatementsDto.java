@@ -16,8 +16,14 @@ public class AccountStatementsDto implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    /** Statement ID (Snowflake ID) */
-    private String id;
+    /** Auto-increment primary key */
+    private Long id;
+
+    /** Business serial no, e.g. SE... */
+    private String serialNo;
+
+    /** Order transaction no */
+    private String transactionNo;
 
     /** Order type: 1-Recharge, 2-Withdraw, 3-Manual adjustment */
     private Integer orderType;

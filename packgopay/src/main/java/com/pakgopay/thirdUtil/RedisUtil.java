@@ -18,7 +18,6 @@ import static com.pakgopay.common.constant.CommonConstant.*;
 
 @Component
 public class RedisUtil {
-
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
@@ -97,6 +96,22 @@ public class RedisUtil {
     public Set<String> getSetMembers(String key) {
         Set<String> members = redisTemplate.opsForSet().members(key);
         return members == null ? Collections.emptySet() : members;
+    }
+
+    public Long removeSetMember(String key, String member) {
+        return redisTemplate.opsForSet().remove(key, member);
+    }
+
+    public void replaceSetMembers(String key, Set<String> members, int expireTimeSeconds) {
+        redisTemplate.delete(key);
+        if (members != null && !members.isEmpty()) {
+            redisTemplate.opsForSet().add(key, members.toArray(new String[0]));
+            redisTemplate.expire(key, expireTimeSeconds, TimeUnit.SECONDS);
+        }
+    }
+
+    public String popSetMember(String key) {
+        return redisTemplate.opsForSet().pop(key);
     }
 
     public void saveMessage(Message msg) {

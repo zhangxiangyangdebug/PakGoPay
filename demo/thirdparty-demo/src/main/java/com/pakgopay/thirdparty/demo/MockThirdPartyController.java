@@ -12,6 +12,11 @@ import org.apache.hc.core5.util.TimeValue;
 import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.core.AmqpAdmin;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -42,15 +47,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
 
 @RestController
 public class MockThirdPartyController {
@@ -62,8 +67,6 @@ public class MockThirdPartyController {
     private static final int NOTIFY_MAX_ATTEMPTS = 5;
     private static final long NOTIFY_INITIAL_DELAY_MS = 1000L;
     private static final long[] NOTIFY_RETRY_BACKOFF_MS = {1000L, 5000L, 15000L, 30000L, 60000L};
-    private static final int NOTIFY_WORKER_THREADS = 48;
-    private static final int NOTIFY_QUEUE_CAPACITY = 10000;
     private static final int NOTIFY_POOL_MAX_TOTAL = 600;
     private static final int NOTIFY_POOL_MAX_PER_ROUTE = 400;
     private static final int NOTIFY_CONNECT_TIMEOUT_MS = 3000;
@@ -79,16 +82,25 @@ public class MockThirdPartyController {
     // In-memory order storage for query endpoints.
     private static final Map<String, OrderRecord> ORDERS = new ConcurrentHashMap<>();
 
-    private final ThreadPoolExecutor notifyExecutor = new ThreadPoolExecutor(
-            NOTIFY_WORKER_THREADS,
-            NOTIFY_WORKER_THREADS,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(NOTIFY_QUEUE_CAPACITY),
-            namedThreadFactory("mock-notify-worker"),
-            new ThreadPoolExecutor.CallerRunsPolicy());
     private final ScheduledExecutorService notifyRetryScheduler =
             Executors.newSingleThreadScheduledExecutor(namedThreadFactory("mock-notify-retry"));
+    private final ScheduledExecutorService notifyStatsScheduler =
+            Executors.newSingleThreadScheduledExecutor(namedThreadFactory("mock-notify-stats"));
+    private final AmqpAdmin amqpAdmin;
+    private final RabbitTemplate rabbitTemplate;
+    private final LongAdder notifyConsumedCounter = new LongAdder();
+    private final LongAdder notifySuccessCounter = new LongAdder();
+    private final LongAdder notifyFailedCounter = new LongAdder();
+    private final ConcurrentMap<String, LongAdder> notifyFailedTypeCounters = new ConcurrentHashMap<>();
+
+    @Value("${thirdparty-demo.notify.queue:thirdparty.demo.notify.queue}")
+    private String notifyQueueName;
+
+    public MockThirdPartyController(AmqpAdmin amqpAdmin, RabbitTemplate rabbitTemplate) {
+        this.amqpAdmin = amqpAdmin;
+        this.rabbitTemplate = rabbitTemplate;
+        this.notifyStatsScheduler.scheduleAtFixedRate(this::logNotifyStats, 10, 10, TimeUnit.SECONDS);
+    }
 
     static {
         MERCHANTS.put("24", new MerchantCredential("021fdff9059411f0", "75b7cb58f2f9fc7cf477172364c4ff39"));
@@ -254,37 +266,48 @@ public class MockThirdPartyController {
         if (credential == null) {
             return;
         }
-        notifyRetryScheduler.schedule(() -> submitNotify(new NotifyTask(record, credential, attempt)),
+        notifyRetryScheduler.schedule(() -> publishNotify(new NotifyTaskPayload(
+                        record.orderNo,
+                        record.merchantId,
+                        record.notifyUrl,
+                        attempt)),
                 Math.max(delayMs, 0L), TimeUnit.MILLISECONDS);
     }
 
-    private void submitNotify(NotifyTask task) {
-        int queuedBeforeSubmit = notifyExecutor.getQueue().size();
-        if (queuedBeforeSubmit >= NOTIFY_QUEUE_CAPACITY) {
-            log.warn("mock notify queue saturated, caller-runs fallback, attempt={}/{}, orderNo={}, notifyUrl={}, queued={}, active={}",
-                    task.attempt, NOTIFY_MAX_ATTEMPTS, task.record.orderNo, task.record.notifyUrl,
-                    queuedBeforeSubmit, notifyExecutor.getActiveCount());
-        }
-        notifyExecutor.execute(() -> processNotify(task));
+    private void publishNotify(NotifyTaskPayload payload) {
+        rabbitTemplate.convertAndSend(notifyQueueName, payload);
     }
 
-    private void processNotify(NotifyTask task) {
+    @RabbitListener(
+            queues = "${thirdparty-demo.notify.queue:thirdparty.demo.notify.queue}",
+            containerFactory = "thirdPartyDemoNotifyListenerContainerFactory")
+    public void consumeNotify(NotifyTaskPayload payload) {
+        notifyConsumedCounter.increment();
+        processNotify(payload);
+    }
+
+    private void processNotify(NotifyTaskPayload payload) {
+        OrderRecord record = ORDERS.get(payload.getOrderNo());
+        MerchantCredential credential = MERCHANTS.get(payload.getMerchantId());
+        if (record == null || credential == null || isBlank(payload.getNotifyUrl())) {
+            return;
+        }
         try {
             long now = Instant.now().getEpochSecond();
             Map<String, Object> body = new LinkedHashMap<>();
-            body.put("mid", toInt(task.record.merchantId));
+            body.put("mid", toInt(record.merchantId));
             body.put("no", "D" + System.currentTimeMillis());
-            body.put("order_no", task.record.orderNo);
-            body.put("amount", task.record.amount);
-            body.put("actual_amount", task.record.amount);
+            body.put("order_no", record.orderNo);
+            body.put("amount", record.amount);
+            body.put("actual_amount", record.amount);
             body.put("fee", "0.00");
-            body.put("created_time", task.record.createdAt);
+            body.put("created_time", record.createdAt);
             body.put("deposit_time", now);
             body.put("notify_time", now);
             body.put("status", "succeeded");
-            body.put("orig_amount", task.record.amount);
+            body.put("orig_amount", record.amount);
             body.put("payer_name", "demo");
-            body.put("sign", signSha1Base64(body, task.credential.signKey));
+            body.put("sign", signSha1Base64(body, credential.signKey));
 
             Map<String, Object> notifyPayload = new LinkedHashMap<>();
             notifyPayload.put("code", 200);
@@ -293,35 +316,91 @@ public class MockThirdPartyController {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.add("X-Order-No", task.record.orderNo);
+            headers.add("X-Order-No", record.orderNo);
             headers.add("X-Notify-Type", "thirdparty-demo");
 
-            String resolvedIps = resolveHostIps(task.record.notifyUrl);
-            REST_TEMPLATE.postForEntity(task.record.notifyUrl, new HttpEntity<>(notifyPayload, headers), String.class);
+            REST_TEMPLATE.postForEntity(payload.getNotifyUrl(), new HttpEntity<>(notifyPayload, headers), String.class);
+            notifySuccessCounter.increment();
         } catch (Exception e) {
-            String connectTarget = HTTP_REQUEST_FACTORY.consumeLastRemote();
-            String resolvedIps = resolveHostIps(task.record.notifyUrl);
-            log.error("mock notify attempt failed, attempt={}/{}, orderNo={}, notifyUrl={}, resolvedIps={}, connectTarget={}, message={}",
-                    task.attempt, NOTIFY_MAX_ATTEMPTS, task.record.orderNo, task.record.notifyUrl,
-                    resolvedIps, connectTarget, e.getMessage());
-            scheduleRetry(task, e.getMessage(), e);
+            notifyFailedCounter.increment();
+            String failureType = classifyNotifyFailure(e);
+            notifyFailedTypeCounters.computeIfAbsent(failureType, key -> new LongAdder()).increment();
+            scheduleRetry(payload, e.getMessage(), e);
         }
     }
 
-    private void scheduleRetry(NotifyTask task, String lastMessage, Exception lastException) {
-        if (task.attempt >= NOTIFY_MAX_ATTEMPTS) {
-            log.error("mock notify failed after {} attempts, orderNo={}, notifyUrl={}, message={}",
-                    NOTIFY_MAX_ATTEMPTS, task.record.orderNo, task.record.notifyUrl, lastMessage, lastException);
+    private void scheduleRetry(NotifyTaskPayload payload, String lastMessage, Exception lastException) {
+        if (payload.getAttempt() >= NOTIFY_MAX_ATTEMPTS) {
             return;
         }
-        long delayMs = NOTIFY_RETRY_BACKOFF_MS[Math.min(task.attempt, NOTIFY_RETRY_BACKOFF_MS.length - 1)];
-        scheduleNotify(task.record, task.attempt + 1, delayMs);
+        long delayMs = NOTIFY_RETRY_BACKOFF_MS[Math.min(payload.getAttempt(), NOTIFY_RETRY_BACKOFF_MS.length - 1)];
+        notifyRetryScheduler.schedule(() -> publishNotify(new NotifyTaskPayload(
+                        payload.getOrderNo(),
+                        payload.getMerchantId(),
+                        payload.getNotifyUrl(),
+                        payload.getAttempt() + 1)),
+                delayMs,
+                TimeUnit.MILLISECONDS);
     }
 
     @PreDestroy
     public void shutdownExecutors() {
+        notifyStatsScheduler.shutdown();
         notifyRetryScheduler.shutdown();
-        notifyExecutor.shutdown();
+    }
+
+    private void logNotifyStats() {
+        long consumed = notifyConsumedCounter.sumThenReset();
+        long success = notifySuccessCounter.sumThenReset();
+        long failed = notifyFailedCounter.sumThenReset();
+        long queueBacklog = resolveQueueBacklog();
+        Map<String, Long> failureSummary = new LinkedHashMap<>();
+        notifyFailedTypeCounters.forEach((key, counter) -> {
+            long value = counter.sumThenReset();
+            if (value > 0) {
+                failureSummary.put(key, value);
+            }
+        });
+        log.info("mock notify stats, intervalSeconds=10, consumed={}, success={}, failed={}, queueBacklog={}, failedByType={}",
+                consumed, success, failed, queueBacklog, failureSummary);
+    }
+
+    private long resolveQueueBacklog() {
+        try {
+            Properties properties = amqpAdmin.getQueueProperties(notifyQueueName);
+            if (properties == null) {
+                return -1L;
+            }
+            Object messageCount = properties.get("QUEUE_MESSAGE_COUNT");
+            if (messageCount instanceof Number number) {
+                return number.longValue();
+            }
+            return -1L;
+        } catch (Exception e) {
+            return -1L;
+        }
+    }
+
+    private String classifyNotifyFailure(Exception e) {
+        String message = e == null || e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+        if (message.contains("read timed out")) {
+            return "read_timeout";
+        }
+        if (message.contains("connect timed out")) {
+            return "connect_timeout";
+        }
+        if (message.contains("connectionrequesttimeout")
+                || message.contains("timeout deadline")
+                || message.contains("connection request timeout")) {
+            return "connection_request_timeout";
+        }
+        if (message.contains("network is unreachable")) {
+            return "network_unreachable";
+        }
+        if (message.contains("connection refused")) {
+            return "connection_refused";
+        }
+        return e == null ? "unknown" : e.getClass().getSimpleName();
     }
 
     private static ThreadFactory namedThreadFactory(String prefix) {
@@ -331,25 +410,6 @@ public class MockThirdPartyController {
             thread.setDaemon(true);
             return thread;
         };
-    }
-
-    private String resolveHostIps(String notifyUrl) {
-        try {
-            URI uri = URI.create(notifyUrl);
-            String host = uri.getHost();
-            if (isBlank(host)) {
-                return "host_empty";
-            }
-            InetAddress[] addresses = InetAddress.getAllByName(host);
-            List<String> parts = new ArrayList<>();
-            for (InetAddress address : addresses) {
-                String type = address.getAddress().length == 4 ? "IPv4" : "IPv6";
-                parts.add(type + ":" + address.getHostAddress());
-            }
-            return host + " -> " + String.join(",", parts);
-        } catch (Exception e) {
-            return "resolve_failed:" + e.getMessage();
-        }
     }
 
     private static HttpClient buildNotifyHttpClient() {
@@ -377,8 +437,6 @@ public class MockThirdPartyController {
     }
 
     private static final class Ipv4OnlyDnsResolver implements DnsResolver {
-        private static final ThreadLocal<String> LAST_REMOTE = new ThreadLocal<>();
-
         @Override
         public InetAddress[] resolve(String host) throws java.net.UnknownHostException {
             InetAddress[] addresses = InetAddress.getAllByName(host);
@@ -390,10 +448,8 @@ public class MockThirdPartyController {
             }
             if (!ipv4.isEmpty()) {
                 InetAddress first = ipv4.get(0);
-                LAST_REMOTE.set("IPv4:" + first.getHostAddress() + ":443");
                 return ipv4.toArray(new InetAddress[0]);
             }
-            LAST_REMOTE.set("remote_not_recorded");
             return addresses;
         }
 
@@ -402,14 +458,6 @@ public class MockThirdPartyController {
             return host;
         }
 
-        static String consumeLastRemote() {
-            String value = LAST_REMOTE.get();
-            if (value == null) {
-                return "remote_not_recorded";
-            }
-            LAST_REMOTE.remove();
-            return value;
-        }
     }
 
     private static final class TrackingHttpComponentsClientHttpRequestFactory extends HttpComponentsClientHttpRequestFactory {
@@ -420,9 +468,6 @@ public class MockThirdPartyController {
             setReadTimeout(NOTIFY_READ_TIMEOUT_MS);
         }
 
-        String consumeLastRemote() {
-            return Ipv4OnlyDnsResolver.consumeLastRemote();
-        }
     }
 
     private String signSha1Base64(Map<String, Object> params, String signKey) {
@@ -504,15 +549,36 @@ public class MockThirdPartyController {
         private String notifyUrl;
     }
 
-    private static class NotifyTask {
-        private final OrderRecord record;
-        private final MerchantCredential credential;
-        private final int attempt;
+    private static class NotifyTaskPayload {
+        private String orderNo;
+        private String merchantId;
+        private String notifyUrl;
+        private int attempt;
 
-        private NotifyTask(OrderRecord record, MerchantCredential credential, int attempt) {
-            this.record = record;
-            this.credential = credential;
+        public NotifyTaskPayload() {
+        }
+
+        private NotifyTaskPayload(String orderNo, String merchantId, String notifyUrl, int attempt) {
+            this.orderNo = orderNo;
+            this.merchantId = merchantId;
+            this.notifyUrl = notifyUrl;
             this.attempt = attempt;
+        }
+
+        public String getOrderNo() {
+            return orderNo;
+        }
+
+        public String getMerchantId() {
+            return merchantId;
+        }
+
+        public String getNotifyUrl() {
+            return notifyUrl;
+        }
+
+        public int getAttempt() {
+            return attempt;
         }
     }
 

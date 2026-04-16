@@ -7,9 +7,14 @@ import lombok.Data;
 public class AccountStatementQueryRequest extends ExportBaseRequest {
 
     /**
-     * system transaction id
+     * statement serial no
      */
-    private String id;
+    private String serialNo;
+
+    /**
+     * order transaction no
+     */
+    private String transactionNo;
 
     /**
      * merchant/agent user Id

@@ -9,10 +9,10 @@ import lombok.Data;
 public class AccountStatementEditRequest extends BaseRequest  {
 
     /**
-     * order Id
+     * statement serial no
      */
-    @NotBlank(message = "id is empty")
-    private String id;
+    @NotBlank(message = "serialNo is empty")
+    private String serialNo;
 
     /**
      * is agree?

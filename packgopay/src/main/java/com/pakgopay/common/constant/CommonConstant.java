@@ -84,6 +84,21 @@ public class CommonConstant {
     // account_statements user_role: agent
     public static final int STATEMENT_ROLE_AGENT = 2;
 
+    // account_statements order_type: manual recharge
+    public static final int STATEMENT_ORDER_TYPE_RECHARGE = 1;
+
+    // account_statements order_type: manual withdraw
+    public static final int STATEMENT_ORDER_TYPE_WITHDRAW = 2;
+
+    // account_statements order_type: manual adjustment
+    public static final int STATEMENT_ORDER_TYPE_ADJUST = 3;
+
+    // account_statements order_type: collection order
+    public static final int STATEMENT_ORDER_TYPE_COLLECTION = 4;
+
+    // account_statements order_type: payout order
+    public static final int STATEMENT_ORDER_TYPE_PAYOUT = 5;
+
     // payment type is 2:app
     public static final String PAYMENT_TYPE_APP = "1";
 

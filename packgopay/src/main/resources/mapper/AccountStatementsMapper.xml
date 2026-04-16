@@ -7,7 +7,9 @@
 
     <!-- ResultMap with explicit javaType for each column -->
     <resultMap id="AccountStatementsResultMap" type="com.pakgopay.mapper.dto.AccountStatementsDto">
-        <id     column="id"                        property="id"                     javaType="java.lang.String"/>
+        <id     column="id"                        property="id"                     javaType="java.lang.Long"/>
+        <result column="serial_no"                 property="serialNo"               javaType="java.lang.String"/>
+        <result column="transaction_no"            property="transactionNo"          javaType="java.lang.String"/>
 
         <result column="order_type"                property="orderType"              javaType="java.lang.Integer"/>
         <result column="amount"                    property="amount"                 javaType="java.math.BigDecimal"/>
@@ -38,8 +40,16 @@
         <result column="remark"                    property="remark"                 javaType="java.lang.String"/>
     </resultMap>
 
+    <resultMap id="AccountStatementEnqueueResultMap" type="com.pakgopay.mapper.dto.AccountStatementEnqueueDto">
+        <result column="user_id" property="userId" javaType="java.lang.String"/>
+        <result column="currency" property="currency" javaType="java.lang.String"/>
+        <result column="create_time" property="createTime" javaType="java.lang.Long"/>
+    </resultMap>
+
     <sql id="BaseColumns">
         id,
+        serial_no,
+        transaction_no,
         order_type,
         amount,
         status,
@@ -62,30 +72,15 @@
         remark
     </sql>
 
-    <!-- Dynamic query conditions (single-line if style) -->
-    <sql id="QueryWhere">
-        <where>
-            <if test="q != null">
-                <if test="q.id != null and q.id != ''">AND id = #{q.id}</if>
-                <if test="q.orderType != null">AND order_type = #{q.orderType}</if>
-                <if test="q.status != null">AND status = #{q.status}</if>
-                <if test="q.currency != null and q.currency != ''">AND currency = #{q.currency}</if>
-                <if test="q.walletAddr != null and q.walletAddr != ''">AND wallet_addr LIKE CONCAT('%', #{q.walletAddr}, '%')</if>
-                <if test="q.userId != null and q.userId != ''">AND user_id = #{q.userId}</if>
-                <if test="q.userRole != null">AND user_role = #{q.userRole}</if>
-                <if test="q.name != null and q.name != ''">AND name LIKE CONCAT('%', #{q.name}, '%')</if>
-                <if test="q.createBy != null and q.createBy != ''">AND create_by = #{q.createBy}</if>
-                <if test="q.createTime != null">AND create_time <![CDATA[>=]]> #{q.createTime}</if>
-                <if test="q.updateTime != null">AND update_time <![CDATA[>=]]> #{q.updateTime}</if>
-            </if>
-        </where>
-    </sql>
-
     <insert id="insert"
-            parameterType="com.pakgopay.mapper.dto.AccountStatementsDto">
+            parameterType="com.pakgopay.mapper.dto.AccountStatementsDto"
+            useGeneratedKeys="true"
+            keyProperty="id"
+            keyColumn="id">
         INSERT INTO account_statements
         (
-            id,
+            serial_no,
+            transaction_no,
             order_type,
             amount,
             status,
@@ -101,7 +96,6 @@
             user_role,
             name,
             currency,
-            create_time,
             create_by,
             update_time,
             update_by,
@@ -109,7 +103,8 @@
         )
         VALUES
             (
-                #{id},
+                #{serialNo},
+                #{transactionNo},
                 #{orderType},
                 #{amount},
                 #{status},
@@ -125,7 +120,6 @@
                 #{userRole},
                 #{name},
                 #{currency},
-                #{createTime},
                 #{createBy},
                 #{updateTime},
                 #{updateBy},
@@ -133,7 +127,61 @@
             )
     </insert>
 
-    <update id="updateById" parameterType="com.pakgopay.mapper.dto.AccountStatementsDto">
+    <select id="batchInsertReturning" resultMap="AccountStatementEnqueueResultMap">
+        INSERT INTO account_statements
+        (
+            serial_no,
+            transaction_no,
+            order_type,
+            amount,
+            status,
+            available_balance_before,
+            available_balance_after,
+            frozen_balance_before,
+            frozen_balance_after,
+            total_balance_before,
+            total_balance_after,
+            wallet_addr,
+            request_ip,
+            user_id,
+            user_role,
+            name,
+            currency,
+            create_by,
+            update_time,
+            update_by,
+            remark
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.serialNo},
+                #{item.transactionNo},
+                #{item.orderType},
+                #{item.amount},
+                #{item.status},
+                #{item.availableBalanceBefore},
+                #{item.availableBalanceAfter},
+                #{item.frozenBalanceBefore},
+                #{item.frozenBalanceAfter},
+                #{item.totalBalanceBefore},
+                #{item.totalBalanceAfter},
+                #{item.walletAddr},
+                #{item.requestIp},
+                #{item.userId},
+                #{item.userRole},
+                #{item.name},
+                #{item.currency},
+                #{item.createBy},
+                #{item.updateTime},
+                #{item.updateBy},
+                #{item.remark}
+            )
+        </foreach>
+        RETURNING user_id, currency, create_time
+    </select>
+
+    <update id="updateBySerialNo" parameterType="com.pakgopay.mapper.dto.AccountStatementsDto">
         UPDATE account_statements
         <set>
             <if test="orderType != null">order_type = #{orderType},</if>
@@ -156,42 +204,70 @@
             <if test="name != null and name != ''">name = #{name},</if>
             <if test="currency != null and currency != ''">currency = #{currency},</if>
 
-            <if test="createTime != null">create_time = #{createTime},</if>
             <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
 
             <if test="remark != null and remark != ''">remark = #{remark},</if>
         </set>
-        WHERE id = #{id}
+        WHERE serial_no = #{serialNo}
     </update>
 
-    <delete id="deleteById">
-        DELETE FROM account_statements WHERE id = #{id}
-    </delete>
+    <update id="batchUpdateBySerialNo">
+        UPDATE account_statements
+        <set>
+            available_balance_before = CASE serial_no
+            <foreach collection="list" item="item">
+                WHEN #{item.serialNo} THEN #{item.availableBalanceBefore}
+            </foreach>
+            END,
+            available_balance_after = CASE serial_no
+            <foreach collection="list" item="item">
+                WHEN #{item.serialNo} THEN #{item.availableBalanceAfter}
+            </foreach>
+            END,
+            frozen_balance_before = CASE serial_no
+            <foreach collection="list" item="item">
+                WHEN #{item.serialNo} THEN #{item.frozenBalanceBefore}
+            </foreach>
+            END,
+            frozen_balance_after = CASE serial_no
+            <foreach collection="list" item="item">
+                WHEN #{item.serialNo} THEN #{item.frozenBalanceAfter}
+            </foreach>
+            END,
+            total_balance_before = CASE serial_no
+            <foreach collection="list" item="item">
+                WHEN #{item.serialNo} THEN #{item.totalBalanceBefore}
+            </foreach>
+            END,
+            total_balance_after = CASE serial_no
+            <foreach collection="list" item="item">
+                WHEN #{item.serialNo} THEN #{item.totalBalanceAfter}
+            </foreach>
+            END,
+            status = CASE serial_no
+            <foreach collection="list" item="item">
+                WHEN #{item.serialNo} THEN #{item.status}
+            </foreach>
+            END
+        </set>
+        WHERE serial_no IN
+        <foreach collection="list" item="item" open="(" separator="," close=")">
+            #{item.serialNo}
+        </foreach>
+    </update>
 
-    <select id="selectById" resultMap="AccountStatementsResultMap">
+    <select id="selectBySerialNoFromTable" resultMap="AccountStatementsResultMap">
         SELECT <include refid="BaseColumns"/>
-        FROM account_statements
-        WHERE id = #{id}
-    </select>
-
-    <select id="selectList" resultMap="AccountStatementsResultMap">
-        SELECT <include refid="BaseColumns"/>
-        FROM account_statements
-        <include refid="QueryWhere"/>
-        ORDER BY create_time DESC
-    </select>
-
-    <select id="count" resultType="int">
-        SELECT COUNT(1)
-        FROM account_statements
-        <include refid="QueryWhere"/>
+        FROM ${tableName}
+        WHERE serial_no = #{serialNo}
     </select>
 
     <sql id="StatementQueryWhere">
         <where>
-            <if test="id != null and id != ''">AND id = #{id}</if>
+            <if test="serialNo != null and serialNo != ''">AND serial_no = #{serialNo}</if>
+            <if test="transactionNo != null and transactionNo != ''">AND transaction_no = #{transactionNo}</if>
             <if test="userId != null and userId != ''">AND user_id = #{userId}</if>
             <if test="userRole != null">AND user_role = #{userRole}</if>
             <if test="orderType != null">AND order_type = #{orderType}</if>
@@ -219,5 +295,82 @@
         ORDER BY create_time DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
+
+    <select id="selectEarliestPendingSnapshotAnchor" resultMap="AccountStatementsResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM account_statements
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND status = 3
+          AND total_balance_before IS NULL
+          AND total_balance_after IS NULL
+        ORDER BY id ASC
+        LIMIT 1
+    </select>
+
+    <select id="selectEarliestPendingApplyAnchor" resultMap="AccountStatementsResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM account_statements
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND status = 0
+          AND order_type IN (4, 5)
+        ORDER BY id ASC
+        LIMIT 1
+    </select>
+
+    <select id="listPendingBalanceApplyFromTable" resultMap="AccountStatementsResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM ${tableName}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND status = 0
+          AND order_type IN (4, 5)
+          AND create_time <![CDATA[>=]]> #{startTime}
+          AND create_time <![CDATA[<]]> #{endTime}
+        ORDER BY id ASC
+        LIMIT #{limitSize}
+    </select>
+
+    <select id="selectLatestCompletedBeforeFromTable" resultMap="AccountStatementsResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM ${tableName}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND status = 1
+          AND total_balance_after IS NOT NULL
+          AND create_time <![CDATA[>=]]> #{startTime}
+          AND create_time <![CDATA[<]]> #{endTime}
+          AND id <![CDATA[<]]> #{id}
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <select id="listPendingBalanceSnapshotsFromTable" resultMap="AccountStatementsResultMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM ${tableName}
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND status = 3
+          AND total_balance_before IS NULL
+          AND total_balance_after IS NULL
+          AND create_time <![CDATA[>=]]> #{startTime}
+          AND create_time <![CDATA[<]]> #{endTime}
+        ORDER BY id ASC
+        LIMIT #{limitSize}
+    </select>
+
+    <update id="batchUpdateStatusBySerialNo">
+        UPDATE account_statements
+        SET status = CASE serial_no
+        <foreach collection="list" item="item">
+            WHEN #{item.serialNo} THEN #{item.status}
+        </foreach>
+        END
+        WHERE serial_no IN
+        <foreach collection="list" item="item" open="(" separator="," close=")">
+            #{item.serialNo}
+        </foreach>
+    </update>
 
 </mapper>

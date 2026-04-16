@@ -5,6 +5,21 @@ server:
 spring:
   application:
     name: thirdparty-demo
+  rabbitmq:
+    host: 172.18.157.21
+    port: 5672
+    username: xiaoyou
+    password: xiaoyou@123
+    listener:
+      simple:
+        acknowledge-mode: auto
+
+thirdparty-demo:
+  notify:
+    queue: ${THIRDPARTY_DEMO_NOTIFY_QUEUE:thirdparty.demo.notify.queue}
+    consumer-concurrency: ${THIRDPARTY_DEMO_NOTIFY_CONSUMER_CONCURRENCY:8}
+    max-consumer-concurrency: ${THIRDPARTY_DEMO_NOTIFY_MAX_CONSUMER_CONCURRENCY:16}
+    prefetch: ${THIRDPARTY_DEMO_NOTIFY_PREFETCH:20}
 
 logging:
   level:

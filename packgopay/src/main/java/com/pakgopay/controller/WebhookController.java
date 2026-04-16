@@ -854,7 +854,7 @@ public class WebhookController {
             return CommonResponse.success("ignore");
         }
 
-        AccountStatementsDto dto = accountStatementsMapper.selectById(statementId);
+        AccountStatementsDto dto = accountStatementService.findBySerialNo(statementId);
         if (dto == null || dto.getOrderType() == null || dto.getOrderType() != 2) {
             telegramService.answerCallbackQuery(callbackQueryId, "withdraw order not found", true);
             return CommonResponse.success("not_found");
@@ -935,7 +935,7 @@ public class WebhookController {
             String statementId = pending.getString("statementId");
             String status = pending.getString("status");
             AccountStatementEditRequest request = new AccountStatementEditRequest();
-            request.setId(statementId);
+            request.setSerialNo(statementId);
             request.setAgree("1".equals(status));
             request.setRemark(remark);
             request.setUserName("telegram:" + fromUserId);

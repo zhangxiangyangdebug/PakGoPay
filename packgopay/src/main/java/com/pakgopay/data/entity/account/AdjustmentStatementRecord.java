@@ -1,7 +1,5 @@
 package com.pakgopay.data.entity.account;
 
-import com.pakgopay.mapper.dto.BalanceDto;
-
 import java.math.BigDecimal;
 
 /**
@@ -9,7 +7,6 @@ import java.math.BigDecimal;
  */
 public record AdjustmentStatementRecord(
         Subject subject,
-        Snapshot snapshot,
         Audit audit) {
 
     /**
@@ -21,14 +18,6 @@ public record AdjustmentStatementRecord(
             String name,
             String currency,
             BigDecimal amount) {
-    }
-
-    /**
-     * Balance snapshots before/after adjustment.
-     */
-    public record Snapshot(
-            BalanceDto before,
-            BalanceDto after) {
     }
 
     /**

@@ -6,9 +6,14 @@ import lombok.Data;
 public class AccountStatementEntity {
 
     /**
-     * system transaction id
+     * statement serial no
      */
-    private String id;
+    private String serialNo;
+
+    /**
+     * order transaction no
+     */
+    private String transactionNo;
 
     /**
      * merchant/agent user Id
