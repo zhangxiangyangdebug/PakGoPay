@@ -19,19 +19,22 @@ public class AccountStatementsDto implements Serializable {
     /** Auto-increment primary key */
     private Long id;
 
+    /** Sequence within the same userId+currency */
+    private Long accountSeq;
+
     /** Business serial no, e.g. SE... */
     private String serialNo;
 
     /** Order transaction no */
     private String transactionNo;
 
-    /** Order type: 1-Recharge, 2-Withdraw, 3-Manual adjustment */
+    /** Order type: 11/21/22/23/31/32/33/41/42 */
     private Integer orderType;
 
     /** Change amount */
     private BigDecimal amount;
 
-    /** Status: 0-Pending, 1-Completed, 2-Failed */
+    /** Status: 0-Pending apply, 1-Completed, 2-Failed, 3-Applied waiting snapshot */
     private Integer status;
 
     /** Available balance before change */

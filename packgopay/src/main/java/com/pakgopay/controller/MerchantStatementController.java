@@ -172,18 +172,4 @@ public class MerchantStatementController {
         }
     }
 
-    @PostMapping("/editAccountStatement")
-    public CommonResponse editAccountStatement(
-            @RequestBody @Valid AccountStatementEditRequest accountStatementEditRequest) {
-        try {
-            CommonResponse response = accountStatementService.updateAccountStatement(accountStatementEditRequest);
-            operateLogService.write(OperateInterfaceEnum.EDIT_ACCOUNT_STATEMENT,
-                    accountStatementEditRequest.getUserId(), accountStatementEditRequest);
-            return response;
-        } catch (PakGoPayException e) {
-            log.error("editAccountStatement failed, code: {} message: {}", e.getErrorCode(), e.getMessage());
-            return CommonResponse.fail(e.getCode(), "editAccountStatement failed: " + e.getMessage());
-        }
-    }
-
 }

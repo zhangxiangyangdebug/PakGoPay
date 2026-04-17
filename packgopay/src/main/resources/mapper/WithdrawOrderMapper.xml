@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.WithdrawOrderMapper">
+
+    <resultMap id="WithdrawOrderDtoMap" type="com.pakgopay.mapper.dto.WithdrawOrderDto">
+        <id property="id" column="id" javaType="java.lang.Long"/>
+        <result property="withdrawNo" column="withdraw_no" javaType="java.lang.String"/>
+        <result property="userId" column="user_id" javaType="java.lang.String"/>
+        <result property="userRole" column="user_role" javaType="java.lang.Integer"/>
+        <result property="name" column="name" javaType="java.lang.String"/>
+        <result property="currency" column="currency" javaType="java.lang.String"/>
+        <result property="amount" column="amount" javaType="java.math.BigDecimal"/>
+        <result property="walletAddr" column="wallet_addr" javaType="java.lang.String"/>
+        <result property="requestIp" column="request_ip" javaType="java.lang.String"/>
+        <result property="status" column="status" javaType="java.lang.Integer"/>
+        <result property="failReason" column="fail_reason" javaType="java.lang.String"/>
+        <result property="remark" column="remark" javaType="java.lang.String"/>
+        <result property="createTime" column="create_time" javaType="java.lang.Long"/>
+        <result property="updateTime" column="update_time" javaType="java.lang.Long"/>
+        <result property="createBy" column="create_by" javaType="java.lang.String"/>
+        <result property="updateBy" column="update_by" javaType="java.lang.String"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,
+        withdraw_no,
+        user_id,
+        user_role,
+        name,
+        currency,
+        amount,
+        wallet_addr,
+        request_ip,
+        status,
+        fail_reason,
+        remark,
+        create_time,
+        update_time,
+        create_by,
+        update_by
+    </sql>
+
+    <sql id="WithdrawOrderQueryWhere">
+        <where>
+            <if test="id != null">
+                AND id = #{id}
+            </if>
+            <if test="withdrawNo != null and withdrawNo != ''">
+                AND withdraw_no = #{withdrawNo}
+            </if>
+            <if test="merchantAgentId != null and merchantAgentId != ''">
+                AND user_id = #{merchantAgentId}
+            </if>
+            <if test="userRole != null">
+                AND user_role = #{userRole}
+            </if>
+            <if test="name != null and name != ''">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+            <if test="currency != null and currency != ''">
+                AND currency = #{currency}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="requestIp != null and requestIp != ''">
+                AND request_ip = #{requestIp}
+            </if>
+            <if test="startTime != null">
+                AND create_time <![CDATA[>=]]> #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND create_time <![CDATA[<=]]> #{endTime}
+            </if>
+        </where>
+    </sql>
+
+    <insert id="insert" parameterType="com.pakgopay.data.entity.account.WithdrawOrderEntity"
+            useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO withdraw_order (
+            withdraw_no,
+            user_id,
+            user_role,
+            name,
+            currency,
+            amount,
+            wallet_addr,
+            request_ip,
+            status,
+            fail_reason,
+            remark,
+            create_time,
+            update_time,
+            create_by,
+            update_by
+        ) VALUES (
+                     #{withdrawNo},
+                     #{userId},
+                     #{userRole},
+                     #{name},
+                     #{currency},
+                     #{amount},
+                     #{walletAddr},
+                     #{requestIp},
+                     #{status},
+                     #{failReason},
+                     #{remark},
+                     #{createTime},
+                     #{updateTime},
+                     #{createBy},
+                     #{updateBy}
+                 )
+    </insert>
+
+    <update id="updateByWithdrawNo" parameterType="com.pakgopay.data.entity.account.WithdrawOrderEntity">
+        UPDATE withdraw_order
+        <set>
+            <if test="userId != null and userId != ''">
+                user_id = #{userId},
+            </if>
+            <if test="userRole != null">
+                user_role = #{userRole},
+            </if>
+            <if test="name != null and name != ''">
+                name = #{name},
+            </if>
+            <if test="currency != null and currency != ''">
+                currency = #{currency},
+            </if>
+            <if test="amount != null">
+                amount = #{amount},
+            </if>
+            <if test="walletAddr != null and walletAddr != ''">
+                wallet_addr = #{walletAddr},
+            </if>
+            <if test="requestIp != null and requestIp != ''">
+                request_ip = #{requestIp},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="failReason != null">
+                fail_reason = #{failReason},
+            </if>
+            <if test="remark != null">
+                remark = #{remark},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime},
+            </if>
+            <if test="updateBy != null and updateBy != ''">
+                update_by = #{updateBy},
+            </if>
+        </set>
+        WHERE withdraw_no = #{withdrawNo}
+    </update>
+
+    <update id="updateStatusByWithdrawNo">
+        UPDATE withdraw_order
+        SET status = #{status},
+            fail_reason = #{failReason},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = #{updateTime}
+        WHERE withdraw_no = #{withdrawNo}
+    </update>
+
+    <select id="findByWithdrawNo" resultMap="WithdrawOrderDtoMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM withdraw_order
+        WHERE withdraw_no = #{withdrawNo}
+        LIMIT 1
+    </select>
+
+    <select id="findById" resultMap="WithdrawOrderDtoMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM withdraw_order
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <select id="countByQuery" parameterType="com.pakgopay.data.entity.account.WithdrawOrderEntity" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM withdraw_order
+        <include refid="WithdrawOrderQueryWhere"/>
+    </select>
+
+    <select id="pageByQuery" parameterType="com.pakgopay.data.entity.account.WithdrawOrderEntity" resultMap="WithdrawOrderDtoMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM withdraw_order
+        <include refid="WithdrawOrderQueryWhere"/>
+        ORDER BY id DESC
+        <if test="pageSize != null and offset != null">
+            LIMIT #{pageSize} OFFSET #{offset}
+        </if>
+    </select>
+
+</mapper>

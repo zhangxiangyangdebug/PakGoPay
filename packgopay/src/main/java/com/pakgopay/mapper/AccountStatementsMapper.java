@@ -44,7 +44,7 @@ public interface AccountStatementsMapper {
                                                               @Param("currency") String currency,
                                                               @Param("startTime") Long startTime,
                                                               @Param("endTime") Long endTime,
-                                                              @Param("id") Long id);
+                                                              @Param("accountSeq") Long accountSeq);
 
     List<AccountStatementsDto> listPendingBalanceSnapshotsFromTable(@Param("tableName") String tableName,
                                                                     @Param("userId") String userId,
@@ -52,6 +52,9 @@ public interface AccountStatementsMapper {
                                                                     @Param("startTime") Long startTime,
                                                                     @Param("endTime") Long endTime,
                                                                     @Param("limitSize") int limitSize);
+
+    Long selectMaxAccountSeq(@Param("userId") String userId,
+                             @Param("currency") String currency);
 
     int batchUpdateStatusBySerialNo(@Param("list") List<AccountStatementsDto> list);
 }

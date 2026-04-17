@@ -1,30 +1,23 @@
 package com.pakgopay.service.impl;
 
 import com.pakgopay.common.constant.CommonConstant;
-import com.pakgopay.common.constant.NotificationComponentType;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.data.entity.Message;
 import com.pakgopay.data.entity.account.AccountStatementEntity;
 import com.pakgopay.data.entity.account.AdjustmentStatementRecord;
 import com.pakgopay.data.reqeust.account.AccountStatementAddRequest;
-import com.pakgopay.data.reqeust.account.AccountStatementEditRequest;
 import com.pakgopay.data.reqeust.account.AccountStatementQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.account.AccountStatementsResponse;
-import com.pakgopay.mapper.UserMapper;
 import com.pakgopay.mapper.dto.AccountStatementsDto;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.common.AccountStatementService;
-import com.pakgopay.service.common.OrderInterventionTelegramNotifier;
-import com.pakgopay.service.common.SendDmqMessage;
 import com.pakgopay.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -36,22 +29,10 @@ public class AccountStatementServiceImpl extends AbstractStatementSnapshotServic
     private BalanceService balanceService;
 
     @Autowired
-    private UserService userService;
-
-    @Autowired
     private TransactionUtil transactionUtil;
 
     @Autowired
     private SnowflakeIdService snowflakeIdService;
-
-    @Autowired
-    private UserMapper userMapper;
-
-    @Autowired
-    private SendDmqMessage sendDmqMessage;
-
-    @Autowired
-    private OrderInterventionTelegramNotifier orderInterventionTelegramNotifier;
 
     /**
      * Query statement rows from the new account_statements chain.
@@ -106,18 +87,14 @@ public class AccountStatementServiceImpl extends AbstractStatementSnapshotServic
     public CommonResponse createAccountStatement(AccountStatementAddRequest accountStatementAddRequest) {
         log.info("createAccountStatement start");
 
-        if (accountStatementAddRequest.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW) {
-            userService.validateWithdrawalPermission(
-                    accountStatementAddRequest.getMerchantAgentId(),
-                    accountStatementAddRequest.getClientIp());
+        if (accountStatementAddRequest.getOrderType() != CommonConstant.STATEMENT_ORDER_TYPE_MANUAL_CREDIT
+                && accountStatementAddRequest.getOrderType() != CommonConstant.STATEMENT_ORDER_TYPE_MANUAL_DEBIT) {
+            throw new PakGoPayException(ResultCode.FAIL, "manual statement only supports orderType 41 or 42");
         }
         AccountStatementsDto accountStatementsDto = generateAccountStatementForAdd(accountStatementAddRequest);
-        AccountStatementsDto createdStatement;
-
         transactionUtil.runInTransaction(() -> {
             accountStatementsMapper.insert(accountStatementsDto);
-            // Recharge: real credit is applied first, snapshots are backfilled later.
-            if (accountStatementsDto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_RECHARGE) {
+            if (accountStatementsDto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_MANUAL_CREDIT) {
                 CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getSerialNo(), () -> {
                     balanceService.creditBalance(
                             accountStatementsDto.getUserId(),
@@ -126,73 +103,28 @@ public class AccountStatementServiceImpl extends AbstractStatementSnapshotServic
                             null);
                 });
             }
-            // Withdrawal apply: move available to frozen first, then wait for manual review.
-            if (accountStatementsDto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW) {
-                CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getSerialNo(), () -> {
-                    balanceService.applyWithdrawalOperation(
-                            accountStatementsDto.getUserId(),
-                            accountStatementsDto.getCurrency(),
-                            accountStatementsDto.getAmount(),
-                            0,
-                            null);
-                });
-            }
-            // Manual adjustment: real balance changes first, snapshots are backfilled later.
-            if (accountStatementsDto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_ADJUST) {
+            if (accountStatementsDto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_MANUAL_DEBIT) {
                 CommonUtil.withBalanceLogContext("accountStatement.create", accountStatementsDto.getSerialNo(), () -> {
                     balanceService.adjustBalance(
                             accountStatementsDto.getUserId(),
                             accountStatementsDto.getCurrency(),
-                            accountStatementsDto.getAmount(),
+                            accountStatementsDto.getAmount().negate(),
                             null);
                 });
             }
-        });
-        createdStatement = loadStatementBySerialNo(accountStatementsDto.getSerialNo());
-
-        if (accountStatementsDto.getStatus() != null && accountStatementsDto.getStatus() == 3) {
+            AccountStatementsDto inserted = loadStatementBySerialNo(accountStatementsDto.getSerialNo());
             enqueuePendingSnapshot(
                     accountStatementsDto.getUserId(),
                     accountStatementsDto.getCurrency(),
-                    createdStatement == null ? accountStatementsDto.getCreateTime() : createdStatement.getCreateTime());
-        }
-
-        // only withdraw order need to resolve
-        if (accountStatementsDto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW) {
-            log.info("notify admin to resolve order");
-            List<String> adminUserIds = userMapper.listUserIdsByRoleId(CommonConstant.ROLE_ADMIN);
-            if (adminUserIds == null || adminUserIds.isEmpty()) {
-                log.warn("no admin user found, skip notification for statementId={}", accountStatementsDto.getSerialNo());
-            } else {
-                for (String adminUserId : adminUserIds) {
-                    Message message = new Message();
-                    message.setId(accountStatementsDto.getSerialNo());
-                    message.setUserId(adminUserId);
-                    message.setTimestamp(System.currentTimeMillis());
-                    message.setRead(false);
-                    message.setPath(NotificationComponentType.Withdraw_Component);
-                    message.setTitle(NotificationComponentType.Withdraw_Title);
-                    message.setContent(accountStatementsDto.getSerialNo());
-                    redisUtil.saveMessage(message);
-                    sendDmqMessage.sendFanout("user-notify", message);
-                }
-            }
-            try {
-                orderInterventionTelegramNotifier.notifyPendingWithdrawOrder(
-                        accountStatementsDto.getSerialNo(),
-                        createdStatement == null ? null : createdStatement.getCreateTime());
-            } catch (Exception e) {
-                log.warn("send telegram withdraw notify failed, statementId={}, message={}",
-                        accountStatementsDto.getSerialNo(), e.getMessage());
-            }
-        }
+                    inserted == null ? accountStatementsDto.getCreateTime() : inserted.getCreateTime());
+        });
 
         log.info("createAccountStatement end");
         return CommonResponse.success(ResultCode.SUCCESS);
     }
 
     /**
-     * Build the base row for manual recharge / withdrawal / adjustment.
+     * Build the base row for manual credit / debit.
      */
     private AccountStatementsDto generateAccountStatementForAdd(AccountStatementAddRequest req) {
         AccountStatementsDto dto = new AccountStatementsDto();
@@ -207,9 +139,6 @@ public class AccountStatementServiceImpl extends AbstractStatementSnapshotServic
                 .reqObj("amount", req::getAmount, dto::setAmount)
                 .reqObj("orderType", req::getOrderType, dto::setOrderType)
                 .obj(req::getUserRole, dto::setUserRole)
-                .ifTrue(CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW == req.getOrderType())
-                .reqStr("walletAddr", req::getWalletAddr, dto::setWalletAddr)
-                .endSkip()
                 .str(req::getClientIp, dto::setRequestIp)
                 .str(req::getRemark, dto::setRemark);
 
@@ -217,102 +146,23 @@ public class AccountStatementServiceImpl extends AbstractStatementSnapshotServic
         dto.setUpdateTime(createTime);
         dto.setCreateBy(req.getUserName());
         dto.setUpdateBy(req.getUserName());
-
-        if (CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW == req.getOrderType()) {
-            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(new ArrayList<>() {{
-                add(dto.getUserId());
-            }}).getTotalData();
-            String currency = dto.getCurrency();
-            Map<String, BigDecimal> balanceInfo = cardInfo.get(currency);
-
-            BigDecimal availableBalanceBefore = BigDecimal.ZERO;
-            if (balanceInfo != null && !balanceInfo.isEmpty()) {
-                availableBalanceBefore = balanceInfo.getOrDefault("available", BigDecimal.ZERO);
-            } else {
-                balanceService.createBalanceRecord(dto.getUserId(), dto.getCurrency());
-            }
-
-            if (availableBalanceBefore.compareTo(req.getAmount()) < CommonConstant.ZERO) {
+        if (CommonConstant.STATEMENT_ORDER_TYPE_MANUAL_DEBIT == req.getOrderType()) {
+            Map<String, Map<String, BigDecimal>> cardInfo = balanceService.fetchBalanceSummaries(List.of(dto.getUserId())).getTotalData();
+            Map<String, BigDecimal> balanceInfo = cardInfo.get(dto.getCurrency());
+            BigDecimal availableBalanceBefore = balanceInfo == null
+                    ? BigDecimal.ZERO
+                    : balanceInfo.getOrDefault("available", BigDecimal.ZERO);
+            if (availableBalanceBefore.compareTo(req.getAmount()) < 0) {
                 log.warn("insufficient available balance");
                 throw new PakGoPayException(ResultCode.FAIL, "insufficient available balance");
             }
-
-            dto.setStatus(0);
-        } else {
-            dto.setStatus(3);
         }
-
+        dto.setStatus(3);
         return b.build();
     }
 
     /**
-     * Review one withdrawal statement. Approval applies the real payout delta first and then
-     * enqueues the async snapshot task to fill before/after balances in order.
-     */
-    @Override
-    public CommonResponse updateAccountStatement(AccountStatementEditRequest request) {
-        log.info("editAccountStatement start, serialNo={}", request.getSerialNo());
-
-        AccountStatementsDto accountStatementsDto = generateAccountStatement(request);
-        transactionUtil.runInTransaction(() -> {
-            accountStatementsMapper.updateBySerialNo(accountStatementsDto);
-
-            AccountStatementsDto dto = loadStatementBySerialNo(accountStatementsDto.getSerialNo());
-
-            CommonUtil.withBalanceLogContext("accountStatement.update", dto.getSerialNo(), () -> {
-                balanceService.applyWithdrawalOperation(
-                        dto.getUserId(),
-                        dto.getCurrency(),
-                        dto.getAmount(),
-                        request.isAgree() ? 1 : 2,
-                        null);
-            });
-        });
-
-        if (Boolean.TRUE.equals(request.isAgree())) {
-            AccountStatementsDto approved = loadStatementBySerialNo(accountStatementsDto.getSerialNo());
-            if (approved != null) {
-                enqueuePendingSnapshot(approved.getUserId(), approved.getCurrency(), approved.getCreateTime());
-            }
-        }
-
-        AccountStatementsDto dto = loadStatementBySerialNo(accountStatementsDto.getSerialNo());
-        if (dto != null && dto.getOrderType() != null && dto.getOrderType() == CommonConstant.STATEMENT_ORDER_TYPE_WITHDRAW) {
-            Message message = new Message();
-            message.setId(dto.getSerialNo());
-            message.setUserId(dto.getUserId());
-            message.setTimestamp(System.currentTimeMillis());
-            message.setRead(false);
-            message.setPath(NotificationComponentType.Withdraw_Component);
-            message.setTitle(NotificationComponentType.Withdraw_Result_Title);
-            message.setContent(dto.getSerialNo());
-            redisUtil.saveMessage(message);
-            sendDmqMessage.sendFanout("user-notify", message);
-            log.info("notify merchant withdraw review completed, statementId={}, merchantUserId={}",
-                    dto.getSerialNo(), dto.getUserId());
-        }
-
-        log.info("editAccountStatement end, serialNo={}", request.getSerialNo());
-        return CommonResponse.success(ResultCode.SUCCESS);
-    }
-
-    /**
-     * Build the partial update payload for one withdrawal review action.
-     */
-    private AccountStatementsDto generateAccountStatement(AccountStatementEditRequest request) {
-        AccountStatementsDto dto = new AccountStatementsDto();
-        dto.setUpdateTime(System.currentTimeMillis() / 1000);
-        dto.setStatus(request.isAgree() ? 3 : 2);
-
-        return PatchBuilderUtil.from(request).to(dto)
-                .str(request::getSerialNo, dto::setSerialNo)
-                .str(request::getRemark, dto::setRemark)
-                .str(request::getUserName, dto::setUpdateBy)
-                .build();
-    }
-
-    /**
-     * Persist one adjustment statement row after the real balance change has already committed.
+     * Persist one manual credit/debit statement row after the real balance change has already committed.
      */
     @Override
     public void createAdjustmentStatement(AdjustmentStatementRecord payload) {
@@ -322,12 +172,16 @@ public class AccountStatementServiceImpl extends AbstractStatementSnapshotServic
         AccountStatementsDto statement = new AccountStatementsDto();
         String serialNo = snowflakeIdService.nextId(CommonConstant.STATEMENT_PREFIX);
         long createTime = resolveCreateTimeFromSerialNo(serialNo);
+        BigDecimal rawAmount = payload.subject().amount();
+        BigDecimal normalizedAmount = rawAmount == null ? null : rawAmount.abs();
         statement.setSerialNo(serialNo);
-        statement.setOrderType(CommonConstant.STATEMENT_ORDER_TYPE_ADJUST);
+        statement.setOrderType(rawAmount != null && rawAmount.compareTo(BigDecimal.ZERO) >= 0
+                ? CommonConstant.STATEMENT_ORDER_TYPE_MANUAL_CREDIT
+                : CommonConstant.STATEMENT_ORDER_TYPE_MANUAL_DEBIT);
         // Decompose payload parts for readability.
         AdjustmentStatementRecord.Subject subject = payload.subject();
         AdjustmentStatementRecord.Audit audit = payload.audit();
-        statement.setAmount(subject.amount());
+        statement.setAmount(normalizedAmount);
         statement.setStatus(3);
         // Fill business/audit metadata.
         statement.setRequestIp(audit.requestIp());
@@ -367,17 +221,7 @@ public class AccountStatementServiceImpl extends AbstractStatementSnapshotServic
 
     @Override
     public AccountStatementsDto findBySerialNo(String serialNo) {
-        return loadStatementBySerialNo(serialNo);
-    }
-
-    private AccountStatementsDto loadStatementBySerialNo(String serialNo) {
-        for (String partitionTable : resolveCandidatePartitionTablesBySerialNo(serialNo)) {
-            AccountStatementsDto dto = accountStatementsMapper.selectBySerialNoFromTable(partitionTable, serialNo);
-            if (dto != null) {
-                return dto;
-            }
-        }
-        return null;
+        return super.loadStatementBySerialNo(serialNo);
     }
 
 }

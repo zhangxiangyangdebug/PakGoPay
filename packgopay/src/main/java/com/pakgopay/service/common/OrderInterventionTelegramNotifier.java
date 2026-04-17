@@ -48,12 +48,12 @@ public class OrderInterventionTelegramNotifier {
         sendTimeoutOrder(chatId, "payout", transactionNo, createTime);
     }
 
-    public void notifyPendingWithdrawOrder(String statementId, Long createTime) {
+    public void notifyPendingWithdrawOrder(String withdrawNo, Long createTime) {
         if (!telegramService.isEnabled()) {
-            log.info("skip telegram withdraw notify: telegram disabled, statementId={}", statementId);
+            log.info("skip telegram withdraw notify: telegram disabled, withdrawNo={}", withdrawNo);
             return;
         }
-        if (!StringUtils.hasText(statementId)) {
+        if (!StringUtils.hasText(withdrawNo)) {
             return;
         }
         List<String> adminChatIds = resolveAdminTelegramGroups();
@@ -65,16 +65,16 @@ public class OrderInterventionTelegramNotifier {
                 ? "-"
                 : Instant.ofEpochSecond(createTime).atZone(ZoneId.systemDefault()).format(TIME_FMT);
         String text = "【需审批】提现订单\n"
-                + "订单号: " + statementId + "\n"
+                + "订单号: " + withdrawNo + "\n"
                 + "创建时间: " + createTimeText + "\n"
                 + "请选择操作(需填写说明):";
-        Map<String, Object> markup = buildWithdrawReplyMarkup(statementId);
+        Map<String, Object> markup = buildWithdrawReplyMarkup(withdrawNo);
         for (String chatId : adminChatIds) {
             try {
                 telegramService.sendMessageWithInlineKeyboardTo(chatId, text, markup);
             } catch (Exception e) {
-                log.warn("telegram withdraw notify failed, statementId={}, chatId={}, message={}",
-                        statementId, chatId, e.getMessage());
+                log.warn("telegram withdraw notify failed, withdrawNo={}, chatId={}, message={}",
+                        withdrawNo, chatId, e.getMessage());
             }
         }
     }
@@ -138,11 +138,11 @@ public class OrderInterventionTelegramNotifier {
         return replyMarkup;
     }
 
-    private Map<String, Object> buildWithdrawReplyMarkup(String statementId) {
+    private Map<String, Object> buildWithdrawReplyMarkup(String withdrawNo) {
         List<List<Map<String, String>>> inlineKeyboard = new ArrayList<>();
         List<Map<String, String>> row1 = new ArrayList<>();
-        row1.add(buttonCallback("通过", WITHDRAW_CALLBACK_PREFIX + "|" + statementId + "|1"));
-        row1.add(buttonCallback("驳回", WITHDRAW_CALLBACK_PREFIX + "|" + statementId + "|2"));
+        row1.add(buttonCallback("通过", WITHDRAW_CALLBACK_PREFIX + "|" + withdrawNo + "|2"));
+        row1.add(buttonCallback("驳回", WITHDRAW_CALLBACK_PREFIX + "|" + withdrawNo + "|1"));
         inlineKeyboard.add(row1);
 
         Map<String, Object> replyMarkup = new HashMap<>();

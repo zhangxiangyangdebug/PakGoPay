@@ -31,7 +31,6 @@ public enum OperateInterfaceEnum {
     ADD_MERCHANT_ACCOUNT(3, "Create Merchant Account"),
     EDIT_MERCHANT_ACCOUNT(1, "Update Merchant Account"),
     CREATE_ACCOUNT_STATEMENT(3, "Create Account Statement"),
-    EDIT_ACCOUNT_STATEMENT(1, "Update Account Statement"),
     RESET_MERCHANT_SIGN_KEY(1, "Reset Merchant Sign Key"),
 
     // Report export
@@ -64,7 +63,11 @@ public enum OperateInterfaceEnum {
     MANUAL_NOTIFY_COLLECTION_ORDER(1, "Manual Collection Notify"),
     MANUAL_NOTIFY_PAYOUT_ORDER(1, "Manual Payout Notify"),
     MANUAL_REVERSE_COLLECTION_ORDER(1, "Manual Reverse Collection Order"),
-    MANUAL_REVERSE_PAYOUT_ORDER(1, "Manual Reverse Payout Order");
+    MANUAL_REVERSE_PAYOUT_ORDER(1, "Manual Reverse Payout Order"),
+
+    // Transaction manual operation
+    CREATE_WITHDRAW_ORDER(3, "Create Withdraw Order"),
+    AUDIT_WITHDRAW_ORDER(1, "Audit Withdraw Order");
 
     /**
      * Operate type:

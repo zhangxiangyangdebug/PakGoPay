@@ -46,7 +46,7 @@ public class OrderStatementServiceImpl implements OrderStatementService {
                 collectionOrderDto.getActualAmount() == null ? collectionOrderDto.getAmount() : collectionOrderDto.getActualAmount(),
                 collectionOrderDto.getMerchantFee());
         appendStatement(statements,
-                CommonConstant.STATEMENT_ORDER_TYPE_COLLECTION,
+                CommonConstant.STATEMENT_ORDER_TYPE_COLLECTION_CREDIT,
                 creditAmount,
                 collectionOrderDto.getTransactionNo(),
                 collectionOrderDto.getMerchantUserId(),
@@ -57,7 +57,7 @@ public class OrderStatementServiceImpl implements OrderStatementService {
                 "order:collection_credit:mch:" + collectionOrderDto.getTransactionNo());
         appendAgentStatements(
                 statements,
-                CommonConstant.STATEMENT_ORDER_TYPE_COLLECTION,
+                CommonConstant.STATEMENT_ORDER_TYPE_COLLECTION_CREDIT,
                 collectionOrderDto.getTransactionNo(),
                 merchantInfoDto == null ? null : merchantInfoDto.getAgentInfos(),
                 collectionOrderDto.getCurrencyType(),
@@ -77,7 +77,7 @@ public class OrderStatementServiceImpl implements OrderStatementService {
         }
         List<AccountStatementsDto> statements = new ArrayList<>();
         appendStatement(statements,
-                CommonConstant.STATEMENT_ORDER_TYPE_PAYOUT,
+                CommonConstant.STATEMENT_ORDER_TYPE_PAYOUT_CONFIRM,
                 frozenAmount,
                 payOrderDto.getTransactionNo(),
                 payOrderDto.getMerchantUserId(),
@@ -88,7 +88,7 @@ public class OrderStatementServiceImpl implements OrderStatementService {
                 "order:payout_confirm:mch:" + payOrderDto.getTransactionNo());
         appendAgentStatements(
                 statements,
-                CommonConstant.STATEMENT_ORDER_TYPE_PAYOUT,
+                CommonConstant.STATEMENT_ORDER_TYPE_PAYOUT_CONFIRM,
                 payOrderDto.getTransactionNo(),
                 merchantInfoDto == null ? null : merchantInfoDto.getAgentInfos(),
                 payOrderDto.getCurrencyType(),

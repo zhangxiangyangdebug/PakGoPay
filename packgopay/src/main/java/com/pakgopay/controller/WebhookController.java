@@ -9,19 +9,18 @@ import com.pakgopay.common.constant.CommonConstant;
 import com.pakgopay.common.enums.TransactionStatus;
 import com.pakgopay.common.enums.ResultCode;
 import com.pakgopay.common.exception.PakGoPayException;
-import com.pakgopay.data.reqeust.account.AccountStatementEditRequest;
+import com.pakgopay.data.reqeust.account.WithdrawOrderAuditRequest;
 import com.pakgopay.data.reqeust.currencyTypeManagement.CurrencyTypeRequest;
 import com.pakgopay.data.reqeust.report.OpsReportRequest;
 import com.pakgopay.data.reqeust.transaction.NotifyRequest;
 import com.pakgopay.data.entity.OrderQueryEntity;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.data.response.report.OpsReportResponse;
-import com.pakgopay.mapper.AccountStatementsMapper;
 import com.pakgopay.mapper.CollectionOrderMapper;
 import com.pakgopay.mapper.CurrencyTypeMapper;
 import com.pakgopay.mapper.PayOrderMapper;
 import com.pakgopay.mapper.UserMapper;
-import com.pakgopay.mapper.dto.AccountStatementsDto;
+import com.pakgopay.mapper.WithdrawOrderMapper;
 import com.pakgopay.mapper.dto.BalanceDto;
 import com.pakgopay.mapper.dto.OpsOrderDailyDto;
 import com.pakgopay.mapper.dto.CurrencyTypeDTO;
@@ -30,7 +29,7 @@ import com.pakgopay.mapper.dto.PayOrderDto;
 import com.pakgopay.mapper.dto.UserDTO;
 import com.pakgopay.service.BalanceService;
 import com.pakgopay.service.OpsReportService;
-import com.pakgopay.service.common.AccountStatementService;
+import com.pakgopay.service.WithdrawOrderService;
 import com.pakgopay.service.common.GrafanaAlertService;
 import com.pakgopay.service.common.OrderInterventionTelegramNotifier;
 import com.pakgopay.service.common.TelegramService;
@@ -78,8 +77,8 @@ public class WebhookController {
     private final PayOutOrderService payOutOrderService;
     private final CollectionOrderMapper collectionOrderMapper;
     private final PayOrderMapper payOrderMapper;
-    private final AccountStatementsMapper accountStatementsMapper;
-    private final AccountStatementService accountStatementService;
+    private final WithdrawOrderMapper withdrawOrderMapper;
+    private final WithdrawOrderService withdrawOrderService;
     private final UserMapper userMapper;
     private final BalanceService balanceService;
     private final RedisUtil redisUtil;
@@ -96,8 +95,8 @@ public class WebhookController {
                              PayOutOrderService payOutOrderService,
                              CollectionOrderMapper collectionOrderMapper,
                              PayOrderMapper payOrderMapper,
-                             AccountStatementsMapper accountStatementsMapper,
-                             AccountStatementService accountStatementService,
+                             WithdrawOrderMapper withdrawOrderMapper,
+                             WithdrawOrderService withdrawOrderService,
                              UserMapper userMapper,
                              BalanceService balanceService,
                              RedisUtil redisUtil,
@@ -111,8 +110,8 @@ public class WebhookController {
         this.payOutOrderService = payOutOrderService;
         this.collectionOrderMapper = collectionOrderMapper;
         this.payOrderMapper = payOrderMapper;
-        this.accountStatementsMapper = accountStatementsMapper;
-        this.accountStatementService = accountStatementService;
+        this.withdrawOrderMapper = withdrawOrderMapper;
+        this.withdrawOrderService = withdrawOrderService;
         this.userMapper = userMapper;
         this.balanceService = balanceService;
         this.redisUtil = redisUtil;
@@ -847,15 +846,15 @@ public class WebhookController {
             telegramService.answerCallbackQuery(callbackQueryId, "invalid callback", true);
             return CommonResponse.success("ignore");
         }
-        String statementId = parts[1];
+        String withdrawNo = parts[1];
         String targetStatus = parts[2];
         if (!"1".equals(targetStatus) && !"2".equals(targetStatus)) {
             telegramService.answerCallbackQuery(callbackQueryId, "invalid status", true);
             return CommonResponse.success("ignore");
         }
 
-        AccountStatementsDto dto = accountStatementService.findBySerialNo(statementId);
-        if (dto == null || dto.getOrderType() == null || dto.getOrderType() != 2) {
+        var dto = withdrawOrderMapper.findByWithdrawNo(withdrawNo).orElse(null);
+        if (dto == null) {
             telegramService.answerCallbackQuery(callbackQueryId, "withdraw order not found", true);
             return CommonResponse.success("not_found");
         }
@@ -865,7 +864,7 @@ public class WebhookController {
         }
 
         JSONObject pending = new JSONObject();
-        pending.put("statementId", statementId);
+        pending.put("withdrawNo", withdrawNo);
         pending.put("status", targetStatus);
         redisUtil.setWithSecondExpire(
                 buildWithdrawPendingKey(fromUserId),
@@ -932,17 +931,20 @@ public class WebhookController {
 
         try {
             JSONObject pending = JSON.parseObject(pendingRaw);
-            String statementId = pending.getString("statementId");
+            String withdrawNo = pending.getString("withdrawNo");
             String status = pending.getString("status");
-            AccountStatementEditRequest request = new AccountStatementEditRequest();
-            request.setSerialNo(statementId);
-            request.setAgree("1".equals(status));
+            WithdrawOrderAuditRequest request = new WithdrawOrderAuditRequest();
+            request.setWithdrawNo(withdrawNo);
+            request.setStatus("2".equals(status) ? 2 : 1);
+            if ("1".equals(status)) {
+                request.setFailReason(remark);
+            }
             request.setRemark(remark);
             request.setUserName("telegram:" + fromUserId);
-            CommonResponse updateRes = accountStatementService.updateAccountStatement(request);
+            CommonResponse updateRes = withdrawOrderService.auditWithdrawOrder(request);
             if (updateRes != null && updateRes.getCode() != null && updateRes.getCode() == 0) {
                 redisUtil.remove(buildWithdrawPendingKey(fromUserId));
-                telegramService.sendMessageTo(chatId, "提现订单处理成功: " + statementId);
+                telegramService.sendMessageTo(chatId, "提现订单处理成功: " + withdrawNo);
             } else {
                 String errMsg = updateRes == null ? "unknown error" : String.valueOf(updateRes.getMessage());
                 telegramService.sendMessageTo(chatId, "提现订单处理失败: " + errMsg);

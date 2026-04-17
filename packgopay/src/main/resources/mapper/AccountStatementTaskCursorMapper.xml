@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pakgopay.mapper.AccountStatementTaskCursorMapper">
+
+    <resultMap id="AccountStatementTaskCursorResultMap" type="com.pakgopay.mapper.dto.AccountStatementTaskCursorDto">
+        <id column="id" property="id" javaType="java.lang.Long"/>
+        <result column="user_id" property="userId" javaType="java.lang.String"/>
+        <result column="currency" property="currency" javaType="java.lang.String"/>
+        <result column="task_type" property="taskType" javaType="java.lang.String"/>
+        <result column="pending_month" property="pendingMonth" javaType="java.lang.String"/>
+        <result column="last_done_seq" property="lastDoneSeq" javaType="java.lang.Long"/>
+        <result column="updated_time" property="updatedTime" javaType="java.lang.Long"/>
+    </resultMap>
+
+    <insert id="upsertCursor" parameterType="com.pakgopay.mapper.dto.AccountStatementTaskCursorDto">
+        insert into account_statement_task_cursor
+        (
+            user_id,
+            currency,
+            task_type,
+            pending_month,
+            last_done_seq,
+            updated_time
+        )
+        values
+        (
+            #{userId},
+            #{currency},
+            #{taskType},
+            #{pendingMonth},
+            #{lastDoneSeq},
+            #{updatedTime}
+        )
+        on conflict (user_id, currency, task_type) do update
+        set pending_month = excluded.pending_month,
+            last_done_seq = coalesce(excluded.last_done_seq, account_statement_task_cursor.last_done_seq),
+            updated_time = excluded.updated_time
+    </insert>
+
+    <select id="listCursorsByTaskType" resultMap="AccountStatementTaskCursorResultMap">
+        select id, user_id, currency, task_type, pending_month, last_done_seq, updated_time
+        from account_statement_task_cursor
+        where task_type = #{taskType}
+          and pending_month is not null
+          and pending_month != ''
+        order by updated_time asc, id asc
+        limit #{limitSize}
+    </select>
+
+</mapper>

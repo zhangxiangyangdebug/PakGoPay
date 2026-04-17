@@ -2,7 +2,6 @@ package com.pakgopay.service.common;
 
 import com.pakgopay.data.entity.account.AdjustmentStatementRecord;
 import com.pakgopay.data.reqeust.account.AccountStatementAddRequest;
-import com.pakgopay.data.reqeust.account.AccountStatementEditRequest;
 import com.pakgopay.data.reqeust.account.AccountStatementQueryRequest;
 import com.pakgopay.data.response.CommonResponse;
 import com.pakgopay.mapper.dto.AccountStatementsDto;
@@ -15,17 +14,12 @@ public interface AccountStatementService {
     CommonResponse queryAccountStatement(AccountStatementQueryRequest accountStatementQueryRequest);
 
     /**
-     * Create one manual statement and apply the real balance change in the same business flow.
+     * Create one manual credit/debit statement and apply the real balance change in the same business flow.
      */
     CommonResponse createAccountStatement(AccountStatementAddRequest accountStatementAddRequest);
 
     /**
-     * Review one withdrawal statement. Real balance change is applied first, snapshots are backfilled later.
-     */
-    CommonResponse updateAccountStatement(AccountStatementEditRequest accountStatementEditRequest);
-
-    /**
-     * Persist one adjustment statement row (order_type=3) after the real balance change is already done.
+     * Persist one manual credit/debit statement row after the real balance change is already done.
      */
     void createAdjustmentStatement(AdjustmentStatementRecord payload);
 

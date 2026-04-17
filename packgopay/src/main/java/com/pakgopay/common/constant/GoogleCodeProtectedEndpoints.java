@@ -36,7 +36,6 @@ public final class GoogleCodeProtectedEndpoints {
         map.put("POST /pakGoPay/server/merchant/addMerchantAccount", "add merchant account");
         map.put("POST /pakGoPay/server/merchant/editMerchantAccount", "edit merchant account");
         map.put("POST /pakGoPay/server/merchant/createAccountStatement", "create account statement");
-        map.put("POST /pakGoPay/server/merchant/editAccountStatement", "edit account statement");
 
         // Agent management
         map.put("POST /pakGoPay/server/addAgent", "add agent");

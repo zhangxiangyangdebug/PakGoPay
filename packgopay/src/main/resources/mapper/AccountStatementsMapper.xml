@@ -8,6 +8,7 @@
     <!-- ResultMap with explicit javaType for each column -->
     <resultMap id="AccountStatementsResultMap" type="com.pakgopay.mapper.dto.AccountStatementsDto">
         <id     column="id"                        property="id"                     javaType="java.lang.Long"/>
+        <result column="account_seq"               property="accountSeq"             javaType="java.lang.Long"/>
         <result column="serial_no"                 property="serialNo"               javaType="java.lang.String"/>
         <result column="transaction_no"            property="transactionNo"          javaType="java.lang.String"/>
 
@@ -48,6 +49,7 @@
 
     <sql id="BaseColumns">
         id,
+        account_seq,
         serial_no,
         transaction_no,
         order_type,
@@ -216,6 +218,11 @@
     <update id="batchUpdateBySerialNo">
         UPDATE account_statements
         <set>
+            account_seq = CASE serial_no
+            <foreach collection="list" item="item">
+                WHEN #{item.serialNo} THEN #{item.accountSeq}
+            </foreach>
+            END,
             available_balance_before = CASE serial_no
             <foreach collection="list" item="item">
                 WHEN #{item.serialNo} THEN #{item.availableBalanceBefore}
@@ -314,7 +321,7 @@
         WHERE user_id = #{userId}
           AND currency = #{currency}
           AND status = 0
-          AND order_type IN (4, 5)
+          AND order_type IN (11, 23)
         ORDER BY id ASC
         LIMIT 1
     </select>
@@ -325,7 +332,7 @@
         WHERE user_id = #{userId}
           AND currency = #{currency}
           AND status = 0
-          AND order_type IN (4, 5)
+          AND order_type IN (11, 23)
           AND create_time <![CDATA[>=]]> #{startTime}
           AND create_time <![CDATA[<]]> #{endTime}
         ORDER BY id ASC
@@ -341,8 +348,8 @@
           AND total_balance_after IS NOT NULL
           AND create_time <![CDATA[>=]]> #{startTime}
           AND create_time <![CDATA[<]]> #{endTime}
-          AND id <![CDATA[<]]> #{id}
-        ORDER BY id DESC
+          AND account_seq <![CDATA[<]]> #{accountSeq}
+        ORDER BY account_seq DESC
         LIMIT 1
     </select>
 
@@ -358,6 +365,14 @@
           AND create_time <![CDATA[<]]> #{endTime}
         ORDER BY id ASC
         LIMIT #{limitSize}
+    </select>
+
+    <select id="selectMaxAccountSeq" resultType="java.lang.Long">
+        SELECT MAX(account_seq)
+        FROM account_statements
+        WHERE user_id = #{userId}
+          AND currency = #{currency}
+          AND account_seq IS NOT NULL
     </select>
 
     <update id="batchUpdateStatusBySerialNo">

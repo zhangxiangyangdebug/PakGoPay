@@ -51,6 +51,9 @@ public class CommonConstant {
     // statement order no prefix
     public static final String STATEMENT_PREFIX = "SE";
 
+    // withdraw order no prefix
+    public static final String WITHDRAW_ORDER_PREFIX = "WO";
+
     // First level agent
     public static final Integer AGENT_LEVEL_FIRST = 1;
 
@@ -84,20 +87,32 @@ public class CommonConstant {
     // account_statements user_role: agent
     public static final int STATEMENT_ROLE_AGENT = 2;
 
-    // account_statements order_type: manual recharge
-    public static final int STATEMENT_ORDER_TYPE_RECHARGE = 1;
+    // account_statements order_type: collection credit
+    public static final int STATEMENT_ORDER_TYPE_COLLECTION_CREDIT = 11;
 
-    // account_statements order_type: manual withdraw
-    public static final int STATEMENT_ORDER_TYPE_WITHDRAW = 2;
+    // account_statements order_type: payout freeze
+    public static final int STATEMENT_ORDER_TYPE_PAYOUT_FREEZE = 21;
 
-    // account_statements order_type: manual adjustment
-    public static final int STATEMENT_ORDER_TYPE_ADJUST = 3;
+    // account_statements order_type: payout release
+    public static final int STATEMENT_ORDER_TYPE_PAYOUT_RELEASE = 22;
 
-    // account_statements order_type: collection order
-    public static final int STATEMENT_ORDER_TYPE_COLLECTION = 4;
+    // account_statements order_type: payout confirm
+    public static final int STATEMENT_ORDER_TYPE_PAYOUT_CONFIRM = 23;
 
-    // account_statements order_type: payout order
-    public static final int STATEMENT_ORDER_TYPE_PAYOUT = 5;
+    // account_statements order_type: withdraw freeze
+    public static final int STATEMENT_ORDER_TYPE_WITHDRAW_FREEZE = 31;
+
+    // account_statements order_type: withdraw release
+    public static final int STATEMENT_ORDER_TYPE_WITHDRAW_RELEASE = 32;
+
+    // account_statements order_type: withdraw confirm
+    public static final int STATEMENT_ORDER_TYPE_WITHDRAW_CONFIRM = 33;
+
+    // account_statements order_type: manual credit
+    public static final int STATEMENT_ORDER_TYPE_MANUAL_CREDIT = 41;
+
+    // account_statements order_type: manual debit
+    public static final int STATEMENT_ORDER_TYPE_MANUAL_DEBIT = 42;
 
     // payment type is 2:app
     public static final String PAYMENT_TYPE_APP = "1";
