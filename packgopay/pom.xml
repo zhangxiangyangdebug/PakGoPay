@@ -8,7 +8,7 @@
     <name>packgopay</name>
     <description>packgopay</description>
     <properties>
-        <java.version>1.8</java.version>
+        <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <spring-boot.version>3.4.5</spring-boot.version>
@@ -49,11 +49,6 @@
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.redisson</groupId>
-            <artifactId>redisson</artifactId>
-            <version>3.34.1</version>
         </dependency>
         <dependency>
             <groupId>com.esotericsoftware</groupId>
@@ -107,7 +102,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.34</version>
+            <version>1.18.42</version>
             <optional>true</optional>
         </dependency>
         <dependency>
@@ -153,7 +148,7 @@
         <dependency>
             <groupId>org.mybatis.spring.boot</groupId>
             <artifactId>mybatis-spring-boot-starter</artifactId>
-            <version>4.0.1</version>
+            <version>3.0.5</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -246,7 +241,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
+                <version>3.13.0</version>
                 <configuration>
                     <compilerArgs>
                       <arg>-parameters</arg>
@@ -256,7 +251,7 @@
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
-                            <version>1.18.34</version>
+                            <version>1.18.42</version>
                         </path>
                     </annotationProcessorPaths>
                     <encoding>UTF-8</encoding>
